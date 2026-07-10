@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA 라우팅: 모든 경로를 index.html로 (새로고침/직접접속 404 방지)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
