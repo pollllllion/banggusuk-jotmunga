@@ -84,7 +84,7 @@ export function AuthPage() {
   const pwMismatch = mode === 'register' ? regPwConfirm && regPw !== regPwConfirm : resetPwConfirm && resetPw !== resetPwConfirm
 
   const subtitle = mode === 'login' ? '가장 솔직한 컨텐츠 리뷰 플랫폼'
-    : mode === 'register' ? '돌직구에 가입하고 직설 리뷰를 남기세요'
+    : mode === 'register' ? '방구석좋문가에 가입하고 직설 리뷰를 남기세요'
     : '비밀번호 재설정'
 
   return (
@@ -94,7 +94,7 @@ export function AuthPage() {
           <div className="auth-logo-big">&#9889;</div>
         </div>
         <div className="logo" style={{ justifyContent: 'center', marginBottom: 8 }}>
-          <span className="logo-text"><span>돌</span>직구</span>
+          <span className="logo-text"><span>방구석</span>좋문가</span>
         </div>
         <p className="auth-subtitle">{subtitle}</p>
 

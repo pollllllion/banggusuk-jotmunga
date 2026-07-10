@@ -1,44 +1,58 @@
 [
   {
-    "id": "c1", "type": "movie", "title": "폭풍의 언덕끝",
-    "posterUrl": null,
-    "synopsis": "한 형사가 연쇄살인범을 쫓으며 벌어지는 심리 스릴러. 반전에 반전을 거듭한다는 홍보로 화제를 모았다.",
-    "genres": ["스릴러", "느와르"], "creators": ["김도현"], "platform": "극장", "releaseYear": 2026, "status": null,
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-20T09:00:00.000Z"
+    "id": "c1", "type": "movie", "title": "모아나 (실사판)",
+    "posterUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/c/c1/Moana_%282026_film%29_poster.jpg/250px-Moana_%282026_film%29_poster.jpg",
+    "synopsis": "바다가 부르는 소리를 따라 미지의 바다로 모험을 떠나는 모아나의 여정을 그린 디즈니 애니메이션의 실사 리메이크.",
+    "genres": ["판타지", "액션"], "creators": ["드웨인 존슨", "카트리나 라가아이아"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "popularity": 100, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-10T00:00:00.000Z"
   },
   {
-    "id": "c2", "type": "drama", "title": "월요일의 연인들",
-    "posterUrl": null,
-    "synopsis": "직장인 남녀 네 명의 얽히고설킨 로맨스를 그린 16부작 드라마.",
-    "genres": ["로맨스", "드라마"], "creators": ["이수정", "박민재"], "platform": "넷플릭스", "releaseYear": 2026, "status": "completed",
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-18T09:00:00.000Z"
+    "id": "c2", "type": "movie", "title": "스파이더맨: 브랜드 뉴 데이",
+    "posterUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Spider-Man_Brand_New_Day_poster.jpg/250px-Spider-Man_Brand_New_Day_poster.jpg",
+    "synopsis": "새로운 국면을 맞은 스파이더맨이 낯선 위협에 맞서는 마블의 신작 블록버스터.",
+    "genres": ["액션", "SF"], "creators": ["톰 홀랜드"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "popularity": 98, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-09T00:00:00.000Z"
   },
   {
-    "id": "c3", "type": "webtoon", "title": "회귀한 검성",
-    "posterUrl": null,
-    "synopsis": "죽음의 순간 과거로 회귀한 검사가 복수를 위해 다시 성장하는 판타지 액션 웹툰.",
-    "genres": ["판타지", "액션", "무협"], "creators": ["작가 백호"], "platform": "네이버웹툰", "releaseYear": 2025, "status": "ongoing",
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-15T09:00:00.000Z"
+    "id": "c3", "type": "movie", "title": "오디세이",
+    "posterUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/9/90/The_Odyssey_%282026_film%29_poster.jpg/250px-The_Odyssey_%282026_film%29_poster.jpg",
+    "synopsis": "호메로스의 대서사시를 크리스토퍼 놀란이 대규모 액션 어드벤처로 재해석한 작품.",
+    "genres": ["액션", "판타지"], "creators": ["크리스토퍼 놀란", "맷 데이먼", "톰 홀랜드"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "popularity": 95, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-08T00:00:00.000Z"
   },
   {
-    "id": "c4", "type": "webnovel", "title": "재벌집 막내비서",
-    "posterUrl": null,
-    "synopsis": "평범한 비서가 재벌가의 비밀을 알게 되며 벌어지는 현대 판타지 웹소설.",
-    "genres": ["판타지", "로맨스"], "creators": ["글쓴이 은하"], "platform": "카카오페이지", "releaseYear": 2026, "status": "ongoing",
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-12T09:00:00.000Z"
+    "id": "c4", "type": "movie", "title": "에놀라 홈즈 3",
+    "posterUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/4/44/Enola_Holmes_3_poster.jpg/250px-Enola_Holmes_3_poster.jpg",
+    "synopsis": "셜록을 구하기 위해 몰타로 향하는 에놀라 홈즈의 세 번째 추리 모험. 넷플릭스 오리지널.",
+    "genres": ["미스터리", "액션"], "creators": ["밀리 바비 브라운"], "platform": "넷플릭스", "releaseYear": 2026, "status": null,
+    "popularity": 90, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-07T00:00:00.000Z"
   },
   {
-    "id": "c5", "type": "movie", "title": "우주표류기",
-    "posterUrl": null,
-    "synopsis": "고립된 우주정거장에서 살아남으려는 대원들의 사투를 그린 SF 대작.",
-    "genres": ["SF", "액션"], "creators": ["정우성"], "platform": "극장", "releaseYear": 2026, "status": null,
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-25T09:00:00.000Z"
+    "id": "c5", "type": "movie", "title": "하트스토퍼 포에버",
+    "posterUrl": "https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Heartstopper_Film_Poster.jpg/250px-Heartstopper_Film_Poster.jpg",
+    "synopsis": "세 시즌의 대장정을 마무리하는 극장판. 대학과 장거리 연애 앞에 선 두 사람의 이야기. 넷플릭스 오리지널.",
+    "genres": ["로맨스", "성장"], "creators": ["킷 코너", "조 로크"], "platform": "넷플릭스", "releaseYear": 2026, "status": null,
+    "popularity": 85, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-06T00:00:00.000Z"
   },
   {
-    "id": "c6", "type": "drama", "title": "형사반장 나철수",
+    "id": "c6", "type": "movie", "title": "미니언즈 & 몬스터즈",
     "posterUrl": null,
-    "synopsis": "은퇴를 앞둔 노형사가 마지막 사건에 매달리는 수사극.",
-    "genres": ["미스터리", "드라마"], "creators": ["강태호"], "platform": "티빙", "releaseYear": 2025, "status": "completed",
-    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-05T09:00:00.000Z"
+    "synopsis": "미니언들이 몬스터 세계로 뛰어들며 벌어지는 애니메이션 코미디.",
+    "genres": ["코미디", "판타지"], "creators": ["피에르 코팽"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "popularity": 78, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-01T00:00:00.000Z"
+  },
+  {
+    "id": "c7", "type": "movie", "title": "이블 데드 번",
+    "posterUrl": null,
+    "synopsis": "가족의 재회가 데드라이트의 악몽으로 번지는 이블 데드 시리즈의 독립 속편.",
+    "genres": ["공포", "스릴러"], "creators": ["프란체스카 카빌리아"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "popularity": 70, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-04T00:00:00.000Z"
+  },
+  {
+    "id": "c8", "type": "movie", "title": "보이스메일 포 이자벨",
+    "posterUrl": null,
+    "synopsis": "우연히 남긴 음성 메시지에서 시작되는 넷플릭스 오리지널 로맨틱 코미디.",
+    "genres": ["로맨스", "코미디"], "creators": ["넷플릭스 오리지널"], "platform": "넷플릭스", "releaseYear": 2026, "status": null,
+    "popularity": 74, "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-07-04T00:00:00.000Z"
   }
 ]

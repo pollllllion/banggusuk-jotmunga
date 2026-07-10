@@ -1,5 +1,5 @@
 [
-  { "id": "u1", "nickname": "돌직구운영자", "email": "admin@doljikgu.com", "password": "Test1234!", "role": "admin", "banned": false, "createdAt": "2026-05-01T09:00:00.000Z" },
+  { "id": "u1", "nickname": "방구석좋문가", "email": "admin@doljikgu.com", "password": "Test1234!", "role": "admin", "banned": false, "createdAt": "2026-05-01T09:00:00.000Z" },
   { "id": "u2", "nickname": "혹평가", "email": "critic@doljikgu.com", "password": "Test1234!", "role": "user", "banned": false, "createdAt": "2026-05-10T10:00:00.000Z" },
   { "id": "u3", "nickname": "정주행중독", "email": "binge@doljikgu.com", "password": "Test1234!", "role": "user", "banned": false, "createdAt": "2026-05-15T11:00:00.000Z" },
   { "id": "u4", "nickname": "웹툰덕후", "email": "toon@doljikgu.com", "password": "Test1234!", "role": "user", "banned": false, "createdAt": "2026-06-01T12:00:00.000Z" },

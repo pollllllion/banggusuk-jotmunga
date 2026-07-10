@@ -312,7 +312,7 @@ export function refreshSession() {
 // ── Seed ────────────────────────────────────────────────────
 
 export async function seed() {
-  if (load('seeded_v1')) return
+  if (load('seeded_v3')) return
   try {
     const [users, contents, reviews, comments, reports] = await Promise.all([
       fetch('/data/users.json').then(r => r.json()),
@@ -331,5 +331,5 @@ export async function seed() {
   } catch (e) {
     console.warn('JSON seed fetch failed:', e)
   }
-  store('seeded_v1', true)
+  store('seeded_v3', true)
 }

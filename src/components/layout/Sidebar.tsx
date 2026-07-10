@@ -10,18 +10,6 @@ export function Sidebar() {
 
   return (
     <nav className="sidebar">
-      <div className="sidebar-title">둘러보기</div>
-      <div className={`sidebar-item ${location.pathname === '/' ? 'active' : ''}`} onClick={() => navigate('/')}>
-        <span className="e">{'\u{1F3E0}'}</span> 홈 피드
-      </div>
-      <div className={`sidebar-item ${isBrowse && !currentType ? 'active' : ''}`} onClick={() => navigate('/browse')}>
-        <span className="e">{'\u{1F50D}'}</span> 작품 전체
-      </div>
-      <div className="sidebar-item" onClick={() => navigate('/browse?sort=top')}>
-        <span className="e">{'\u{1F525}'}</span> 평점 높은순 <span className="hot-tag">TOP</span>
-      </div>
-
-      <div className="sidebar-divider" />
       <div className="sidebar-title">카테고리</div>
       {CONTENT_TYPES.map(t => (
         <div key={t.code}

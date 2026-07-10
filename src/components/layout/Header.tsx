@@ -33,7 +33,7 @@ export function Header() {
       <div className="header-left">
         <a className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <div className="logo-icon">&#9889;</div>
-          <span className="logo-text"><span>돌</span>직구</span>
+          <span className="logo-text"><span>방구석</span>좋문가</span>
         </a>
         <div className="search-bar">
           <SearchIcon />

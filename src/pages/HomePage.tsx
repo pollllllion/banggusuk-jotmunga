@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { ReviewCard } from '@/components/review/ReviewCard'
-import { ScorePill } from '@/components/ui/Score'
+import { Poster } from '@/components/content/Poster'
 import { TYPE_LABELS } from '@/utils/constants'
 import { timeAgo } from '@/utils/helpers'
 import type { Review } from '@/types'
@@ -23,15 +23,23 @@ export function HomePage() {
   }
 
   const announcements = DS.getAnnouncements()
-  const topContents = [...DS.getContents()]
-    .filter(c => c.reviewCount > 0)
-    .sort((a, b) => b.avgRating - a.avgRating)
+
+  // 화제의 영화·드라마 통합 랭킹 (극장+OTT): popularity 우선, 동점은 리뷰 버즈로
+  const hotContents = DS.getContents()
+    .filter(c => c.type === 'movie' || c.type === 'drama')
+    .map(c => {
+      const rs = DS.getReviewsByContent(c.id)
+      const buzz = rs.reduce((s, r) => s + r.views + r.likes.length + r.dislikes.length, 0) + rs.length * 5
+      return { content: c, score: (c.popularity ?? 0) * 1000 + buzz }
+    })
+    .sort((a, b) => b.score - a.score)
     .slice(0, 5)
+    .map(x => x.content)
 
   return (
     <>
       <div className="hero-banner fade-in">
-        <h2>⚡ 돌직구</h2>
+        <h2>⚡ 방구석좋문가</h2>
         <p>영화·드라마·웹툰·웹소설, 눈치 안 보고 남기는 가장 솔직한 리뷰</p>
       </div>
 
@@ -43,19 +51,21 @@ export function HomePage() {
         </div>
       ))}
 
-      {topContents.length > 0 && (
+      {hotContents.length > 0 && (
         <>
           <div className="section-head">
-            <h3>🔥 평점 높은 작품</h3>
+            <h3>🔥 지금 화제의 영화·드라마</h3>
             <a onClick={() => navigate('/browse?sort=top')}>전체보기</a>
           </div>
-          <div className="trending-section fade-in">
-            {topContents.map((c, i) => (
-              <div key={c.id} className="trending-item" onClick={() => navigate(`/content/${c.id}`)}>
-                <span className="trending-rank">{i + 1}</span>
-                <span className={`type-badge type-${c.type}`}>{TYPE_LABELS[c.type]}</span>
-                <span className="trending-title">{c.title}</span>
-                <ScorePill score={c.avgRating} />
+          <div className="hot-rank-row fade-in">
+            {hotContents.map((c, i) => (
+              <div key={c.id} className="hot-rank-card" onClick={() => navigate(`/content/${c.id}`)}>
+                <div className="hot-rank-poster">
+                  <Poster content={c} />
+                  <span className="hot-rank-num">{i + 1}</span>
+                </div>
+                <div className="c-title">{c.title}</div>
+                <div className="c-meta">{TYPE_LABELS[c.type]}{c.releaseYear ? ` · ${c.releaseYear}` : ''}</div>
               </div>
             ))}
           </div>
