@@ -1,0 +1,42 @@
+:root {
+  --primary: #E11D48;
+  --primary-dark: #BE123C;
+  --primary-light: #FFE4E6;
+  --primary-50: rgba(225, 29, 72, 0.08);
+  --accent: #F59E0B;
+  --accent-light: #FEF3C7;
+  --dark: #18181B;
+  --warm: #6B7280;
+  --bg: #F7F7F8;
+  --card: #FFFFFF;
+  --text: #27272A;
+  --text-secondary: #52525B;
+  --subtext: #A1A1AA;
+  --border: #E4E4E7;
+  --border-light: #F1F1F3;
+  --success: #16A34A;
+  --success-light: #DCFCE7;
+  --danger: #DC2626;
+  --danger-light: #FEE2E2;
+  --info: #2563EB;
+  --info-light: #DBEAFE;
+  /* 점수 색상 */
+  --score-high: #16A34A;
+  --score-mid: #2563EB;
+  --score-low: #F59E0B;
+  --score-bad: #DC2626;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.06);
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --radius-round: 50%;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration: 0.15s;
+}

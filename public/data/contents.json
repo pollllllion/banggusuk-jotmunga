@@ -1,0 +1,44 @@
+[
+  {
+    "id": "c1", "type": "movie", "title": "폭풍의 언덕끝",
+    "posterUrl": null,
+    "synopsis": "한 형사가 연쇄살인범을 쫓으며 벌어지는 심리 스릴러. 반전에 반전을 거듭한다는 홍보로 화제를 모았다.",
+    "genres": ["스릴러", "느와르"], "creators": ["김도현"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-20T09:00:00.000Z"
+  },
+  {
+    "id": "c2", "type": "drama", "title": "월요일의 연인들",
+    "posterUrl": null,
+    "synopsis": "직장인 남녀 네 명의 얽히고설킨 로맨스를 그린 16부작 드라마.",
+    "genres": ["로맨스", "드라마"], "creators": ["이수정", "박민재"], "platform": "넷플릭스", "releaseYear": 2026, "status": "completed",
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-18T09:00:00.000Z"
+  },
+  {
+    "id": "c3", "type": "webtoon", "title": "회귀한 검성",
+    "posterUrl": null,
+    "synopsis": "죽음의 순간 과거로 회귀한 검사가 복수를 위해 다시 성장하는 판타지 액션 웹툰.",
+    "genres": ["판타지", "액션", "무협"], "creators": ["작가 백호"], "platform": "네이버웹툰", "releaseYear": 2025, "status": "ongoing",
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-15T09:00:00.000Z"
+  },
+  {
+    "id": "c4", "type": "webnovel", "title": "재벌집 막내비서",
+    "posterUrl": null,
+    "synopsis": "평범한 비서가 재벌가의 비밀을 알게 되며 벌어지는 현대 판타지 웹소설.",
+    "genres": ["판타지", "로맨스"], "creators": ["글쓴이 은하"], "platform": "카카오페이지", "releaseYear": 2026, "status": "ongoing",
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-12T09:00:00.000Z"
+  },
+  {
+    "id": "c5", "type": "movie", "title": "우주표류기",
+    "posterUrl": null,
+    "synopsis": "고립된 우주정거장에서 살아남으려는 대원들의 사투를 그린 SF 대작.",
+    "genres": ["SF", "액션"], "creators": ["정우성"], "platform": "극장", "releaseYear": 2026, "status": null,
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-25T09:00:00.000Z"
+  },
+  {
+    "id": "c6", "type": "drama", "title": "형사반장 나철수",
+    "posterUrl": null,
+    "synopsis": "은퇴를 앞둔 노형사가 마지막 사건에 매달리는 수사극.",
+    "genres": ["미스터리", "드라마"], "creators": ["강태호"], "platform": "티빙", "releaseYear": 2025, "status": "completed",
+    "avgRating": 0, "reviewCount": 0, "createdBy": "u1", "createdAt": "2026-06-05T09:00:00.000Z"
+  }
+]

@@ -1,0 +1,65 @@
+[
+  {
+    "id": "r1", "contentId": "c1", "authorId": "u2", "rating": 4,
+    "title": "반전 하나 믿고 두 시간 버텼는데 그마저 뻔함",
+    "body": "홍보에서 '충격 반전'을 그렇게 강조하더니 중반부터 범인이 누군지 다 보인다. 배우들 연기는 나쁘지 않은데 각본이 다 깎아먹었다. 스릴러 좀 봤다는 사람이면 실망할 확률 높음.",
+    "spoiler": false, "tags": ["과대평가", "용두사미"], "likes": ["u3", "u5"], "dislikes": ["u4"], "views": 142,
+    "createdAt": "2026-07-08T04:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r2", "contentId": "c1", "authorId": "u3", "rating": 7,
+    "title": "각본은 아쉽지만 연출과 음악은 확실히 살아있다",
+    "body": "이야기 구조는 예상 가능하지만 카메라 워크랑 사운드가 긴장감을 잘 끌고 간다. 극장에서 보면 몰입감은 있음. 명작까진 아니고 킬링타임으론 합격.",
+    "spoiler": false, "tags": ["볼만함"], "likes": ["u2"], "dislikes": [], "views": 88,
+    "createdAt": "2026-07-09T06:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r3", "contentId": "c2", "authorId": "u5", "rating": 9,
+    "title": "올해 로맨스 중 원탑. 대사 하나하나가 살아있음",
+    "body": "뻔한 삼각관계일 줄 알았는데 인물 각자의 서사가 촘촘하다. 특히 8화 고백 장면은 몇 번을 돌려봤다. 로맨스 좋아하면 무조건 보세요.",
+    "spoiler": false, "tags": ["인생작", "핵꿀잼"], "likes": ["u2", "u3", "u4"], "dislikes": [], "views": 231,
+    "createdAt": "2026-07-07T08:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r4", "contentId": "c2", "authorId": "u2", "rating": 6,
+    "title": "전개는 좋은데 후반 늘어지는 게 흠",
+    "body": "12화까진 정말 몰입해서 봤다. 근데 마지막 4화를 억지로 끌면서 감정선이 붕 뜬다. 12화로 끝냈으면 명작이었을 듯. 그래도 배우 케미는 인정.",
+    "spoiler": false, "tags": ["볼만함", "용두사미"], "likes": ["u5"], "dislikes": [], "views": 97,
+    "createdAt": "2026-07-09T10:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r5", "contentId": "c3", "authorId": "u4", "rating": 8,
+    "title": "회귀물 클리셰 범벅인데 그림빨로 다 이김",
+    "body": "스토리는 회귀-복수-성장 그 자체라 새로울 건 없다. 근데 작화가 미쳤다. 액션 컷 퀄리티가 웹툰 상위 1%. 클리셰 좋아하면 개꿀잼, 싫어하면 노잼일 듯.",
+    "spoiler": false, "tags": ["핵꿀잼", "명연기"], "likes": ["u3"], "dislikes": ["u2"], "views": 156,
+    "createdAt": "2026-07-06T12:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r6", "contentId": "c3", "authorId": "u2", "rating": 5,
+    "title": "작화만 보는 웹툰. 스토리 기대하면 실망",
+    "body": "솔직히 회귀물 100개 본 사람 입장에서 이건 그냥 양산형이다. 주인공이 너무 완벽해서 긴장감이 없음. 눈은 즐거운데 머리는 심심하다.",
+    "spoiler": false, "tags": ["과대평가"], "likes": [], "dislikes": ["u4"], "views": 73,
+    "createdAt": "2026-07-09T02:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r7", "contentId": "c4", "authorId": "u3", "rating": 3,
+    "title": "고구마 100개. 답답해서 하차했습니다",
+    "body": "주인공이 계속 당하기만 하고 사이다는 언제 나오나 싶어서 50화까지 봤는데 안 나온다. 전개가 너무 느리고 개연성도 부족. 시간 아까움.",
+    "spoiler": false, "tags": ["고구마", "시간낭비"], "likes": ["u5"], "dislikes": [], "views": 64,
+    "createdAt": "2026-07-08T14:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r8", "contentId": "c5", "authorId": "u5", "rating": 8,
+    "title": "스토리는 평범, 그런데 비주얼로 압도한다",
+    "body": "SF 설정 자체는 어디서 본 듯하다. 근데 우주 장면 CG랑 사운드 디자인이 극장을 꽉 채운다. IMAX로 보면 값어치는 한다. 집에서 보면 반토막날 영화.",
+    "spoiler": false, "tags": ["볼만함"], "likes": ["u3", "u2"], "dislikes": [], "views": 119,
+    "createdAt": "2026-07-07T16:00:00.000Z", "updatedAt": null
+  },
+  {
+    "id": "r9", "contentId": "c6", "authorId": "u4", "rating": 9,
+    "title": "화려한 거 하나 없는데 이게 진짜 수사극이다",
+    "body": "요즘 자극적인 스릴러 사이에서 이건 정공법으로 승부한다. 배우의 표정 연기 하나로 끌고 가는 힘이 대단하다. 마지막 화 보고 한참 멍때렸음.",
+    "spoiler": false, "tags": ["인생작", "명연기"], "likes": ["u2", "u3", "u5"], "dislikes": [], "views": 187,
+    "createdAt": "2026-07-05T18:00:00.000Z", "updatedAt": null
+  }
+]
