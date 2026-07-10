@@ -21,22 +21,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     try {
-      await DS.seed()
-      const session = DS.getSession()
-      const fresh = session ? DS.getUserById(session.id) : null
-      if (fresh && !fresh.banned) {
-        DS.setSession(fresh)
-        set({ user: fresh, initialized: true })
-        return
+      // Supabase에서 전체 데이터 로드 (모두 공유)
+      await DS.loadAll()
+      // 로그인창 없이, 이 브라우저 전용 익명 사용자 확보 (localStorage에 id 유지)
+      const savedId = localStorage.getItem('bangjot_anon_id')
+      let user = savedId ? DS.getUserById(savedId) : undefined
+      if (!user) {
+        user = DS.createUser({ nickname: '방문객' + Math.floor(1000 + Math.random() * 9000), role: 'user' })
+        localStorage.setItem('bangjot_anon_id', user.id)
       }
-      // 로그인창 생략 — 기본 계정(관리자)으로 자동 로그인
-      const users = DS.getUsers()
-      const fallback = users.find(u => u.role === 'admin') || users[0]
-      if (fallback) {
-        DS.setSession(fallback)
-        set({ user: fallback, initialized: true })
-        return
-      }
+      DS.setSession(user)
+      set({ user, initialized: true })
+      return
     } catch (e) {
       console.error('Init failed:', e)
     }

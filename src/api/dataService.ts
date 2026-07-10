@@ -1,31 +1,80 @@
 /**
- * DataService - localStorage 기반 데이터 레이어
+ * DataService - Supabase 백엔드 (인메모리 캐시 + write-through)
  *
- * 백엔드 API가 준비되면 api/*.api.ts로 교체하면 됩니다.
+ * 앱 시작 시 loadAll()로 모든 테이블을 캐시에 로드합니다.
+ * 읽기(getX)는 캐시에서 동기적으로, 쓰기(saveX)는 캐시 갱신 + Supabase 동기화(비동기)로 처리합니다.
+ * → 페이지 코드는 기존 방식 그대로 두고 데이터 계층만 교체.
  */
+import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
 import type {
   User, Content, Review, Comment, Notification,
   Report, Block, Bookmark, Announcement,
 } from '@/types'
 
-// ── Storage Helpers ─────────────────────────────────────────
+type Table =
+  | 'users' | 'contents' | 'reviews' | 'comments'
+  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements'
 
-function store(key: string, val: unknown) {
-  localStorage.setItem('doljikgu_' + key, JSON.stringify(val))
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements']
+
+const cache: Record<Table, any[]> = {
+  users: [], contents: [], reviews: [], comments: [],
+  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [],
 }
 
-function load<T>(key: string): T | null {
+function rowKey(t: Table, r: any): string {
+  if (t === 'bookmarks') return `${r.userId}|${r.contentId}`
+  if (t === 'blocks') return `${r.blockerId}|${r.blockedId}`
+  return r.id
+}
+
+function conflictCols(t: Table): string {
+  if (t === 'bookmarks') return 'userId,contentId'
+  if (t === 'blocks') return 'blockerId,blockedId'
+  return 'id'
+}
+
+// ── Cache primitives ────────────────────────────────────────
+function load<T>(key: Table): T[] { return cache[key] as T[] }
+
+function store(key: Table, val: any[]) {
+  const prev = cache[key] || []
+  cache[key] = val
+  void persist(key, prev, val)
+}
+
+async function persist(t: Table, prev: any[], next: any[]) {
   try {
-    return JSON.parse(localStorage.getItem('doljikgu_' + key) || 'null')
-  } catch {
-    return null
+    const nextKeys = new Set(next.map(r => rowKey(t, r)))
+    const removed = prev.filter(r => !nextKeys.has(rowKey(t, r)))
+    for (const r of removed) {
+      if (t === 'bookmarks') await supabase.from(t).delete().eq('userId', r.userId).eq('contentId', r.contentId)
+      else if (t === 'blocks') await supabase.from(t).delete().eq('blockerId', r.blockerId).eq('blockedId', r.blockedId)
+      else await supabase.from(t).delete().eq('id', r.id)
+    }
+    if (next.length) {
+      const rows = t === 'users' ? next.map(({ password, ...u }: any) => u) : next
+      await supabase.from(t).upsert(rows, { onConflict: conflictCols(t) })
+    }
+  } catch (e) {
+    console.error('[supabase persist]', t, e)
   }
 }
 
-// ── Users ───────────────────────────────────────────────────
+// ── Load all (앱 시작 시) ────────────────────────────────────
+export async function loadAll() {
+  await Promise.all(TABLES.map(async t => {
+    const { data, error } = await supabase.from(t).select('*')
+    if (error) { console.error('[supabase load]', t, error.message); return }
+    if (data) cache[t] = data
+  }))
+}
+// authStore 호환용 별칭
+export const seed = loadAll
 
-export function getUsers(): User[] { return load('users') ?? [] }
+// ── Users ───────────────────────────────────────────────────
+export function getUsers(): User[] { return load('users') }
 export function saveUsers(users: User[]) { store('users', users) }
 export function getUserById(id: string) { return getUsers().find(u => u.id === id) }
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
@@ -33,8 +82,7 @@ export function findUserByEmail(email: string) { return getUsers().find(u => u.e
 export function createUser(data: Partial<User>): User {
   const users = getUsers()
   const user: User = { id: uuid(), createdAt: new Date().toISOString(), role: 'user', banned: false, ...data } as User
-  users.push(user)
-  saveUsers(users)
+  saveUsers([...users, user])
   return user
 }
 
@@ -42,36 +90,31 @@ export function updateUser(id: string, updates: Partial<User>): User | null {
   const users = getUsers()
   const idx = users.findIndex(u => u.id === id)
   if (idx < 0) return null
-  Object.assign(users[idx], updates)
-  saveUsers(users)
-  return users[idx]
+  const updated = { ...users[idx], ...updates }
+  const next = [...users]; next[idx] = updated
+  saveUsers(next)
+  return updated
 }
 
 export function deleteUser(id: string) {
-  const reviews = getReviews().map(r => r.authorId === id ? { ...r, authorId: 'deleted' } : r)
-  saveReviews(reviews)
-  const comments = getComments().map(c => c.authorId === id ? { ...c, authorId: 'deleted' } : c)
-  saveComments(comments)
+  saveReviews(getReviews().map(r => r.authorId === id ? { ...r, authorId: 'deleted' } : r))
+  saveComments(getComments().map(c => c.authorId === id ? { ...c, authorId: 'deleted' } : c))
   saveUsers(getUsers().filter(u => u.id !== id))
 }
 
-// ── Contents (작품) ─────────────────────────────────────────
-
-export function getContents(): Content[] { return load('contents') ?? [] }
+// ── Contents ────────────────────────────────────────────────
+export function getContents(): Content[] { return load('contents') }
 export function saveContents(contents: Content[]) { store('contents', contents) }
 export function getContentById(id: string) { return getContents().find(c => c.id === id) }
 
 export function createContent(data: Partial<Content>): Content {
-  const contents = getContents()
   const content: Content = {
     id: uuid(), posterUrl: null, synopsis: '', genres: [], creators: [],
-    platform: null, releaseYear: null, status: null,
-    avgRating: 0, reviewCount: 0,
-    createdAt: new Date().toISOString(),
+    platform: null, releaseYear: null, status: null, popularity: 0,
+    avgRating: 0, reviewCount: 0, createdAt: new Date().toISOString(),
     ...data,
   } as Content
-  contents.unshift(content)
-  saveContents(contents)
+  saveContents([content, ...getContents()])
   return content
 }
 
@@ -79,19 +122,19 @@ export function updateContent(id: string, updates: Partial<Content>): Content | 
   const contents = getContents()
   const idx = contents.findIndex(c => c.id === id)
   if (idx < 0) return null
-  Object.assign(contents[idx], updates)
-  saveContents(contents)
-  return contents[idx]
+  const updated = { ...contents[idx], ...updates }
+  const next = [...contents]; next[idx] = updated
+  saveContents(next)
+  return updated
 }
 
 export function deleteContent(id: string) {
-  saveContents(getContents().filter(c => c.id !== id))
   const removedReviews = getReviews().filter(r => r.contentId === id).map(r => r.id)
+  saveContents(getContents().filter(c => c.id !== id))
   saveReviews(getReviews().filter(r => r.contentId !== id))
   saveComments(getComments().filter(c => !removedReviews.includes(c.reviewId)))
 }
 
-/** 리뷰 목록으로부터 작품 평균 점수/리뷰 수 재계산 */
 export function recomputeContentRating(contentId: string) {
   const reviews = getReviews().filter(r => r.contentId === contentId)
   const count = reviews.length
@@ -100,8 +143,7 @@ export function recomputeContentRating(contentId: string) {
 }
 
 // ── Reviews ─────────────────────────────────────────────────
-
-export function getReviews(): Review[] { return load('reviews') ?? [] }
+export function getReviews(): Review[] { return load('reviews') }
 export function saveReviews(reviews: Review[]) { store('reviews', reviews) }
 export function getReviewById(id: string) { return getReviews().find(r => r.id === id) }
 export function getReviewsByContent(contentId: string) { return getReviews().filter(r => r.contentId === contentId) }
@@ -111,14 +153,12 @@ export function getUserReviewForContent(userId: string, contentId: string) {
 }
 
 export function createReview(data: Partial<Review>): Review {
-  const reviews = getReviews()
   const review: Review = {
     id: uuid(), likes: [], dislikes: [], views: 0, spoiler: false, tags: [],
     createdAt: new Date().toISOString(), updatedAt: null,
     ...data,
   } as Review
-  reviews.unshift(review)
-  saveReviews(reviews)
+  saveReviews([review, ...getReviews()])
   if (review.contentId) recomputeContentRating(review.contentId)
   return review
 }
@@ -127,10 +167,11 @@ export function updateReview(id: string, updates: Partial<Review>): Review | nul
   const reviews = getReviews()
   const idx = reviews.findIndex(r => r.id === id)
   if (idx < 0) return null
-  Object.assign(reviews[idx], updates, { updatedAt: new Date().toISOString() })
-  saveReviews(reviews)
-  recomputeContentRating(reviews[idx].contentId)
-  return reviews[idx]
+  const updated = { ...reviews[idx], ...updates, updatedAt: new Date().toISOString() }
+  const next = [...reviews]; next[idx] = updated
+  saveReviews(next)
+  recomputeContentRating(updated.contentId)
+  return updated
 }
 
 export function deleteReview(id: string) {
@@ -141,15 +182,12 @@ export function deleteReview(id: string) {
 }
 
 // ── Comments ────────────────────────────────────────────────
-
-export function getComments(): Comment[] { return load('comments') ?? [] }
+export function getComments(): Comment[] { return load('comments') }
 export function saveComments(cmts: Comment[]) { store('comments', cmts) }
 
 export function createComment(data: Partial<Comment>): Comment {
-  const cmts = getComments()
   const comment: Comment = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as Comment
-  cmts.push(comment)
-  saveComments(cmts)
+  saveComments([...getComments(), comment])
   return comment
 }
 
@@ -157,27 +195,26 @@ export function updateComment(id: string, updates: Partial<Comment>): Comment | 
   const cmts = getComments()
   const idx = cmts.findIndex(c => c.id === id)
   if (idx < 0) return null
-  Object.assign(cmts[idx], updates, { updatedAt: new Date().toISOString() })
-  saveComments(cmts)
-  return cmts[idx]
+  const updated = { ...cmts[idx], ...updates, updatedAt: new Date().toISOString() }
+  const next = [...cmts]; next[idx] = updated
+  saveComments(next)
+  return updated
 }
 
 export function deleteComment(id: string) {
   saveComments(getComments().filter(c => c.id !== id && c.parentId !== id))
 }
 
-// ── Bookmarks (작품 찜) ─────────────────────────────────────
-
-export function getBookmarks(): Bookmark[] { return load('bookmarks') ?? [] }
+// ── Bookmarks ───────────────────────────────────────────────
+export function getBookmarks(): Bookmark[] { return load('bookmarks') }
 export function saveBookmarks(bm: Bookmark[]) { store('bookmarks', bm) }
 
 export function toggleBookmark(userId: string, contentId: string): boolean {
   const bm = getBookmarks()
-  const idx = bm.findIndex(b => b.userId === userId && b.contentId === contentId)
-  if (idx >= 0) bm.splice(idx, 1)
-  else bm.push({ userId, contentId, createdAt: new Date().toISOString() })
-  saveBookmarks(bm)
-  return idx < 0
+  const exists = bm.some(b => b.userId === userId && b.contentId === contentId)
+  if (exists) saveBookmarks(bm.filter(b => !(b.userId === userId && b.contentId === contentId)))
+  else saveBookmarks([...bm, { userId, contentId, createdAt: new Date().toISOString() }])
+  return !exists
 }
 
 export function isBookmarked(userId: string, contentId: string): boolean {
@@ -189,15 +226,13 @@ export function getUserBookmarks(userId: string): Bookmark[] {
 }
 
 // ── Blocks ──────────────────────────────────────────────────
-
-export function getBlocks(): Block[] { return load('blocks') ?? [] }
+export function getBlocks(): Block[] { return load('blocks') }
 export function saveBlocks(bl: Block[]) { store('blocks', bl) }
 
 export function blockUser(blockerId: string, blockedId: string) {
   const bl = getBlocks()
   if (!bl.some(b => b.blockerId === blockerId && b.blockedId === blockedId)) {
-    bl.push({ blockerId, blockedId, createdAt: new Date().toISOString() })
-    saveBlocks(bl)
+    saveBlocks([...bl, { blockerId, blockedId, createdAt: new Date().toISOString() }])
   }
 }
 
@@ -214,14 +249,12 @@ export function getBlockedIds(userId: string): string[] {
 }
 
 // ── Notifications ───────────────────────────────────────────
-
-export function getNotifications(): Notification[] { return load('notifications') ?? [] }
+export function getNotifications(): Notification[] { return load('notifications') }
 export function saveNotifications(n: Notification[]) { store('notifications', n) }
 
 export function createNotification(data: Partial<Notification>) {
-  const ns = getNotifications()
-  ns.unshift({ id: uuid(), read: false, createdAt: new Date().toISOString(), ...data } as Notification)
-  saveNotifications(ns)
+  const n = { id: uuid(), read: false, createdAt: new Date().toISOString(), ...data } as Notification
+  saveNotifications([n, ...getNotifications()])
 }
 
 export function getUserNotifications(userId: string): Notification[] {
@@ -236,65 +269,59 @@ export function getUnreadCount(userId: string): number {
 
 export function markRead(notifId: string) {
   const ns = getNotifications()
-  const n = ns.find(x => x.id === notifId)
-  if (n) { n.read = true; saveNotifications(ns) }
+  const idx = ns.findIndex(x => x.id === notifId)
+  if (idx < 0) return
+  const next = [...ns]; next[idx] = { ...ns[idx], read: true }
+  saveNotifications(next)
 }
 
 export function markAllRead(userId: string) {
-  const ns = getNotifications()
-  ns.filter(n => n.userId === userId).forEach(n => { n.read = true })
-  saveNotifications(ns)
+  saveNotifications(getNotifications().map(n => n.userId === userId ? { ...n, read: true } : n))
 }
 
 // ── Reports ─────────────────────────────────────────────────
-
-export function getReports(): Report[] { return load('reports') ?? [] }
+export function getReports(): Report[] { return load('reports') }
 export function saveReports(reports: Report[]) { store('reports', reports) }
 
 export function createReport(data: Partial<Report>): Report {
-  const reports = getReports()
   const report: Report = { id: uuid(), status: 'pending', createdAt: new Date().toISOString(), ...data } as Report
-  reports.push(report)
-  saveReports(reports)
+  saveReports([...getReports(), report])
   return report
 }
 
 export function updateReport(id: string, updates: Partial<Report>) {
   const reports = getReports()
   const idx = reports.findIndex(r => r.id === id)
-  if (idx >= 0) { Object.assign(reports[idx], updates); saveReports(reports) }
+  if (idx < 0) return
+  const next = [...reports]; next[idx] = { ...reports[idx], ...updates }
+  saveReports(next)
 }
 
 export function hasReported(userId: string, targetType: string, targetId: string): boolean {
-  return getReports().some(
-    r => r.reporterId === userId && r.targetType === targetType && r.targetId === targetId
-  )
+  return getReports().some(r => r.reporterId === userId && r.targetType === targetType && r.targetId === targetId)
 }
 
 // ── Announcements ───────────────────────────────────────────
-
-export function getAnnouncements(): Announcement[] { return load('announcements') ?? [] }
+export function getAnnouncements(): Announcement[] { return load('announcements') }
 export function saveAnnouncements(a: Announcement[]) { store('announcements', a) }
 
 export function createAnnouncementItem(data: Partial<Announcement>) {
-  const anns = getAnnouncements()
-  anns.unshift({ id: uuid(), createdAt: new Date().toISOString(), ...data } as Announcement)
-  saveAnnouncements(anns)
+  const a = { id: uuid(), createdAt: new Date().toISOString(), ...data } as Announcement
+  saveAnnouncements([a, ...getAnnouncements()])
 }
 
 export function deleteAnnouncementItem(id: string) {
   saveAnnouncements(getAnnouncements().filter(a => a.id !== id))
 }
 
-// ── Session ─────────────────────────────────────────────────
-
+// ── Session (브라우저 로컬) ──────────────────────────────────
 export function setSession(user: User | null) {
-  if (user) sessionStorage.setItem('doljikgu_session', JSON.stringify(user))
-  else sessionStorage.removeItem('doljikgu_session')
+  if (user) sessionStorage.setItem('bangjot_session', JSON.stringify(user))
+  else sessionStorage.removeItem('bangjot_session')
 }
 
 export function getSession(): User | null {
-  try { return JSON.parse(sessionStorage.getItem('doljikgu_session') || 'null') }
+  try { return JSON.parse(sessionStorage.getItem('bangjot_session') || 'null') }
   catch { return null }
 }
 
@@ -307,29 +334,4 @@ export function refreshSession() {
   if (!s) return
   const fresh = getUserById(s.id)
   if (fresh) setSession(fresh)
-}
-
-// ── Seed ────────────────────────────────────────────────────
-
-export async function seed() {
-  if (load('seeded_v3')) return
-  try {
-    const [users, contents, reviews, comments, reports] = await Promise.all([
-      fetch('/data/users.json').then(r => r.json()),
-      fetch('/data/contents.json').then(r => r.json()),
-      fetch('/data/reviews.json').then(r => r.json()),
-      fetch('/data/comments.json').then(r => r.json()),
-      fetch('/data/reports.json').then(r => r.json()),
-    ])
-    saveUsers(users)
-    saveContents(contents)
-    saveReviews(reviews)
-    saveComments(comments)
-    saveReports(reports)
-    // 시드 작품들의 집계값 보정
-    contents.forEach((c: Content) => recomputeContentRating(c.id))
-  } catch (e) {
-    console.warn('JSON seed fetch failed:', e)
-  }
-  store('seeded_v3', true)
 }
