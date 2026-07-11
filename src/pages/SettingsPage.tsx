@@ -73,6 +73,18 @@ export function SettingsPage() {
         <button className="btn btn-primary" onClick={changePassword}>비밀번호 변경</button>
       </div>
 
+      <div className="settings-section">
+        <h3>저작권 안내</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 10 }}>
+          작품의 제목·출연·개봉정보 등 사실 정보와 포스터 이미지는 <b>비평 및 정보 제공 목적</b>으로 공식 데이터 소스(KOBIS·KMDb·TMDB 등)를 통해 게시됩니다.
+          각 리뷰·댓글의 저작권은 이를 작성한 회원에게 있습니다.
+        </p>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
+          권리자(배급사·제작사 등)께서 게시 중단을 원하시면 해당 작품 페이지의 <b>신고 → '저작권 침해 (권리자 삭제요청)'</b> 를 이용하시거나, 아래 이메일로 요청해 주시면 확인 후 신속히 삭제 조치합니다.
+        </p>
+        <div className="settings-row"><label>삭제요청 접수</label><span className="val">copyright@bangjot.kr</span></div>
+      </div>
+
       <div className="settings-section danger-zone">
         <h3>계정 삭제</h3>
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>탈퇴 시 작성한 리뷰·댓글은 익명 처리되며 계정은 복구할 수 없습니다.</p>

@@ -9,6 +9,7 @@ import { Toast } from '@/components/ui/Toast'
 import { AuthPage } from '@/pages/AuthPage'
 import { HomePage } from '@/pages/HomePage'
 import { BrowsePage } from '@/pages/BrowsePage'
+import { BoardPage } from '@/pages/BoardPage'
 import { ContentDetailPage } from '@/pages/ContentDetailPage'
 import { WriteReviewPage } from '@/pages/WriteReviewPage'
 import { ReviewDetailPage } from '@/pages/ReviewDetailPage'
@@ -58,6 +59,7 @@ export default function App() {
             <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
               <Route path="/" element={<HomePage />} />
               <Route path="/browse" element={<BrowsePage />} />
+              <Route path="/board/:slug" element={<BoardPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />
               <Route path="/review/write" element={<WriteReviewPage />} />
               <Route path="/review/write/:contentId" element={<WriteReviewPage />} />

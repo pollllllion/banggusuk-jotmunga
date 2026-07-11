@@ -8,7 +8,7 @@ import { timeAgo } from '@/utils/helpers'
 import type { Content, ContentType } from '@/types'
 
 const REASON_LABELS: Record<string, string> = {
-  spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', other: '기타',
+  spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', copyright: '저작권 침해', other: '기타',
 }
 const TARGET_LABELS: Record<string, string> = { review: '리뷰', comment: '댓글', content: '작품' }
 

@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
+import { ReviewBoard } from '@/components/review/ReviewBoard'
 import { CONTENT_TYPES, GENRES } from '@/utils/constants'
 import type { ContentType } from '@/types'
 
@@ -33,14 +34,24 @@ export function BrowsePage() {
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
   else contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
+  // 영화탭은 포스터 그리드 대신 자유게시판(리뷰글 목록) 형식
+  const isBoard = type === 'movie'
+  const contentIds = new Set(contents.map(c => c.id))
+  let reviews = isBoard ? DS.getReviews().filter(r => contentIds.has(r.contentId)) : []
+  if (isBoard) {
+    if (sort === 'top') reviews = [...reviews].sort((a, b) => b.rating - a.rating)
+    else if (sort === 'reviews') reviews = [...reviews].sort((a, b) => (b.likes.length - b.dislikes.length) - (a.likes.length - a.dislikes.length))
+    else reviews = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  }
+
   return (
     <>
       <div className="feed-header">
-        <h2 className="feed-title">{search ? `"${search}" 검색 결과` : '작품 둘러보기'}</h2>
+        <h2 className="feed-title">{search ? `"${search}" 검색 결과` : isBoard ? '🎬 영화 리뷰 게시판' : '작품 둘러보기'}</h2>
         <div className="feed-sort">
           <button className={sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'latest')}>최신</button>
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setParam('sort', 'top')}>평점순</button>
-          <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>리뷰순</button>
+          <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>{isBoard ? '추천순' : '리뷰순'}</button>
         </div>
       </div>
 
@@ -62,7 +73,13 @@ export function BrowsePage() {
         ))}
       </div>
 
-      {!contents.length ? (
+      {isBoard ? (
+        !reviews.length ? (
+          <div className="empty-state fade-in"><p>아직 등록된 영화 리뷰가 없습니다. 첫 리뷰를 남겨보세요!</p></div>
+        ) : (
+          <ReviewBoard reviews={reviews} />
+        )
+      ) : !contents.length ? (
         <div className="empty-state fade-in"><p>조건에 맞는 작품이 없습니다.</p></div>
       ) : (
         <div className="content-grid">

@@ -38,11 +38,6 @@ export function HomePage() {
 
   return (
     <>
-      <div className="hero-banner fade-in">
-        <h2>⚡ 방구석좋문가</h2>
-        <p>영화·드라마·웹툰·웹소설, 눈치 안 보고 남기는 가장 솔직한 리뷰</p>
-      </div>
-
       {announcements.map(a => (
         <div key={a.id} className="announcement-card fade-in" onClick={() => navigate('/admin')}>
           <span className="announcement-badge">공지</span>

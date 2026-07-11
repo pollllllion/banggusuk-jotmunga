@@ -35,18 +35,19 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .logo { display: flex; align-items: center; gap: 10px; }
 .logo-icon {
   width: 36px; height: 36px;
-  background: linear-gradient(135deg, var(--primary) 0%, #F43F5E 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, #71717A 100%);
   border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 18px; font-weight: 800;
 }
 .logo-text { font-size: 18px; font-weight: 800; color: var(--dark); letter-spacing: -0.5px; }
 .logo-text span { color: var(--primary); }
+.logo-img { height: 40px; width: auto; display: none; }  /* 헤더 로고: 모바일 전용 */
 
 /* Header */
 .header {
   background: var(--card); border-bottom: 1px solid var(--border);
   padding: 0 20px; height: 56px; display: flex; align-items: center; justify-content: space-between;
-  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  position: fixed; top: 0; left: 240px; right: 0; z-index: 100;
 }
 .header-left { display: flex; align-items: center; gap: 16px; }
 .header-right { display: flex; align-items: center; gap: 8px; }
@@ -87,8 +88,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* Sidebar */
 .sidebar {
   width: 240px; background: var(--card); border-right: 1px solid var(--border-light);
-  padding: 16px 0; position: fixed; top: 56px; bottom: 0; overflow-y: auto;
+  padding: 0 0 16px; position: fixed; top: 0; bottom: 0; overflow-y: auto; z-index: 101;
 }
+.sidebar-brand {
+  display: block; padding: 14px 16px 12px; margin-bottom: 6px; cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+}
+.sidebar-brand img { width: 100%; max-width: 208px; height: auto; display: block; }
 .sidebar-title { font-size: 11px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; padding: 12px 16px 6px; }
 .sidebar-item {
   display: flex; align-items: center; gap: 8px; padding: 8px 16px; margin: 1px 8px;
@@ -267,7 +273,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .auth-page::before {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 20% 30%, rgba(225,29,72,0.22), transparent 50%), radial-gradient(circle at 80% 70%, rgba(245,158,11,0.12), transparent 40%);
+  background: radial-gradient(circle at 20% 30%, rgba(82,82,91,0.20), transparent 50%), radial-gradient(circle at 80% 70%, rgba(113,113,122,0.12), transparent 40%);
 }
 .auth-card {
   background: var(--card); border-radius: var(--radius-xl); padding: 40px 36px; width: 420px; max-width: 92vw;
@@ -276,19 +282,19 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .auth-logo-area { text-align: center; margin-bottom: 16px; }
 .auth-logo-big {
   display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px;
-  background: linear-gradient(135deg, var(--primary), #F43F5E); border-radius: 20px; margin-bottom: 12px;
-  box-shadow: 0 8px 24px rgba(225,29,72,0.3); color: #fff; font-size: 30px; font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), #71717A); border-radius: 20px; margin-bottom: 12px;
+  box-shadow: 0 8px 24px rgba(63,63,70,0.3); color: #fff; font-size: 30px; font-weight: 800;
 }
 .auth-card .logo { justify-content: center; margin-bottom: 6px; }
 .auth-card .logo-text { font-size: 22px; }
 .auth-subtitle { text-align: center; color: var(--subtext); margin-bottom: 20px; font-size: 13px; }
 .auth-btn {
   width: 100%; padding: 12px;
-  background: linear-gradient(135deg, var(--primary), #F43F5E); color: #fff; border: none;
+  background: linear-gradient(135deg, var(--primary), #71717A); color: #fff; border: none;
   border-radius: var(--radius-md); font-size: 15px; font-weight: 700; margin-top: 6px;
-  transition: var(--duration) var(--ease); box-shadow: 0 4px 12px rgba(225,29,72,0.25);
+  transition: var(--duration) var(--ease); box-shadow: 0 4px 12px rgba(63,63,70,0.25);
 }
-.auth-btn:hover { box-shadow: 0 6px 20px rgba(225,29,72,0.35); transform: translateY(-1px); }
+.auth-btn:hover { box-shadow: 0 6px 20px rgba(63,63,70,0.35); transform: translateY(-1px); }
 .auth-btn:disabled { opacity: 0.5; transform: none; cursor: not-allowed; box-shadow: none; }
 .auth-switch { text-align: center; margin-top: 16px; font-size: 13px; color: var(--subtext); }
 .auth-switch a { color: var(--primary); font-weight: 600; cursor: pointer; }
@@ -306,14 +312,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   background: transparent; color: var(--subtext); transition: var(--duration) var(--ease);
 }
 .feed-sort button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow-xs); }
-
-.hero-banner {
-  background: linear-gradient(135deg, #E11D48 0%, #F43F5E 50%, #FB7185 100%);
-  border-radius: var(--radius-lg); padding: 22px 24px; margin-bottom: 14px; color: #fff; position: relative; overflow: hidden;
-}
-.hero-banner::after { content: ''; position: absolute; top: -20px; right: -20px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.08); }
-.hero-banner h2 { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
-.hero-banner p { font-size: 13px; opacity: 0.9; }
 
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 10px; }
 .section-head h3 { font-size: 15px; font-weight: 800; color: var(--dark); display: flex; align-items: center; gap: 6px; }
@@ -363,6 +361,49 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .hot-rank-card .c-title { font-size: 13px; font-weight: 700; margin-top: 8px; color: var(--dark); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .hot-rank-card .c-meta { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+
+/* ============================================================
+   Review Board (자유게시판 형식 — 영화탭)
+   ============================================================ */
+.board-list { background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; }
+.board-head, .board-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 56px 56px 56px;
+  align-items: center; gap: 10px; padding: 10px 16px;
+}
+.board-head {
+  font-size: 12px; font-weight: 700; color: var(--subtext);
+  background: var(--bg); border-bottom: 1px solid var(--border-light);
+}
+.board-head .bh-author, .board-head .bh-score, .board-head .bh-stat { text-align: center; }
+.board-row { border-bottom: 1px solid var(--border-light); cursor: pointer; transition: var(--duration) var(--ease); }
+.board-row:last-child { border-bottom: none; }
+.board-row:hover { background: var(--bg); }
+.br-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.br-tag { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-light); padding: 2px 7px; border-radius: var(--radius-xs); white-space: nowrap; }
+.br-subject { font-size: 14px; font-weight: 600; color: var(--dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-comment { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 700; color: var(--primary); }
+.br-comment svg { width: 12px; height: 12px; }
+.br-author { font-size: 12px; color: var(--text-secondary); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-score { display: flex; justify-content: center; }
+.br-stat { display: inline-flex; align-items: center; justify-content: center; gap: 3px; font-size: 12px; color: var(--subtext); }
+.br-stat svg { width: 13px; height: 13px; }
+.br-time { display: none; }
+
+@media (max-width: 720px) {
+  .board-head { display: none; }
+  .board-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "title score" "meta score";
+    row-gap: 4px; padding: 12px 14px;
+  }
+  .br-title { grid-area: title; }
+  .br-subject { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .br-score { grid-area: score; align-self: center; }
+  .br-author { grid-area: meta; text-align: left; justify-self: start; }
+  .br-time { grid-area: meta; display: inline; font-size: 12px; color: var(--subtext); justify-self: end; }
+  .board-row .br-stat { display: none; }
+}
 
 /* ============================================================
    Content Grid & Cards (Browse)
@@ -536,10 +577,11 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .main { margin-left: 0; padding: 12px; max-width: 100%; width: 100%; overflow-x: hidden; }
-  .layout { padding-bottom: 56px; }
-  .header { padding: 0 12px; height: 52px; }
+  .layout { margin-top: 52px; min-height: calc(100vh - 52px); padding-bottom: 56px; }
+  .header { padding: 0 12px; height: 52px; left: 0; }
   .search-bar { width: auto; min-width: 80px; max-width: calc(100vw - 200px); flex-shrink: 1; }
   .logo-text { display: none; }
+  .logo-img { display: block; width: auto; height: 40px; }
   .mobile-nav {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
     border-top: 1px solid var(--border-light); z-index: 100; height: 52px;

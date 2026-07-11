@@ -1,31 +1,45 @@
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { CONTENT_TYPES } from '@/utils/constants'
+import { BOARDS } from '@/utils/constants'
+
+// 이 게시판 항목 뒤에 구분선을 넣는다
+const DIVIDER_AFTER = new Set(['todays-pick', 'season'])
 
 export function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const currentType = searchParams.get('type') || ''
-  const isBrowse = location.pathname === '/browse'
+
+  const isActive = (path: string) => {
+    if (path.startsWith('/browse')) {
+      const type = new URLSearchParams(path.split('?')[1] || '').get('type')
+      return location.pathname === '/browse' && searchParams.get('type') === type
+    }
+    return location.pathname === path
+  }
 
   return (
     <nav className="sidebar">
-      <div className="sidebar-title">카테고리</div>
-      {CONTENT_TYPES.map(t => (
-        <div key={t.code}
-          className={`sidebar-item ${isBrowse && currentType === t.code ? 'active' : ''}`}
-          onClick={() => navigate(`/browse?type=${t.code}`)}>
-          <span className="e">{t.emoji}</span> {t.label}
+      <a className="sidebar-brand" onClick={() => navigate('/')}>
+        <img src="/logo-trim.png" alt="방구석좋문가" />
+      </a>
+      {BOARDS.map(b => (
+        <div key={b.slug}>
+          <div
+            className={`sidebar-item ${isActive(b.path) ? 'active' : ''}`}
+            onClick={() => navigate(b.path)}>
+            <span className="e">{b.emoji}</span> {b.label}
+          </div>
+          {DIVIDER_AFTER.has(b.slug) && <div className="sidebar-divider" />}
         </div>
       ))}
 
       <div className="sidebar-divider" />
       <div className="sidebar-title">내 활동</div>
       <div className="sidebar-item" onClick={() => navigate('/my-reviews')}>
-        <span className="e">{'\u{270D}'}</span> 내 리뷰
+        <span className="e">{'\u{1F464}'}</span> 내 프로필
       </div>
       <div className="sidebar-item" onClick={() => navigate('/bookmarks')}>
-        <span className="e">{'\u{1F516}'}</span> 찜한 작품
+        <span className="e">{'\u{1F4F0}'}</span> 내 피드
       </div>
     </nav>
   )
