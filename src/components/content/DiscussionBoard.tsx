@@ -8,7 +8,7 @@ import '@/styles/discussion.css'
 
 /** 출시 전 작품의 기대평·떡밥 수다방 (content 단위, 평점 없음) */
 export function DiscussionBoard({ contentId }: { contentId: string }) {
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const [body, setBody] = useState('')
   const [, setTick] = useState(0)
@@ -28,6 +28,7 @@ export function DiscussionBoard({ contentId }: { contentId: string }) {
 
   const like = (id: string) => {
     if (!user) return
+    if (!isAccount) { toast('공감은 로그인(고정닉) 후 이용할 수 있어요.'); return }
     DS.toggleDiscussionLike(id, user.id); rerender()
   }
 

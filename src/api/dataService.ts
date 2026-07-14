@@ -277,14 +277,50 @@ export function createDiscussion(data: Partial<Discussion>): Discussion {
   return d
 }
 
-export function toggleDiscussionLike(id: string, userId: string): void {
+/** 수다방 공감 토글 — 서버 RPC로 처리(추천=로그인만), 캐시는 낙관적 갱신 */
+export async function toggleDiscussionLike(id: string, userId: string): Promise<void> {
   const ds = getDiscussions()
   const idx = ds.findIndex(d => d.id === id)
-  if (idx < 0) return
-  const cur = ds[idx]
-  const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
-  const next = [...ds]; next[idx] = { ...cur, likes }
-  saveDiscussions(next)
+  if (idx >= 0) {
+    const cur = ds[idx]
+    const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+    const next = [...ds]; next[idx] = { ...cur, likes }; cache.discussions = next
+  }
+  try { await supabase.rpc('toggle_discussion_like', { p_discussion_id: id }) }
+  catch (e) { console.error('[toggle_discussion_like]', e) }
+}
+
+/** 리뷰 공감(1)/비공감(-1) 토글 — 서버 RPC */
+export async function toggleReviewVote(reviewId: string, value: 1 | -1, userId: string): Promise<void> {
+  const reviews = getReviews()
+  const idx = reviews.findIndex(r => r.id === reviewId)
+  if (idx >= 0) {
+    const r = reviews[idx]
+    let likes: string[], dislikes: string[]
+    if (value === 1) {
+      dislikes = r.dislikes.filter(u => u !== userId)
+      likes = r.likes.includes(userId) ? r.likes.filter(u => u !== userId) : [...r.likes, userId]
+    } else {
+      likes = r.likes.filter(u => u !== userId)
+      dislikes = r.dislikes.includes(userId) ? r.dislikes.filter(u => u !== userId) : [...r.dislikes, userId]
+    }
+    const next = [...reviews]; next[idx] = { ...r, likes, dislikes }; cache.reviews = next
+  }
+  try { await supabase.rpc('toggle_review_vote', { p_review_id: reviewId, p_value: value }) }
+  catch (e) { console.error('[toggle_review_vote]', e) }
+}
+
+/** 댓글 공감 토글 — 서버 RPC */
+export async function toggleCommentLike(id: string, userId: string): Promise<void> {
+  const cmts = getComments()
+  const idx = cmts.findIndex(c => c.id === id)
+  if (idx >= 0) {
+    const cur = cmts[idx]
+    const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+    const next = [...cmts]; next[idx] = { ...cur, likes }; cache.comments = next
+  }
+  try { await supabase.rpc('toggle_comment_like', { p_comment_id: id }) }
+  catch (e) { console.error('[toggle_comment_like]', e) }
 }
 
 export function deleteDiscussion(id: string): void {

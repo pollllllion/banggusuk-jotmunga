@@ -14,7 +14,7 @@ import type { Comment as CommentType } from '@/types'
 export function ReviewDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [, setTick] = useState(0)
@@ -41,22 +41,17 @@ export function ReviewDetailPage() {
 
   const toggleLike = () => {
     if (!user) return
-    const di = review.dislikes.indexOf(user.id)
-    if (di >= 0) review.dislikes.splice(di, 1)
-    const i = review.likes.indexOf(user.id)
-    if (i >= 0) review.likes.splice(i, 1)
-    else { review.likes.push(user.id); DS.createNotification({ userId: review.authorId, type: 'like', reviewId: review.id, message: '누군가 회원님의 리뷰에 공감했습니다.' }) }
-    DS.saveReviews(reviews); rerender()
+    if (!isAccount) { toast('추천은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    if (!isLiked && review.authorId !== user.id) {
+      DS.createNotification({ userId: review.authorId, type: 'like', reviewId: review.id, message: '누군가 회원님의 리뷰에 공감했습니다.' })
+    }
+    DS.toggleReviewVote(review.id, 1, user.id); rerender()
   }
 
   const toggleDislike = () => {
     if (!user) return
-    const li = review.likes.indexOf(user.id)
-    if (li >= 0) review.likes.splice(li, 1)
-    const i = review.dislikes.indexOf(user.id)
-    if (i >= 0) review.dislikes.splice(i, 1)
-    else review.dislikes.push(user.id)
-    DS.saveReviews(reviews); rerender()
+    if (!isAccount) { toast('추천은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    DS.toggleReviewVote(review.id, -1, user.id); rerender()
   }
 
   const handleDelete = () => {
@@ -174,7 +169,7 @@ export function ReviewDetailPage() {
 }
 
 function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerender }: { comment: CommentType; allComments: CommentType[]; reviewAuthorId: string; reviewId: string; rerender: () => void }) {
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [showReply, setShowReply] = useState(false)
@@ -203,12 +198,8 @@ function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerend
 
   const toggleLike = () => {
     if (!user) return
-    const comments = DS.getComments()
-    const target = comments.find(x => x.id === c.id)
-    if (!target) return
-    const i = target.likes.indexOf(user.id)
-    if (i >= 0) target.likes.splice(i, 1); else target.likes.push(user.id)
-    DS.saveComments(comments); rerender()
+    if (!isAccount) { toast('추천은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    DS.toggleCommentLike(c.id, user.id); rerender()
   }
 
   const addReply = () => {
