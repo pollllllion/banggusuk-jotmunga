@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -25,14 +25,14 @@ export function ReviewDetailPage() {
   const [cGuestPw, setCGuestPw] = useState('')
   const [revealSpoiler, setRevealSpoiler] = useState(false)
 
+  // 조회수 증가 (마운트당 1회, 서버 RPC)
+  useEffect(() => { if (id) DS.incrementReviewViews(id) }, [id])
+
   const reviews = DS.getReviews()
   const review = reviews.find(r => r.id === id)
   if (!review) { navigate('/'); return null }
 
   const content = DS.getContentById(review.contentId)
-
-  // 조회수 증가
-  review.views++; DS.saveReviews(reviews)
 
   const allComments = DS.getComments().filter(c => c.reviewId === review.id)
   const topComments = allComments.filter(c => !c.parentId)

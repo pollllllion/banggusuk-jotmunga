@@ -47,15 +47,22 @@ function store(key: Table, val: any[]) {
 
 async function persist(t: Table, prev: any[], next: any[]) {
   try {
+    const prevByKey = new Map(prev.map(r => [rowKey(t, r), r]))
     const nextKeys = new Set(next.map(r => rowKey(t, r)))
+    // 삭제된 행
     const removed = prev.filter(r => !nextKeys.has(rowKey(t, r)))
     for (const r of removed) {
       if (t === 'bookmarks') await supabase.from(t).delete().eq('userId', r.userId).eq('contentId', r.contentId)
       else if (t === 'blocks') await supabase.from(t).delete().eq('blockerId', r.blockerId).eq('blockedId', r.blockedId)
       else await supabase.from(t).delete().eq('id', r.id)
     }
-    if (next.length) {
-      const rows = t === 'users' ? next.map(({ password, ...u }: any) => u) : next
+    // 새로/바뀐 행만 upsert (RLS: 남의 행 통짜 upsert 방지 — 본인이 바꾼 것만 씀)
+    const changed = next.filter(r => {
+      const p = prevByKey.get(rowKey(t, r))
+      return !p || JSON.stringify(p) !== JSON.stringify(r)
+    })
+    if (changed.length) {
+      const rows = t === 'users' ? changed.map(({ password, ...u }: any) => u) : changed
       await supabase.from(t).upsert(rows, { onConflict: conflictCols(t) })
     }
   } catch (e) {
@@ -191,11 +198,29 @@ export function deleteContent(id: string) {
   saveComments(getComments().filter(c => !removedReviews.includes(c.reviewId)))
 }
 
+/** 평점 재집계 — 캐시만 갱신(즉시 표시용). DB는 reviews 트리거가 처리 */
 export function recomputeContentRating(contentId: string) {
   const reviews = getReviews().filter(r => r.contentId === contentId)
   const count = reviews.length
   const avg = count ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / count) * 10) / 10 : 0
-  updateContent(contentId, { avgRating: avg, reviewCount: count })
+  const contents = getContents()
+  const idx = contents.findIndex(c => c.id === contentId)
+  if (idx >= 0) {
+    const next = [...contents]; next[idx] = { ...contents[idx], avgRating: avg, reviewCount: count }
+    cache.contents = next
+  }
+}
+
+/** 리뷰 조회수 +1 — 서버 RPC(남의 리뷰도 올릴 수 있어야 하므로) */
+export async function incrementReviewViews(id: string) {
+  const reviews = getReviews()
+  const idx = reviews.findIndex(r => r.id === id)
+  if (idx >= 0) {
+    const next = [...reviews]; next[idx] = { ...reviews[idx], views: reviews[idx].views + 1 }
+    cache.reviews = next
+  }
+  try { await supabase.rpc('increment_review_views', { p_review_id: id }) }
+  catch (e) { console.error('[increment_review_views]', e) }
 }
 
 // ── Reviews ─────────────────────────────────────────────────
