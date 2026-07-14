@@ -20,7 +20,7 @@ export function ReviewBoard({ reviews }: { reviews: Review[] }) {
       </div>
       {reviews.map(r => {
         const content = DS.getContentById(r.contentId)
-        const author = DS.getUserById(r.authorId)
+        const authorName = r.guestName || DS.getUserById(r.authorId || '')?.nickname || '탈퇴회원'
         const commentCount = DS.getComments().filter(c => c.reviewId === r.id).length
         return (
           <div key={r.id} className="board-row" onClick={() => navigate(`/review/${r.id}`)}>
@@ -30,7 +30,7 @@ export function ReviewBoard({ reviews }: { reviews: Review[] }) {
               {r.spoiler && <span className="spoiler-tag">스포</span>}
               {commentCount > 0 && <span className="br-comment"><CommentIcon /> {commentCount}</span>}
             </div>
-            <span className="br-author">{author?.nickname ?? '탈퇴회원'}</span>
+            <span className="br-author">{authorName}</span>
             <span className="br-score"><ScorePill score={r.rating} /></span>
             <span className="br-stat"><ThumbUpIcon /> {r.likes.length}</span>
             <span className="br-stat"><EyeIcon /> {r.views}</span>

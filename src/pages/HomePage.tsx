@@ -14,7 +14,7 @@ export function HomePage() {
   const [sort, setSort] = useState<'latest' | 'popular'>('latest')
 
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
-  let reviews: Review[] = DS.getReviews().filter(r => !blockedIds.includes(r.authorId))
+  let reviews: Review[] = DS.getReviews().filter(r => !blockedIds.includes(r.authorId || ''))
 
   if (sort === 'popular') {
     reviews = [...reviews].sort((a, b) => (b.likes.length - b.dislikes.length) - (a.likes.length - a.dislikes.length))

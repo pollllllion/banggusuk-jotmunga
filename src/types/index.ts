@@ -36,7 +36,9 @@ export interface Content {
 export interface Review {
   id: string
   contentId: string
-  authorId: string
+  authorId: string | null     // 로그인 글이면 auth uid, 유동닉이면 null
+  guestName?: string | null
+  guestPwHash?: string | null
   rating: number              // 1 ~ 10 정수
   title: string
   body: string
@@ -53,7 +55,9 @@ export interface Review {
 export interface Comment {
   id: string
   reviewId: string
-  authorId: string
+  authorId: string | null     // 로그인 글이면 auth uid, 유동닉이면 null
+  guestName?: string | null
+  guestPwHash?: string | null
   parentId: string | null
   content: string
   likes: string[]

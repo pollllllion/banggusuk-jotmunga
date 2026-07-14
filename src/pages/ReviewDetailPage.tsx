@@ -7,8 +7,9 @@ import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { ScoreBadge, Stars } from '@/components/ui/Score'
 import { BackIcon, FlagIcon, ShareIcon, ThumbUpIcon, ThumbDownIcon } from '@/components/ui/Icons'
+import { GuestCred } from '@/components/ui/GuestCred'
 import { TYPE_LABELS } from '@/utils/constants'
-import { timeAgo, scoreLabel } from '@/utils/helpers'
+import { timeAgo, scoreLabel, sha256hex } from '@/utils/helpers'
 import type { Comment as CommentType } from '@/types'
 
 export function ReviewDetailPage() {
@@ -20,6 +21,8 @@ export function ReviewDetailPage() {
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
   const [commentText, setCommentText] = useState('')
+  const [cGuestName, setCGuestName] = useState('')
+  const [cGuestPw, setCGuestPw] = useState('')
   const [revealSpoiler, setRevealSpoiler] = useState(false)
 
   const reviews = DS.getReviews()
@@ -33,16 +36,18 @@ export function ReviewDetailPage() {
 
   const allComments = DS.getComments().filter(c => c.reviewId === review.id)
   const topComments = allComments.filter(c => !c.parentId)
-  const isOwner = review.authorId === user?.id
+  const isOwner = isAccount && !!user && review.authorId === user.id
   const isLiked = user ? review.likes.includes(user.id) : false
   const isDisliked = user ? review.dislikes.includes(user.id) : false
   const reported = user ? DS.hasReported(user.id, 'review', review.id) : false
-  const authorLabel = isOwner ? '나' : (review.authorId === 'deleted' ? '탈퇴한 사용자' : DS.getUserById(review.authorId)?.nickname || '익명')
+  const authorLabel = review.guestName
+    ? review.guestName
+    : (isOwner ? '나' : (review.authorId === 'deleted' ? '탈퇴한 사용자' : DS.getUserById(review.authorId || '')?.nickname || '익명'))
 
   const toggleLike = () => {
     if (!user) return
     if (!isAccount) { toast('추천은 로그인(고정닉) 후 이용할 수 있어요.'); return }
-    if (!isLiked && review.authorId !== user.id) {
+    if (!isLiked && review.authorId && review.authorId !== user.id) {
       DS.createNotification({ userId: review.authorId, type: 'like', reviewId: review.id, message: '누군가 회원님의 리뷰에 공감했습니다.' })
     }
     DS.toggleReviewVote(review.id, 1, user.id); rerender()
@@ -59,6 +64,14 @@ export function ReviewDetailPage() {
     DS.deleteReview(review.id); toast('리뷰가 삭제되었습니다.'); navigate('/')
   }
 
+  const handleGuestDelete = async () => {
+    const pw = prompt('작성 시 입력한 비밀번호를 입력하세요.')
+    if (pw === null) return
+    const ok = await DS.deleteGuestPost('reviews', review.id, pw)
+    if (ok) { toast('리뷰가 삭제되었습니다.'); navigate('/') }
+    else toast('비밀번호가 일치하지 않습니다.')
+  }
+
   const handleShare = () => {
     const url = `${location.origin}/review/${review.id}`
     navigator.clipboard?.writeText(url).then(() => toast('링크가 복사되었습니다.'))
@@ -69,11 +82,19 @@ export function ReviewDetailPage() {
     DS.blockUser(user.id, blockedId); toast('사용자를 차단했습니다.'); navigate('/')
   }
 
-  const addComment = () => {
-    if (!user || !commentText.trim()) return
-    DS.createComment({ reviewId: review.id, authorId: user.id, parentId: null, content: commentText.trim() })
-    DS.createNotification({ userId: review.authorId, type: 'comment', reviewId: review.id, message: '누군가 회원님의 리뷰에 댓글을 남겼습니다.' })
-    setCommentText(''); toast('댓글이 등록되었습니다.'); rerender()
+  const addComment = async () => {
+    if (!commentText.trim()) return
+    let data
+    if (isAccount && user) {
+      data = { reviewId: review.id, authorId: user.id, parentId: null, content: commentText.trim() }
+    } else {
+      if (!cGuestName.trim()) { toast('닉네임을 입력하세요.'); return }
+      if (cGuestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
+      data = { reviewId: review.id, authorId: null, parentId: null, content: commentText.trim(), guestName: cGuestName.trim(), guestPwHash: await sha256hex(cGuestPw) }
+    }
+    DS.createComment(data)
+    if (review.authorId) DS.createNotification({ userId: review.authorId, type: 'comment', reviewId: review.id, message: '누군가 회원님의 리뷰에 댓글을 남겼습니다.' })
+    setCommentText(''); setCGuestPw(''); toast('댓글이 등록되었습니다.'); rerender()
   }
 
   const showBody = !review.spoiler || revealSpoiler || isOwner
@@ -137,7 +158,7 @@ export function ReviewDetailPage() {
               <button className="btn-text btn-small" onClick={() => openReportModal('review', review.id)} disabled={reported} style={reported ? { opacity: 0.4 } : {}}>
                 <FlagIcon /> {reported ? '신고완료' : '신고'}
               </button>
-              <button className="btn-text btn-small" onClick={() => handleBlock(review.authorId)}>차단</button>
+              {review.authorId && <button className="btn-text btn-small" onClick={() => handleBlock(review.authorId!)}>차단</button>}
             </>
           )}
           {isOwner && (
@@ -146,16 +167,24 @@ export function ReviewDetailPage() {
               <button className="btn btn-danger btn-small" onClick={handleDelete}>삭제</button>
             </div>
           )}
+          {review.guestName && (
+            <div className="review-owner-actions">
+              <button className="btn btn-danger btn-small" onClick={handleGuestDelete}>삭제</button>
+            </div>
+          )}
         </div>
 
         {/* Comments */}
         <div className="comments-section">
           <div className="comments-title">댓글 <span>{allComments.length}</span></div>
           <div className="comment-input-area">
-            <textarea placeholder="댓글을 입력하세요..." value={commentText}
-              onChange={e => setCommentText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment() } }} />
-            <button className="btn btn-primary btn-small" onClick={addComment}>등록</button>
+            {!isAccount && <GuestCred name={cGuestName} pw={cGuestPw} onName={setCGuestName} onPw={setCGuestPw} />}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <textarea placeholder="댓글을 입력하세요..." value={commentText}
+                onChange={e => setCommentText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addComment() } }} />
+              <button className="btn btn-primary btn-small" onClick={addComment}>등록</button>
+            </div>
           </div>
           <div>
             {topComments.map(c => (
@@ -168,22 +197,26 @@ export function ReviewDetailPage() {
   )
 }
 
-function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerender }: { comment: CommentType; allComments: CommentType[]; reviewAuthorId: string; reviewId: string; rerender: () => void }) {
+function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerender }: { comment: CommentType; allComments: CommentType[]; reviewAuthorId: string | null; reviewId: string; rerender: () => void }) {
   const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [showReply, setShowReply] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [rGuestName, setRGuestName] = useState('')
+  const [rGuestPw, setRGuestPw] = useState('')
   const [editing, setEditing] = useState(false)
   const [editText, setEditText] = useState(c.content)
 
-  const isOwner = c.authorId === user?.id
-  const blocked = user && !isOwner && DS.isBlocked(user.id, c.authorId)
+  const isOwner = isAccount && !!user && c.authorId === user.id
+  const blocked = user && !isOwner && !!c.authorId && DS.isBlocked(user.id, c.authorId)
   const isLiked = user ? c.likes.includes(user.id) : false
   const replies = allComments.filter(x => x.parentId === c.id)
-  const isOP = c.authorId === reviewAuthorId
+  const isOP = !!c.authorId && c.authorId === reviewAuthorId
   const reported = user ? DS.hasReported(user.id, 'comment', c.id) : false
-  const displayName = c.authorId === 'deleted' ? '탈퇴한 사용자' : isOwner ? '나' : isOP ? '리뷰어' : (DS.getUserById(c.authorId)?.nickname || '익명')
+  const displayName = c.guestName
+    ? c.guestName
+    : (c.authorId === 'deleted' ? '탈퇴한 사용자' : isOwner ? '나' : isOP ? '리뷰어' : (DS.getUserById(c.authorId || '')?.nickname || '익명'))
 
   if (blocked) {
     return (
@@ -202,16 +235,32 @@ function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerend
     DS.toggleCommentLike(c.id, user.id); rerender()
   }
 
-  const addReply = () => {
-    if (!user || !replyText.trim()) return
-    DS.createComment({ reviewId, authorId: user.id, parentId: c.id, content: replyText.trim() })
-    DS.createNotification({ userId: c.authorId, type: 'reply', reviewId, message: '누군가 회원님의 댓글에 답글을 남겼습니다.' })
-    setReplyText(''); setShowReply(false); toast('답글이 등록되었습니다.'); rerender()
+  const addReply = async () => {
+    if (!replyText.trim()) return
+    let data
+    if (isAccount && user) {
+      data = { reviewId, authorId: user.id, parentId: c.id, content: replyText.trim() }
+    } else {
+      if (!rGuestName.trim()) { toast('닉네임을 입력하세요.'); return }
+      if (rGuestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요.'); return }
+      data = { reviewId, authorId: null, parentId: c.id, content: replyText.trim(), guestName: rGuestName.trim(), guestPwHash: await sha256hex(rGuestPw) }
+    }
+    DS.createComment(data)
+    if (c.authorId) DS.createNotification({ userId: c.authorId, type: 'reply', reviewId, message: '누군가 회원님의 댓글에 답글을 남겼습니다.' })
+    setReplyText(''); setRGuestPw(''); setShowReply(false); toast('답글이 등록되었습니다.'); rerender()
   }
 
   const handleDelete = () => {
     if (!confirm('댓글을 삭제하시겠습니까?')) return
     DS.deleteComment(c.id); toast('댓글이 삭제되었습니다.'); rerender()
+  }
+
+  const handleGuestDelete = async () => {
+    const pw = prompt('작성 시 입력한 비밀번호를 입력하세요.')
+    if (pw === null) return
+    const ok = await DS.deleteGuestPost('comments', c.id, pw)
+    toast(ok ? '댓글이 삭제되었습니다.' : '비밀번호가 일치하지 않습니다.')
+    if (ok) rerender()
   }
 
   const saveEdit = () => {
@@ -250,15 +299,19 @@ function CommentItem({ comment: c, allComments, reviewAuthorId, reviewId, rerend
               )}
               {isOwner && <button className="btn-text btn-small" onClick={() => { setEditing(true); setEditText(c.content) }}>수정</button>}
               {isOwner && <button className="btn-text btn-small btn-danger" onClick={handleDelete}>삭제</button>}
+              {c.guestName && <button className="btn-text btn-small btn-danger" onClick={handleGuestDelete}>삭제</button>}
             </div>
           </>
         )}
         {showReply && (
           <div className="reply-input-area">
-            <textarea placeholder="답글을 입력하세요..." value={replyText}
-              onChange={e => setReplyText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addReply() } }} />
-            <button className="btn btn-primary btn-small" onClick={addReply}>등록</button>
+            {!isAccount && <GuestCred name={rGuestName} pw={rGuestPw} onName={setRGuestName} onPw={setRGuestPw} />}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <textarea placeholder="답글을 입력하세요..." value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addReply() } }} />
+              <button className="btn btn-primary btn-small" onClick={addReply}>등록</button>
+            </div>
           </div>
         )}
       </div>

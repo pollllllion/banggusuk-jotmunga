@@ -5,13 +5,16 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { REVIEW_TAGS, TYPE_LABELS } from '@/utils/constants'
 import { BackIcon } from '@/components/ui/Icons'
-import { scoreColor, scoreLabel } from '@/utils/helpers'
+import { GuestCred } from '@/components/ui/GuestCred'
+import { scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 
 export function WriteReviewPage() {
   const { contentId, id } = useParams<{ contentId?: string; id?: string }>()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
+  const [guestName, setGuestName] = useState('')
+  const [guestPw, setGuestPw] = useState('')
 
   const isEdit = !!id
   const existing = isEdit ? DS.getReviewById(id!) : null
@@ -45,21 +48,23 @@ export function WriteReviewPage() {
     setTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : prev.length >= 4 ? prev : [...prev, t])
   }
 
-  const handleSubmit = () => {
-    if (!user) return
+  const handleSubmit = async () => {
     if (!selectedContentId) { toast('작품을 선택하세요.'); return }
     if (!rating) { toast('점수를 선택하세요.'); return }
     if (!title.trim()) { toast('한줄평(제목)을 입력하세요.'); return }
     if (!body.trim()) { toast('리뷰 내용을 입력하세요.'); return }
 
-    const data = {
-      contentId: selectedContentId,
-      authorId: user.id,
-      rating,
-      title: title.trim(),
-      body: body.trim(),
-      spoiler,
-      tags,
+    if (isEdit && !isAccount) { toast('유동닉 리뷰는 수정할 수 없어요. 삭제 후 다시 작성해주세요.'); return }
+
+    const base = { contentId: selectedContentId, rating, title: title.trim(), body: body.trim(), spoiler, tags }
+
+    let data
+    if (isAccount && user) {
+      data = { ...base, authorId: user.id }
+    } else {
+      if (!guestName.trim()) { toast('닉네임을 입력하세요.'); return }
+      if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
+      data = { ...base, authorId: null, guestName: guestName.trim(), guestPwHash: await sha256hex(guestPw) }
     }
 
     if (isEdit) {
@@ -80,6 +85,13 @@ export function WriteReviewPage() {
       <div className="back-btn" onClick={() => navigate(backTarget)}><BackIcon /> 돌아가기</div>
       <div className="write-page fade-in">
         <h2>{isEdit ? '리뷰 수정' : '리뷰 쓰기'}</h2>
+
+        {!isEdit && !isAccount && (
+          <div className="form-group">
+            <label>유동닉 (닉네임 + 삭제용 비밀번호)</label>
+            <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} />
+          </div>
+        )}
 
         <div className="form-group">
           <label>작품</label>

@@ -30,7 +30,7 @@ export function ContentDetailPage() {
     (!!content.releaseDate && new Date(content.releaseDate + 'T00:00:00') > new Date())
 
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
-  let reviews = DS.getReviewsByContent(content.id).filter(r => !blockedIds.includes(r.authorId))
+  let reviews = DS.getReviewsByContent(content.id).filter(r => !blockedIds.includes(r.authorId || ''))
   if (sort === 'latest') reviews = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   else if (sort === 'high') reviews = [...reviews].sort((a, b) => b.rating - a.rating)
   else if (sort === 'low') reviews = [...reviews].sort((a, b) => a.rating - b.rating)
