@@ -1,0 +1,43 @@
+/* ── 출시 전 수다방 (기대평 게시판) ── */
+.disc-wrap { animation: fadeIn 0.2s var(--ease); }
+
+.disc-composer {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 12px; box-shadow: var(--shadow-xs);
+  margin-bottom: 16px;
+}
+.disc-input {
+  width: 100%; border: none; outline: none; resize: vertical;
+  font-size: 14px; line-height: 1.6; color: var(--text);
+  background: transparent; font-family: inherit; min-height: 62px;
+}
+.disc-input::placeholder { color: var(--subtext); }
+.disc-composer-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border-light); padding-top: 10px; margin-top: 6px;
+}
+.disc-count { font-size: 12px; color: var(--subtext); }
+
+.disc-list { display: flex; flex-direction: column; gap: 10px; }
+.disc-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-xs);
+}
+.disc-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.disc-author { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.disc-time { font-size: 12px; color: var(--subtext); }
+.disc-del {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  font-size: 12px; color: var(--subtext);
+}
+.disc-del:hover { color: var(--danger); }
+.disc-body { font-size: 14px; line-height: 1.65; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
+.disc-item-foot { margin-top: 10px; }
+.disc-like {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-full);
+  padding: 5px 12px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+  cursor: pointer; transition: all var(--duration) var(--ease);
+}
+.disc-like:hover { border-color: var(--danger); color: var(--danger); }
+.disc-like.on { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }

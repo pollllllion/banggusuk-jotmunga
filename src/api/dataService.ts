@@ -10,18 +10,18 @@ import { uuid } from '@/utils/helpers'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import type {
   User, Content, Review, Comment, Notification,
-  Report, Block, Bookmark, Announcement,
+  Report, Block, Bookmark, Announcement, Discussion,
 } from '@/types'
 
 type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements'
+  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements', 'discussions']
 
 const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [],
+  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [],
 }
 
 function rowKey(t: Table, r: any): string {
@@ -219,6 +219,36 @@ export function updateComment(id: string, updates: Partial<Comment>): Comment | 
 
 export function deleteComment(id: string) {
   saveComments(getComments().filter(c => c.id !== id && c.parentId !== id))
+}
+
+// ── Discussions (출시 전 수다방) ────────────────────────────
+export function getDiscussions(): Discussion[] { return load('discussions') }
+export function saveDiscussions(d: Discussion[]) { store('discussions', d) }
+
+export function getDiscussionsByContent(contentId: string): Discussion[] {
+  return getDiscussions()
+    .filter(d => d.contentId === contentId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function createDiscussion(data: Partial<Discussion>): Discussion {
+  const d: Discussion = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as Discussion
+  saveDiscussions([d, ...getDiscussions()])
+  return d
+}
+
+export function toggleDiscussionLike(id: string, userId: string): void {
+  const ds = getDiscussions()
+  const idx = ds.findIndex(d => d.id === id)
+  if (idx < 0) return
+  const cur = ds[idx]
+  const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+  const next = [...ds]; next[idx] = { ...cur, likes }
+  saveDiscussions(next)
+}
+
+export function deleteDiscussion(id: string): void {
+  saveDiscussions(getDiscussions().filter(d => d.id !== id))
 }
 
 // ── Bookmarks ───────────────────────────────────────────────

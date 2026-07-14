@@ -61,6 +61,16 @@ export interface Comment {
   updatedAt?: string
 }
 
+// ── Discussion (출시 전 수다방 · 작품 단위 기대평) ──────────
+export interface Discussion {
+  id: string
+  contentId: string
+  authorId: string
+  body: string
+  likes: string[]
+  createdAt: string
+}
+
 // ── Notification ────────────────────────────────────────────
 export type NotificationType = 'like' | 'dislike' | 'comment' | 'reply'
 

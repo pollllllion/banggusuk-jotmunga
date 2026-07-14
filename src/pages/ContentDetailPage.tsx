@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
+import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { ReviewCard } from '@/components/review/ReviewCard'
 import { Stars } from '@/components/ui/Score'
 import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
@@ -23,6 +24,10 @@ export function ContentDetailPage() {
 
   const content = DS.getContentById(id!)
   if (!content) { navigate('/browse'); return null }
+
+  // 아직 안 나온 작품은 리뷰(평점) 대신 기대평 수다방을 보여준다
+  const isUpcoming = content.status === 'upcoming' ||
+    (!!content.releaseDate && new Date(content.releaseDate + 'T00:00:00') > new Date())
 
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
   let reviews = DS.getReviewsByContent(content.id).filter(r => !blockedIds.includes(r.authorId))
@@ -75,11 +80,13 @@ export function ContentDetailPage() {
           <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
 
           <div className="review-detail-actions" style={{ marginTop: 14, marginBottom: 0 }}>
-            <button className="btn btn-primary" onClick={goWrite}>
-              {myReview ? '내 리뷰 수정' : '✍️ 리뷰 쓰기'}
-            </button>
+            {!isUpcoming && (
+              <button className="btn btn-primary" onClick={goWrite}>
+                {myReview ? '내 리뷰 수정' : '✍️ 리뷰 쓰기'}
+              </button>
+            )}
             <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
-              <BookmarkIcon filled={bookmarked} /> 찜
+              <BookmarkIcon filled={bookmarked} /> {isUpcoming ? '찜 · 공개알림' : '찜'}
             </button>
             <button className="btn-text btn-small" onClick={() => openReportModal('content', content.id)}>
               <FlagIcon /> 신고
@@ -88,6 +95,10 @@ export function ContentDetailPage() {
         </div>
       </div>
 
+      {isUpcoming ? (
+        <DiscussionBoard contentId={content.id} />
+      ) : (
+      <>
       {/* 점수 요약 + 분포 */}
       <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
         <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
@@ -125,6 +136,8 @@ export function ContentDetailPage() {
         <div className="empty-state fade-in"><p>첫 리뷰의 주인공이 되어보세요!</p></div>
       ) : (
         reviews.map(r => <ReviewCard key={r.id} review={r} showContent={false} />)
+      )}
+      </>
       )}
     </>
   )
