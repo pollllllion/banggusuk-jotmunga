@@ -18,6 +18,18 @@
 }
 .disc-count { font-size: 12px; color: var(--subtext); }
 
+.disc-guest-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.disc-guest-input {
+  flex: 1; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text); background: var(--bg); outline: none;
+}
+.disc-guest-input:focus { border-color: var(--primary-light); background: var(--card); }
+.disc-guest-badge {
+  font-size: 10px; font-weight: 700; color: var(--text-secondary);
+  background: var(--border-light); padding: 1px 6px; border-radius: var(--radius-full);
+}
+
 .disc-list { display: flex; flex-direction: column; gap: 10px; }
 .disc-item {
   background: var(--card); border: 1px solid var(--border);

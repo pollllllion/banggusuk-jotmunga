@@ -3,6 +3,12 @@ export function uuid(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11)
 }
 
+/** SHA-256 hex (유동닉 글 비밀번호 해시용) */
+export async function sha256hex(str: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 /** HTML 이스케이프 (XSS 방지) */
 export function esc(str: string): string {
   const el = document.createElement('div')

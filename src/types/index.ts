@@ -65,7 +65,9 @@ export interface Comment {
 export interface Discussion {
   id: string
   contentId: string
-  authorId: string
+  authorId: string | null    // 로그인 글이면 auth uid, 유동닉이면 null
+  guestName?: string | null  // 유동닉 표시명
+  guestPwHash?: string | null // 유동닉 비번 SHA-256 hex
   body: string
   likes: string[]
   createdAt: string

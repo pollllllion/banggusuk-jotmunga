@@ -327,6 +327,16 @@ export function deleteDiscussion(id: string): void {
   saveDiscussions(getDiscussions().filter(d => d.id !== id))
 }
 
+/** 유동닉 글 삭제 — 서버에서 비번 검증(pgcrypto). 성공 시 true, 비번 틀리면 false */
+export async function deleteGuestPost(table: 'reviews' | 'discussions' | 'comments', id: string, password: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('delete_guest_post', { p_table: table, p_id: id, p_password: password })
+  if (error) { console.error('[delete_guest_post]', error); return false }
+  if (data === true) {
+    cache[table] = cache[table].filter((r: any) => r.id !== id)
+  }
+  return data === true
+}
+
 // ── Bookmarks ───────────────────────────────────────────────
 export function getBookmarks(): Bookmark[] { return load('bookmarks') }
 export function saveBookmarks(bm: Bookmark[]) { store('bookmarks', bm) }
