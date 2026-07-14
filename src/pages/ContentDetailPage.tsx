@@ -15,7 +15,7 @@ import { scoreColor, scoreLabel } from '@/utils/helpers'
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [, setTick] = useState(0)
@@ -48,6 +48,7 @@ export function ContentDetailPage() {
 
   const handleBookmark = () => {
     if (!user) return
+    if (!isAccount) { toast('찜은 로그인(고정닉) 후 이용할 수 있어요.'); return }
     const added = DS.toggleBookmark(user.id, content.id)
     toast(added ? '작품을 찜했습니다.' : '찜을 취소했습니다.'); rerender()
   }

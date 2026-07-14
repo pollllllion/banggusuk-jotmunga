@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
 import { BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
@@ -35,7 +36,8 @@ function ddayOf(release: string): { label: string; over: boolean } {
 
 export function CalendarPage() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAccount } = useAuthStore()
+  const toast = useToastStore(s => s.show)
 
   const now = new Date()
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() })
@@ -90,6 +92,7 @@ export function CalendarPage() {
 
   const toggleAlarm = () => {
     if (!user || !selected) return
+    if (!isAccount) { toast('찜·공개알림은 로그인(고정닉) 후 이용할 수 있어요.'); return }
     setBookmarked(DS.toggleBookmark(user.id, selected.id))
   }
 

@@ -78,7 +78,9 @@ export function ReviewDetailPage() {
   }
 
   const handleBlock = (blockedId: string) => {
-    if (!user || !confirm('이 사용자를 차단하시겠습니까?\n\n차단하면 해당 사용자의 리뷰와 댓글이 보이지 않습니다.')) return
+    if (!user) return
+    if (!isAccount) { toast('차단은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    if (!confirm('이 사용자를 차단하시겠습니까?\n\n차단하면 해당 사용자의 리뷰와 댓글이 보이지 않습니다.')) return
     DS.blockUser(user.id, blockedId); toast('사용자를 차단했습니다.'); navigate('/')
   }
 

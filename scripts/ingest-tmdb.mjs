@@ -23,7 +23,9 @@ const DRY = process.argv.includes('--dry')
 const PAGES = Math.max(1, parseInt(process.env.PAGES || '3', 10))
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sb_publishable_XRQiUZAforlq1XXAZytb0A_6CAkxx6t'
+// RLS 적용 후 contents는 관리자/서비스롤만 쓸 수 있으므로 service_role 키가 필요합니다.
+// Supabase 대시보드 → Settings → API → service_role (secret) 값을 SUPABASE_SERVICE_KEY 로 설정하세요.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || 'sb_publishable_XRQiUZAforlq1XXAZytb0A_6CAkxx6t'
 
 const IMG = 'https://image.tmdb.org/t/p/w500'
 const TMDB = 'https://api.themoviedb.org/3'
