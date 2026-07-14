@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { SearchIcon, PlusIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon } from '@/components/ui/Icons'
+import { SearchIcon, PlusIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon, LogoutIcon } from '@/components/ui/Icons'
 import { NotificationPanel } from '@/components/notification/NotificationPanel'
 
 export function Header() {
   const navigate = useNavigate()
-  const { user } = useAuthStore()
+  const { user, isAccount, logout } = useAuthStore()
   const { userMenuOpen, toggleUserMenu, closeUserMenu } = useUIStore()
   const [searchQuery, setSearchQuery] = useState('')
   const menuRef = useRef<HTMLDivElement>(null)
@@ -55,7 +55,7 @@ export function Header() {
           <div className={`user-dropdown ${userMenuOpen ? 'show' : ''}`}>
             <div className="user-dropdown-header">
               {user.nickname}
-              <small>{user.email}</small>
+              <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
             </div>
             <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/my-reviews') }}>
               <DocumentIcon /> 내 리뷰
@@ -69,6 +69,15 @@ export function Header() {
             {user.role === 'admin' && (
               <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/admin') }} style={{ color: 'var(--primary)' }}>
                 <ShieldIcon /> 관리자
+              </div>
+            )}
+            {isAccount ? (
+              <div className="user-dropdown-item" onClick={async () => { closeUserMenu(); await logout(); navigate('/') }}>
+                <LogoutIcon /> 로그아웃
+              </div>
+            ) : (
+              <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/auth') }} style={{ color: 'var(--primary)' }}>
+                <LogoutIcon /> 로그인 / 고정닉
               </div>
             )}
           </div>

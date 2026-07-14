@@ -15,13 +15,13 @@ import type {
 
 type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions'
+  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'profiles'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements', 'discussions']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'profiles']
 
 const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [],
+  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], profiles: [],
 }
 
 function rowKey(t: Table, r: any): string {
@@ -92,8 +92,48 @@ export const seed = loadAll
 // ── Users ───────────────────────────────────────────────────
 export function getUsers(): User[] { return load('users') }
 export function saveUsers(users: User[]) { store('users', users) }
-export function getUserById(id: string) { return getUsers().find(u => u.id === id) }
+
+/** 계정(profiles) + 게스트(users) 통합 조회 — 닉네임 표시 등에 사용 */
+export function getUserById(id: string): User | undefined {
+  const u = getUsers().find(u => u.id === id)
+  if (u) return u
+  const p = cache.profiles.find((p: any) => p.id === id)
+  if (p) return { id: p.id, nickname: p.nickname, email: '', role: p.role, banned: p.banned, createdAt: p.createdAt }
+  return undefined
+}
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
+
+// ── Profiles (Supabase Auth 고정닉 계정) ────────────────────
+/** auth 사용자에 대응하는 profiles 행 확보(없으면 생성) → User 형태로 반환 */
+export async function ensureProfile(authUser: { id: string; email?: string | null }, nickname?: string): Promise<User> {
+  const existing = cache.profiles.find((p: any) => p.id === authUser.id)
+  if (existing) {
+    return { id: existing.id, nickname: existing.nickname, email: authUser.email || '', role: existing.role, banned: existing.banned, createdAt: existing.createdAt }
+  }
+  const row = {
+    id: authUser.id,
+    nickname: nickname || ('회원' + Math.floor(1000 + Math.random() * 9000)),
+    role: 'user' as const,
+    banned: false,
+    createdAt: new Date().toISOString(),
+  }
+  cache.profiles = [row, ...cache.profiles]
+  try { await supabase.from('profiles').upsert(row, { onConflict: 'id' }) }
+  catch (e) { console.error('[profile upsert]', e) }
+  return { id: row.id, nickname: row.nickname, email: authUser.email || '', role: row.role, banned: row.banned, createdAt: row.createdAt }
+}
+
+/** 프로필 갱신(닉네임/권한/밴) */
+export async function updateProfileRow(id: string, updates: Partial<User>) {
+  const patch: any = {}
+  if (updates.nickname !== undefined) patch.nickname = updates.nickname
+  if (updates.role !== undefined) patch.role = updates.role
+  if (updates.banned !== undefined) patch.banned = updates.banned
+  const idx = cache.profiles.findIndex((p: any) => p.id === id)
+  if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }
+  try { await supabase.from('profiles').update(patch).eq('id', id) }
+  catch (e) { console.error('[profile update]', e) }
+}
 
 export function createUser(data: Partial<User>): User {
   const users = getUsers()
