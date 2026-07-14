@@ -128,7 +128,8 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [posterUrl, setPosterUrl] = useState(content?.posterUrl || '')
   const [platform, setPlatform] = useState(content?.platform || '')
   const [releaseYear, setReleaseYear] = useState(content?.releaseYear?.toString() || '')
-  const [status, setStatus] = useState<'ongoing' | 'completed' | ''>(content?.status || '')
+  const [releaseDate, setReleaseDate] = useState(content?.releaseDate || '')
+  const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'completed' | ''>(content?.status || '')
   const [creators, setCreators] = useState(content?.creators.join(', ') || '')
   const [genres, setGenres] = useState<string[]>(content?.genres || [])
   const [synopsis, setSynopsis] = useState(content?.synopsis || '')
@@ -142,6 +143,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       posterUrl: posterUrl.trim() || null,
       platform: platform.trim() || null,
       releaseYear: releaseYear ? parseInt(releaseYear, 10) : null,
+      releaseDate: releaseDate || null,
       status: status || null,
       creators: creators.split(',').map(s => s.trim()).filter(Boolean),
       genres,
@@ -172,12 +174,17 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>플랫폼</label><input className="form-input" value={platform} onChange={e => setPlatform(e.target.value)} placeholder="넷플릭스 / 네이버웹툰 ..." /></div>
         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
           <label>상태</label>
-          <select className="form-input" value={status} onChange={e => setStatus(e.target.value as 'ongoing' | 'completed' | '')}>
+          <select className="form-input" value={status} onChange={e => setStatus(e.target.value as 'upcoming' | 'ongoing' | 'completed' | '')}>
             <option value="">해당없음</option>
+            <option value="upcoming">공개예정</option>
             <option value="ongoing">연재/방영중</option>
             <option value="completed">완결</option>
           </select>
         </div>
+      </div>
+      <div className="form-group">
+        <label>공개일 (캘린더 표시 · 선택)</label>
+        <input className="form-input" type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)} />
       </div>
       <div className="form-group"><label>제작진 (쉼표 구분)</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder="봉준호, 송강호" /></div>
       <div className="form-group"><label>포스터 이미지 URL (선택)</label><input className="form-input" value={posterUrl} onChange={e => setPosterUrl(e.target.value)} placeholder="https://..." /></div>

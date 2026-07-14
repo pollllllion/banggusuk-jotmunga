@@ -7,6 +7,7 @@
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
+import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import type {
   User, Content, Review, Comment, Notification,
   Report, Block, Bookmark, Announcement,
@@ -69,6 +70,21 @@ export async function loadAll() {
     if (error) { console.error('[supabase load]', t, error.message); return }
     if (data) cache[t] = data
   }))
+  injectUpcomingSeed()
+}
+
+/**
+ * 개봉예정 시드를 캐시에 주입 (클라이언트 전용, Supabase에는 쓰지 않음).
+ * contents 테이블에 releaseDate가 실제로 채워지기 전까지 캘린더를 살아있게 유지한다.
+ * 같은 제목이 이미 DB에 있으면 스킵 → 실데이터가 시드를 대체.
+ */
+function injectUpcomingSeed() {
+  // DB에 이미 실제 예정작(releaseDate 보유)이 있으면 시드는 넣지 않는다.
+  const hasReal = cache.contents.some((c: any) => c.releaseDate)
+  if (hasReal) return
+  const existing = new Set(cache.contents.map((c: any) => c.title))
+  const add = UPCOMING_SEED.filter(s => !existing.has(s.title))
+  if (add.length) cache.contents = [...add, ...cache.contents]
 }
 // authStore 호환용 별칭
 export const seed = loadAll
@@ -110,7 +126,7 @@ export function getContentById(id: string) { return getContents().find(c => c.id
 export function createContent(data: Partial<Content>): Content {
   const content: Content = {
     id: uuid(), posterUrl: null, synopsis: '', genres: [], creators: [],
-    platform: null, releaseYear: null, status: null, popularity: 0,
+    platform: null, releaseYear: null, releaseDate: null, status: null, popularity: 0,
     avgRating: 0, reviewCount: 0, createdAt: new Date().toISOString(),
     ...data,
   } as Content

@@ -67,7 +67,7 @@ export function ContentDetailPage() {
             {content.creators.length > 0 && <span><b>제작:</b> {content.creators.join(', ')} · </span>}
             {content.platform && <span>{content.platform} · </span>}
             {content.releaseYear && <span>{content.releaseYear}년</span>}
-            {content.status && <span> · {content.status === 'ongoing' ? '연재중' : '완결'}</span>}
+            {content.status && <span> · {content.status === 'upcoming' ? '공개예정' : content.status === 'ongoing' ? '연재중' : '완결'}</span>}
           </div>
           <div className="content-genres">
             {content.genres.map(g => <span key={g} className="genre-tag">{g}</span>)}

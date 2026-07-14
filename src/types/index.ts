@@ -22,7 +22,8 @@ export interface Content {
   creators: string[]          // 감독 / 작가 등
   platform: string | null     // 넷플릭스 / 네이버웹툰 / 카카오페이지 ...
   releaseYear: number | null
-  status: 'ongoing' | 'completed' | null  // 연재/방영 상태
+  releaseDate: string | null  // 대표 출시일 'YYYY-MM-DD' (개봉/첫공개/연재시작). 캘린더 핵심 필드
+  status: 'upcoming' | 'ongoing' | 'completed' | null  // upcoming=공개예정
   popularity?: number         // 화제도(극장+OTT 통합 랭킹용). 클수록 상위
   // 집계값 (리뷰에서 파생, 캐시)
   avgRating: number           // 0.0 ~ 10.0

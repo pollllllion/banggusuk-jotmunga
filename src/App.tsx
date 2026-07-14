@@ -7,6 +7,7 @@ import { AuthGuard } from '@/guards/AuthGuard'
 import { AdminGuard } from '@/guards/AdminGuard'
 import { Toast } from '@/components/ui/Toast'
 import { AuthPage } from '@/pages/AuthPage'
+import { CalendarPage } from '@/pages/CalendarPage'
 import { HomePage } from '@/pages/HomePage'
 import { BrowsePage } from '@/pages/BrowsePage'
 import { BoardPage } from '@/pages/BoardPage'
@@ -57,7 +58,8 @@ export default function App() {
 
             {/* 인증 필요 — AppLayout 안에 렌더링 */}
             <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<CalendarPage />} />
+              <Route path="/community" element={<HomePage />} />
               <Route path="/browse" element={<BrowsePage />} />
               <Route path="/board/:slug" element={<BoardPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />

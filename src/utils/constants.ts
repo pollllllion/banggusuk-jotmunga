@@ -19,6 +19,8 @@ export const TYPE_EMOJIS: Record<string, string> = {
 // ── 왼쪽 사이드바 게시판 (신규 구조) ────────────────────────
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
 export const BOARDS: { slug: string; label: string; emoji: string; path: string }[] = [
+  { slug: 'calendar',    label: '개봉·공개 캘린더',       emoji: '\u{1F5D3}\u{FE0F}', path: '/' },
+  { slug: 'community',   label: '커뮤니티',              emoji: '\u{1F4AC}', path: '/community' },
   { slug: 'todays-pick', label: "랭커들의 today's pick", emoji: '\u{1F3C6}', path: '/board/todays-pick' },
   { slug: 'movie',       label: '영화',                  emoji: '\u{1F3AC}', path: '/browse?type=movie' },
   { slug: 'drama',       label: '드라마',                emoji: '\u{1F4FA}', path: '/browse?type=drama' },

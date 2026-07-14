@@ -8,7 +8,7 @@ export function MobileNav() {
   return (
     <div className="mobile-nav">
       <div className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`} onClick={() => navigate('/')}>
-        <HomeIcon />홈
+        <HomeIcon />캘린더
       </div>
       <div className={`mobile-nav-item ${pathname === '/browse' ? 'active' : ''}`} onClick={() => navigate('/browse')}>
         <GridIcon />작품
