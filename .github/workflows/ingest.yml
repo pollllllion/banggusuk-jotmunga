@@ -1,0 +1,33 @@
+name: TMDB 콘텐츠 자동 수집 (ingest)
+
+# 매일 새벽 3시(KST) 자동 실행 + 언제든 수동 실행 가능
+on:
+  schedule:
+    - cron: '0 18 * * *' # 18:00 UTC = 03:00 KST 매일
+  workflow_dispatch: # Actions 탭에서 "Run workflow" 버튼으로 수동 실행
+
+# 동시에 두 번 돌지 않도록
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 콘텐츠 수집 실행
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # 필요시 더 많이 긁으려면 PAGES 조정 (기본 3)
+          PAGES: '3'
+        run: node scripts/ingest-tmdb.mjs

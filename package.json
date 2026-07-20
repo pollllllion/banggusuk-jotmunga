@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "ingest": "node scripts/ingest-tmdb.mjs"
+    "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
