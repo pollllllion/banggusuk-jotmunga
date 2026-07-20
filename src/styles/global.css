@@ -223,7 +223,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .type-badge { display: inline-block; padding: 2px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; letter-spacing: -0.2px; }
 .type-movie { background: #EDE9FE; color: #6D28D9; }
 .type-drama { background: #DBEAFE; color: #1D4ED8; }
+.type-variety { background: #FEF3C7; color: #B45309; }
 .type-webtoon { background: #DCFCE7; color: #15803D; }
+.type-webnovel { background: #FCE7F3; color: #BE185D; }
 .type-webnovel { background: #FEF3C7; color: #B45309; }
 
 /* ============================================================
@@ -404,6 +406,47 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .br-time { grid-area: meta; display: inline; font-size: 12px; color: var(--subtext); justify-self: end; }
   .board-row .br-stat { display: none; }
 }
+
+/* ============================================================
+   내 피드 (My Feed — 내가 본 작품)
+   ============================================================ */
+.feed-summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--subtext); font-size: 13px; margin: 2px 0 14px; }
+.feed-summary b { color: var(--text); font-size: 15px; }
+.feed-quicklinks { display: flex; gap: 8px; margin-left: auto; }
+.feed-typefilter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.feed-typefilter button {
+  padding: 6px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--card); color: var(--subtext); cursor: pointer;
+  transition: var(--duration) var(--ease);
+}
+.feed-typefilter button:hover { border-color: var(--primary); color: var(--primary); }
+.feed-typefilter button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.watched-card { position: relative; }
+.watched-card .watched-remove {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  width: 24px; height: 24px; border-radius: var(--radius-full); border: none;
+  background: rgba(0,0,0,.6); color: #fff; font-size: 14px; line-height: 1; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+}
+.watched-card:hover .watched-remove { display: flex; }
+.watched-card .watched-remove:hover { background: #DC2626; }
+
+/* 등록 모달 — TMDB 검색 결과 */
+.tmdb-results { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; margin-top: 12px; }
+.tmdb-result { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: var(--radius-md); cursor: pointer; border: 1px solid transparent; }
+.tmdb-result:hover { background: var(--bg); border-color: var(--border); }
+.tmdb-result img, .tmdb-result .noimg {
+  width: 46px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;
+  background: linear-gradient(135deg, #3F3F46, #18181B); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;
+}
+.tmdb-result .t { font-weight: 600; font-size: 14px; color: var(--text); }
+.tmdb-result .m { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.cat-chips button {
+  padding: 10px 14px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer;
+}
+.cat-chips button:hover { border-color: var(--primary); color: var(--primary); }
 
 /* ============================================================
    Content Grid & Cards (Browse)

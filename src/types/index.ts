@@ -10,7 +10,7 @@ export interface User {
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────
-export type ContentType = 'movie' | 'drama' | 'webtoon' | 'webnovel'
+export type ContentType = 'movie' | 'drama' | 'variety' | 'webtoon' | 'webnovel'
 
 export interface Content {
   id: string
@@ -111,6 +111,13 @@ export interface Block {
 
 // ── Bookmark (작품 찜) ──────────────────────────────────────
 export interface Bookmark {
+  userId: string
+  contentId: string
+  createdAt: string
+}
+
+// ── Watched (내가 본 작품 — 내 피드) ────────────────────────
+export interface Watched {
   userId: string
   contentId: string
   createdAt: string

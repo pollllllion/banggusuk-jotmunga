@@ -4,29 +4,26 @@ import type { ContentType } from '@/types'
 export const CONTENT_TYPES: { code: ContentType; label: string; emoji: string }[] = [
   { code: 'movie',    label: '영화',    emoji: '\u{1F3AC}' },
   { code: 'drama',    label: '드라마',  emoji: '\u{1F4FA}' },
+  { code: 'variety',  label: '예능',    emoji: '\u{1F3A4}' },
   { code: 'webtoon',  label: '웹툰',    emoji: '\u{1F5BC}' },
   { code: 'webnovel', label: '웹소설',  emoji: '\u{1F4DA}' },
 ]
 
 export const TYPE_LABELS: Record<string, string> = {
-  movie: '영화', drama: '드라마', webtoon: '웹툰', webnovel: '웹소설',
+  movie: '영화', drama: '드라마', variety: '예능', webtoon: '웹툰', webnovel: '웹소설',
 }
 
 export const TYPE_EMOJIS: Record<string, string> = {
-  movie: '\u{1F3AC}', drama: '\u{1F4FA}', webtoon: '\u{1F5BC}', webnovel: '\u{1F4DA}',
+  movie: '\u{1F3AC}', drama: '\u{1F4FA}', variety: '\u{1F3A4}', webtoon: '\u{1F5BC}', webnovel: '\u{1F4DA}',
 }
 
 // ── 왼쪽 사이드바 게시판 (신규 구조) ────────────────────────
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
 export const BOARDS: { slug: string; label: string; emoji: string; path: string }[] = [
-  { slug: 'calendar',    label: '개봉·공개 캘린더',       emoji: '\u{1F5D3}\u{FE0F}', path: '/' },
-  { slug: 'community',   label: '커뮤니티',              emoji: '\u{1F4AC}', path: '/community' },
-  { slug: 'todays-pick', label: "랭커들의 today's pick", emoji: '\u{1F3C6}', path: '/board/todays-pick' },
-  { slug: 'movie',       label: '영화',                  emoji: '\u{1F3AC}', path: '/browse?type=movie' },
-  { slug: 'drama',       label: '드라마',                emoji: '\u{1F4FA}', path: '/browse?type=drama' },
-  { slug: 'season',      label: '시즌제',                emoji: '\u{1F5D3}\u{FE0F}', path: '/board/season' },
-  { slug: 'free',        label: '자유게시판',            emoji: '\u{1F4AC}', path: '/board/free' },
-  { slug: 'relay',       label: '릴레이제작소',          emoji: '\u{270D}\u{FE0F}', path: '/board/relay' },
+  { slug: 'calendar', label: '개봉·공개 캘린더', emoji: '\u{1F5D3}\u{FE0F}', path: '/' },
+  { slug: 'talk',     label: '방구석토론방',     emoji: '\u{1F5E3}\u{FE0F}', path: '/talk' },
+  { slug: 'free',     label: '자유게시판',       emoji: '\u{1F4AC}', path: '/board/free' },
+  { slug: 'relay',    label: '릴레이제작소',     emoji: '\u{270D}\u{FE0F}', path: '/board/relay' },
 ]
 
 // ── 장르 ────────────────────────────────────────────────────

@@ -91,7 +91,9 @@
 /* 타입별 색상 */
 .type-movie    { --c: #EF4444; }
 .type-drama    { --c: #6366F1; }
+.type-variety  { --c: #F59E0B; }
 .type-webtoon  { --c: #10B981; }
+.type-webnovel { --c: #EC4899; }
 .type-webnovel { --c: #F59E0B; }
 
 .cal-empty { text-align: center; padding: 60px 20px; color: var(--subtext); font-size: 14px; }

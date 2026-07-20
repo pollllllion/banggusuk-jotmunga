@@ -2,7 +2,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { BOARDS } from '@/utils/constants'
 
 // 이 게시판 항목 뒤에 구분선을 넣는다
-const DIVIDER_AFTER = new Set(['community', 'todays-pick', 'season'])
+const DIVIDER_AFTER = new Set(['calendar', 'talk'])
 
 export function Sidebar() {
   const navigate = useNavigate()
@@ -38,7 +38,7 @@ export function Sidebar() {
       <div className="sidebar-item" onClick={() => navigate('/my-reviews')}>
         <span className="e">{'\u{1F464}'}</span> 내 프로필
       </div>
-      <div className="sidebar-item" onClick={() => navigate('/bookmarks')}>
+      <div className="sidebar-item" onClick={() => navigate('/feed')}>
         <span className="e">{'\u{1F4F0}'}</span> 내 피드
       </div>
     </nav>

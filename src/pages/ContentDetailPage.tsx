@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -21,6 +21,9 @@ export function ContentDetailPage() {
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
   const [sort, setSort] = useState<'popular' | 'latest' | 'high' | 'low'>('popular')
+  const [searchParams] = useSearchParams()
+  // 출시된 작품: 리뷰 / 수다방 탭 (내 피드에서 클릭 시 ?tab=talk 로 수다방 바로 열기)
+  const [tab, setTab] = useState<'reviews' | 'talk'>(searchParams.get('tab') === 'talk' ? 'talk' : 'reviews')
 
   const content = DS.getContentById(id!)
   if (!content) { navigate('/browse'); return null }
@@ -100,6 +103,16 @@ export function ContentDetailPage() {
         <DiscussionBoard contentId={content.id} />
       ) : (
       <>
+      {/* 리뷰 / 수다방 탭 */}
+      <div className="feed-sort" style={{ marginTop: 16, marginBottom: 4 }}>
+        <button className={tab === 'reviews' ? 'active' : ''} onClick={() => setTab('reviews')}>⭐ 리뷰</button>
+        <button className={tab === 'talk' ? 'active' : ''} onClick={() => setTab('talk')}>💬 수다방</button>
+      </div>
+
+      {tab === 'talk' ? (
+        <DiscussionBoard contentId={content.id} />
+      ) : (
+      <>
       {/* 점수 요약 + 분포 */}
       <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
         <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
@@ -137,6 +150,8 @@ export function ContentDetailPage() {
         <div className="empty-state fade-in"><p>첫 리뷰의 주인공이 되어보세요!</p></div>
       ) : (
         reviews.map(r => <ReviewCard key={r.id} review={r} showContent={false} />)
+      )}
+      </>
       )}
       </>
       )}

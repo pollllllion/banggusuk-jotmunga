@@ -8,13 +8,14 @@ import { AdminGuard } from '@/guards/AdminGuard'
 import { Toast } from '@/components/ui/Toast'
 import { AuthPage } from '@/pages/AuthPage'
 import { CalendarPage } from '@/pages/CalendarPage'
-import { HomePage } from '@/pages/HomePage'
 import { BrowsePage } from '@/pages/BrowsePage'
+import { DiscussionRoomPage } from '@/pages/DiscussionRoomPage'
 import { BoardPage } from '@/pages/BoardPage'
 import { ContentDetailPage } from '@/pages/ContentDetailPage'
 import { WriteReviewPage } from '@/pages/WriteReviewPage'
 import { ReviewDetailPage } from '@/pages/ReviewDetailPage'
 import { MyReviewsPage } from '@/pages/MyReviewsPage'
+import { MyFeedPage } from '@/pages/MyFeedPage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
@@ -59,7 +60,7 @@ export default function App() {
             {/* 인증 필요 — AppLayout 안에 렌더링 */}
             <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
               <Route path="/" element={<CalendarPage />} />
-              <Route path="/community" element={<HomePage />} />
+              <Route path="/talk" element={<DiscussionRoomPage />} />
               <Route path="/browse" element={<BrowsePage />} />
               <Route path="/board/:slug" element={<BoardPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />
@@ -68,6 +69,7 @@ export default function App() {
               <Route path="/review/edit/:id" element={<WriteReviewPage />} />
               <Route path="/review/:id" element={<ReviewDetailPage />} />
               <Route path="/my-reviews" element={<MyReviewsPage />} />
+              <Route path="/feed" element={<MyFeedPage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />

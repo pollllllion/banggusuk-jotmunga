@@ -9,19 +9,19 @@ import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import type {
-  User, Content, Review, Comment, Notification,
-  Report, Block, Bookmark, Announcement, Discussion,
+  User, Content, ContentType, Review, Comment, Notification,
+  Report, Block, Bookmark, Watched, Announcement, Discussion,
 } from '@/types'
 
 type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'profiles'
+  | 'bookmarks' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'profiles'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'profiles']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'profiles']
 
 const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], profiles: [],
+  bookmarks: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], profiles: [],
 }
 
 function rowKey(t: Table, r: any): string {
@@ -380,6 +380,67 @@ export function isBookmarked(userId: string, contentId: string): boolean {
 
 export function getUserBookmarks(userId: string): Bookmark[] {
   return getBookmarks().filter(b => b.userId === userId)
+}
+
+// ── Watched (내가 본 작품 — 내 피드) ────────────────────────
+export function getWatched(): Watched[] { return load('watched') }
+
+export function getUserWatched(userId: string): Watched[] {
+  return getWatched()
+    .filter(w => w.userId === userId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function isWatched(userId: string, contentId: string): boolean {
+  return getWatched().some(w => w.userId === userId && w.contentId === contentId)
+}
+
+export interface RegisterWatchedInput {
+  contentId: string
+  type: ContentType
+  title: string
+  posterUrl?: string | null
+  platform?: string | null
+  releaseYear?: number | null
+  synopsis?: string
+  genres?: string[]
+  creators?: string[]
+}
+
+/**
+ * 본 작품 등록 — 서버 RPC(register_watched).
+ * 작품이 없으면 서버에서 생성(RLS 우회) + watched 링크 추가. 생성/조회된 content 반환.
+ */
+export async function registerWatched(input: RegisterWatchedInput): Promise<Content> {
+  const { data, error } = await supabase.rpc('register_watched', {
+    p_content_id: input.contentId,
+    p_type: input.type,
+    p_title: input.title,
+    p_poster_url: input.posterUrl ?? null,
+    p_platform: input.platform ?? null,
+    p_release_year: input.releaseYear ?? null,
+    p_synopsis: input.synopsis ?? '',
+    p_genres: input.genres ?? [],
+    p_creators: input.creators ?? [],
+  })
+  if (error) { console.error('[register_watched]', error); throw error }
+  const content = data as Content
+  // 캐시 반영 (즉시 표시)
+  if (content && !cache.contents.some((c: any) => c.id === content.id)) {
+    cache.contents = [content, ...cache.contents]
+  }
+  const uid = currentUser()?.id
+  if (uid && !cache.watched.some((w: any) => w.userId === uid && w.contentId === content.id)) {
+    cache.watched = [{ userId: uid, contentId: content.id, createdAt: new Date().toISOString() }, ...cache.watched]
+  }
+  return content
+}
+
+/** 본 작품 등록 취소 — 본인 watched 행만 삭제(RLS 허용) */
+export async function unregisterWatched(userId: string, contentId: string): Promise<void> {
+  cache.watched = cache.watched.filter((w: any) => !(w.userId === userId && w.contentId === contentId))
+  try { await supabase.from('watched').delete().eq('userId', userId).eq('contentId', contentId) }
+  catch (e) { console.error('[unregisterWatched]', e) }
 }
 
 // ── Blocks ──────────────────────────────────────────────────
