@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs"
+    "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs",
+    "sync:ott": "node --env-file-if-exists=.env scripts/sync-tmdb-ott.mjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
@@ -25,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "typescript": "~6.0.2",
-    "vite": "^8.0.4"
+    "vite": "^8.0.4",
+    "vitest": "^4.1.10"
   }
 }

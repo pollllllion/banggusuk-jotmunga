@@ -133,12 +133,15 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [creators, setCreators] = useState(content?.creators.join(', ') || '')
   const [genres, setGenres] = useState<string[]>(content?.genres || [])
   const [synopsis, setSynopsis] = useState(content?.synopsis || '')
+  const [hidden, setHidden] = useState(content?.hidden || false)
+  const [manualOverride, setManualOverride] = useState(content?.manualOverride || false)
+  const isTmdb = content?.source === 'tmdb'
 
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
 
   const submit = () => {
     if (!title.trim()) { toast('제목을 입력하세요.'); return }
-    const data = {
+    const data: Partial<Content> = {
       type, title: title.trim(),
       posterUrl: posterUrl.trim() || null,
       platform: platform.trim() || null,
@@ -148,6 +151,12 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       creators: creators.split(',').map(s => s.trim()).filter(Boolean),
       genres,
       synopsis: synopsis.trim(),
+      hidden,
+      manualOverride,
+      // 수동 고정이면 실제 공개일을 manualReleaseDate 로 박고 자동 동기화가 못 덮게 한다
+      ...(manualOverride
+        ? { manualReleaseDate: releaseDate || null, releaseDateSource: 'manual' as const }
+        : {}),
     }
     if (content) { DS.updateContent(content.id, data); toast('작품이 수정되었습니다.') }
     else { DS.createContent({ ...data, createdBy: authorId }); toast('작품이 등록되었습니다.') }
@@ -185,6 +194,16 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       <div className="form-group">
         <label>공개일 (캘린더 표시 · 선택)</label>
         <input className="form-input" type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)} />
+      </div>
+      <div className="form-group" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+          <input type="checkbox" checked={manualOverride} onChange={e => setManualOverride(e.target.checked)} />
+          공개일 수동 고정 {isTmdb && <span style={{ color: 'var(--subtext)', fontSize: 12 }}>(자동 동기화가 이 날짜·제목을 덮어쓰지 않음)</span>}
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+          <input type="checkbox" checked={hidden} onChange={e => setHidden(e.target.checked)} />
+          캘린더에서 숨김
+        </label>
       </div>
       <div className="form-group"><label>제작진 (쉼표 구분)</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder="봉준호, 송강호" /></div>
       <div className="form-group"><label>포스터 이미지 URL (선택)</label><input className="form-input" value={posterUrl} onChange={e => setPosterUrl(e.target.value)} placeholder="https://..." /></div>

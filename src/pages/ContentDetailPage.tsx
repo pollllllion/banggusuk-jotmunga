@@ -155,6 +155,13 @@ export function ContentDetailPage() {
       )}
       </>
       )}
+      {content.source === 'tmdb' && (
+        <p style={{ fontSize: 11, color: 'var(--subtext)', textAlign: 'center', marginTop: 20, lineHeight: 1.7 }}>
+          작품 정보 제공: <a href={content.tmdbUrl || 'https://www.themoviedb.org/'} target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>TMDB</a>
+          {Array.isArray(content.providers) && content.providers.length > 0 && <> · OTT 제공 정보: JustWatch</>}
+          <br />This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </p>
+      )}
     </>
   )
 }

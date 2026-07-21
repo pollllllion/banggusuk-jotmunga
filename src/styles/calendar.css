@@ -36,6 +36,15 @@
 .cal-today-btn:hover { background: var(--primary-50); }
 
 .cal-filters { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+
+/* 2차 필터(공개상태 + OTT) */
+.cal-subfilters {
+  display: flex; align-items: flex-start; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.cal-subfilters .cal-filters { margin-left: 0; }
+.cal-ott-filters { flex: 1; }
+.cal-chip.sm { height: 26px; padding: 0 10px; font-size: 12px; }
 .cal-chip {
   height: 30px; padding: 0 12px; border-radius: var(--radius-full);
   border: 1px solid var(--border); background: var(--card);
@@ -88,6 +97,16 @@
 .cal-more { font-size: 11px; color: var(--subtext); font-weight: 600; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { color: var(--text-secondary); }
 
+/* OTT 로고 묶음 */
+.ott-logos { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.ott-logo { border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--card); }
+.ott-logo-text {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 4px; background: var(--dark); color: #fff; font-size: 10px; font-weight: 800;
+}
+.ott-more { font-size: 10.5px; font-weight: 700; color: var(--subtext); }
+.cal-item .ott-logo { border-radius: 3px; }
+
 /* 타입별 색상 */
 .type-movie    { --c: #EF4444; }
 .type-drama    { --c: #6366F1; }
@@ -116,8 +135,14 @@
 .cal-badge.dday { background: var(--dark); color: #fff; }
 .cal-badge.type { background: var(--primary-50); color: var(--text-secondary); }
 .cal-badge.plat { background: var(--accent-light); color: #92400E; }
+.cal-badge.upcoming { background: var(--success, #10B981); color: #fff; }
 .cal-modal-info h2 { font-size: 18px; font-weight: 800; margin: 0 0 6px; color: var(--text); letter-spacing: -0.01em; }
+.cal-modal-ott { margin: 2px 0 8px; }
 .cal-modal-date { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+.cal-modal-date .cal-src { font-weight: 500; color: var(--subtext); }
+.cal-modal-just { font-size: 11px; color: var(--subtext); padding: 0 20px 16px; margin: 0; }
+.cal-attribution { font-size: 11px; color: var(--subtext); text-align: center; margin-top: 16px; line-height: 1.7; }
+.cal-attribution a { color: var(--text-secondary); text-decoration: underline; }
 .cal-modal-syn { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
 .cal-modal-actions { display: flex; gap: 8px; padding: 0 20px 20px; }
 .cal-act {

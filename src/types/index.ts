@@ -12,6 +12,24 @@ export interface User {
 // ── Content (평가 대상 작품) ─────────────────────────────────
 export type ContentType = 'movie' | 'drama' | 'variety' | 'webtoon' | 'webnovel'
 
+// TMDB OTT 연동: 이 작품을 제공하는 OTT (구독형)
+export interface ContentProvider {
+  providerId: number
+  providerName: string
+  logoPath: string | null       // TMDB 로고 경로 → IMG_LOGO + logoPath 로 URL 생성
+  monetizationType: 'flatrate'
+}
+
+// releaseDate 가 어디서 왔는지 (신뢰도 표시용)
+export type ReleaseDateSource =
+  | 'kr_digital'          // 한국 디지털(OTT) 공개일
+  | 'kr_theatrical'       // 한국 극장 개봉일
+  | 'tmdb_release_date'   // TMDB 대표 개봉일
+  | 'tmdb_first_air_date' // TV 최초 방영일
+  | 'tmdb_season_air_date'// 시즌 공개일
+  | 'tmdb_estimated'      // 정확한 OTT 공개일 미확인(추정)
+  | 'manual'              // 관리자 수동 지정
+
 export interface Content {
   id: string
   type: ContentType
@@ -30,6 +48,25 @@ export interface Content {
   reviewCount: number
   createdBy: string
   createdAt: string
+
+  // ── OTT 캘린더 연동 (TMDB 자동 수집 · 전부 선택적: 수기 작품은 없음) ──
+  tmdbId?: number | null
+  mediaType?: 'movie' | 'tv' | null
+  eventType?: 'movie_release' | 'series_release' | 'season_release' | null
+  seasonNumber?: number | null
+  originalTitle?: string | null
+  backdropUrl?: string | null
+  manualReleaseDate?: string | null   // 관리자가 고친 실제 국내 공개일
+  manualOverride?: boolean            // true 면 자동 동기화가 releaseDate/title 을 덮어쓰지 않음
+  releaseDateSource?: ReleaseDateSource | null
+  providers?: ContentProvider[]       // 이 작품을 제공하는 OTT 목록
+  voteAverage?: number | null
+  voteCount?: number | null
+  tmdbUrl?: string | null
+  source?: string | null              // 'tmdb'
+  region?: string | null              // 'KR'
+  hidden?: boolean                    // 캘린더에서 숨김
+  syncedAt?: string | null
 }
 
 // ── Review (핵심) ───────────────────────────────────────────

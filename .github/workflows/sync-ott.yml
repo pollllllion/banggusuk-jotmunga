@@ -1,0 +1,52 @@
+name: TMDB OTT 캘린더 동기화
+
+# 매일 04:00 KST 증분 + 매주 일 03:00 KST 전체 재검증 + 수동 실행
+on:
+  schedule:
+    - cron: '0 19 * * *'   # 19:00 UTC = 04:00 KST (매일) → incremental
+    - cron: '0 18 * * 0'   # 18:00 UTC 일요일 = 03:00 KST (매주) → full
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '동기화 모드 (full=2026 전체 / incremental=과거30일~미래365일)'
+        type: choice
+        options: [full, incremental]
+        default: full
+
+# 동시에 두 번 돌지 않도록
+concurrency:
+  group: sync-ott
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 실행 모드 결정
+        id: m
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 18 * * 0" ]; then
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=incremental" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: OTT 동기화 실행
+        env:
+          # 둘 중 하나는 GitHub Secrets 에 등록 (Bearer 토큰 권장)
+          TMDB_ACCESS_TOKEN: ${{ secrets.TMDB_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TMDB_LANGUAGE: ko-KR
+          TMDB_REGION: KR
+          MODE: ${{ steps.m.outputs.mode }}
+        run: node scripts/sync-tmdb-ott.mjs
