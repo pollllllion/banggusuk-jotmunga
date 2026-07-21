@@ -36,6 +36,10 @@ const REGION = process.env.TMDB_REGION || 'KR'
 const MODE = (process.env.MODE || 'full').toLowerCase()
 const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '4', 10))
 const MAX_PAGES = Math.max(1, parseInt(process.env.MAX_PAGES || '15', 10))
+// 노이즈 컷: 해외(비한국어) 작품은 인기도 임계값 이상만. 한국어 작품은 기본 전량 포함.
+const FOREIGN_MIN_POP = parseFloat(process.env.FOREIGN_MIN_POP || '10')
+const KOREAN_MIN_POP = parseFloat(process.env.KOREAN_MIN_POP || '0')
+const LANG_KO = 'ko'
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY || ''
@@ -54,6 +58,7 @@ function addDays(iso, n) {
 function clamp(d, lo, hi) { return d < lo ? lo : d > hi ? hi : d }
 const START = MODE === 'incremental' ? clamp(addDays(today, -30), FULL_START, FULL_END) : FULL_START
 const END = MODE === 'incremental' ? clamp(addDays(today, 365), FULL_START, FULL_END) : FULL_END
+const RUN_START = new Date().toISOString()   // 이번 실행 이전에 동기화된(=이번에 갱신 안 된) 행 판별용
 
 if (!ACCESS_TOKEN && !API_KEY) {
   console.error('❌ TMDB_ACCESS_TOKEN 또는 TMDB_API_KEY 가 필요합니다.'); process.exit(1)
@@ -113,15 +118,29 @@ async function discoverAll(path, baseParams, label) {
   return out
 }
 
-// ── 2) 영화 수집 (provider별 2종 쿼리 병합) ─────────────────
+// tmdbId → { base, providerIds:Set, korean:bool } 후보 병합
+function addCand(cand, m, { providerId = null, korean = false } = {}) {
+  let c = cand.get(m.id)
+  if (!c) { c = { base: m, providerIds: new Set(), korean: false }; cand.set(m.id, c) }
+  if (providerId != null) c.providerIds.add(providerId)
+  if (korean) c.korean = true
+}
+
+// ── 2) 영화 수집 ────────────────────────────────────────────
+// 1차: 한국어 영화(provider 무관, KR 중심 코어) + 2차: 해외 OTT 영화(provider별)
 async function collectMovies(providers) {
-  // tmdbId → { base, providerIds:Set }
   const cand = new Map()
-  const add = (m, providerId) => {
-    let c = cand.get(m.id)
-    if (!c) { c = { base: m, providerIds: new Set() }; cand.set(m.id, c) }
-    c.providerIds.add(providerId)
+
+  // 1차) 한국어 영화 — 국내 개봉/공개작. provider 태그 없어도 수집한다.
+  const koCommon = {
+    with_original_language: LANG_KO, region: REGION, watch_region: REGION,
+    include_adult: false, include_video: false, sort_by: 'primary_release_date.asc',
   }
+  const koA = await discoverAll('/discover/movie', { ...koCommon, 'primary_release_date.gte': START, 'primary_release_date.lte': END }, '영화·한국어·primary')
+  const koB = await discoverAll('/discover/movie', { ...koCommon, 'release_date.gte': START, 'release_date.lte': END, with_release_type: '4|3|2|1' }, '영화·한국어·digital')
+  for (const m of [...koA, ...koB]) addCand(cand, m, { korean: true })
+
+  // 2차) 해외 OTT 영화 — provider별 (한국 OTT 카탈로그의 해외작)
   for (const prov of providers) {
     const common = {
       watch_region: REGION, region: REGION,
@@ -132,20 +151,26 @@ async function collectMovies(providers) {
     }
     const q1 = await discoverAll('/discover/movie', { ...common, 'primary_release_date.gte': START, 'primary_release_date.lte': END }, `영화·${prov.providerName}·primary`)
     const q2 = await discoverAll('/discover/movie', { ...common, 'release_date.gte': START, 'release_date.lte': END, with_release_type: '4|3|2|1' }, `영화·${prov.providerName}·digital`)
-    for (const m of [...q1, ...q2]) add(m, prov.providerId)
+    for (const m of [...q1, ...q2]) addCand(cand, m, { providerId: prov.providerId })
   }
   return cand
 }
 
 // 영화 상세 보강 → 행
-async function enrichMovie({ base }) {
+async function enrichMovie({ base, korean }) {
   let detail
   try {
     detail = await tmdb(`/movie/${base.id}`, { append_to_response: 'watch/providers,release_dates' })
   } catch (e) { logErr(`영화 상세 실패(${base.id}): ${e.message}`, { mediaType: 'movie' }); return null }
 
   const krProviders = extractKrFlatrate(detail['watch/providers'])
-  if (!krProviders.length) { stats.skipped++; return null } // KR flatrate 미확인 → 제외
+  const pop = detail.popularity ?? base.popularity ?? 0
+  // 해외작: 한국 OTT(flatrate) 확인 필수 + 인기도 임계값(무명 외국물 노이즈 컷)
+  // 한국어작: provider 없어도 포함(국내 극장/미태깅 OTT 개봉작)
+  if (!korean) {
+    if (!krProviders.length) { stats.skipped++; return null }
+    if (pop < FOREIGN_MIN_POP) { stats.skipped++; return null }
+  } else if (pop < KOREAN_MIN_POP) { stats.skipped++; return null }
 
   const { date, source } = pickKrMovieDate(detail.release_dates?.results, detail.release_date || base.release_date)
   if (!withinRange(date, START, END)) { stats.skipped++; return null }
@@ -169,35 +194,49 @@ async function enrichMovie({ base }) {
 }
 
 // ── 3) TV 수집 ──────────────────────────────────────────────
+// 1차: 한국어 TV(신규 시리즈 first_air + 반환 시즌 air_date) + 2차: 해외 OTT TV
 async function collectTv(providers) {
   const cand = new Map()
-  const add = (m, providerId) => {
-    let c = cand.get(m.id)
-    if (!c) { c = { base: m, providerIds: new Set() }; cand.set(m.id, c) }
-    c.providerIds.add(providerId)
-  }
+
+  // 1차) 한국어 TV
+  const koFirst = await discoverAll('/discover/tv', {
+    with_original_language: LANG_KO, include_adult: false, include_null_first_air_dates: false,
+    'first_air_date.gte': START, 'first_air_date.lte': END, sort_by: 'first_air_date.asc', timezone: 'Asia/Seoul',
+  }, 'TV·한국어·first')
+  const koAir = await discoverAll('/discover/tv', {
+    with_original_language: LANG_KO, include_adult: false,
+    'air_date.gte': START, 'air_date.lte': END, sort_by: 'first_air_date.desc', timezone: 'Asia/Seoul',
+  }, 'TV·한국어·air')
+  for (const m of [...koFirst, ...koAir]) addCand(cand, m, { korean: true })
+
+  // 2차) 해외 OTT TV — provider별 (신규 + 반환시즌)
   for (const prov of providers) {
-    const list = await discoverAll('/discover/tv', {
+    const common = {
       watch_region: REGION, with_watch_providers: prov.providerId,
       with_watch_monetization_types: 'flatrate',
-      include_adult: false, include_null_first_air_dates: false,
-      'first_air_date.gte': START, 'first_air_date.lte': END,
-      sort_by: 'first_air_date.asc', timezone: 'Asia/Seoul',
-    }, `TV·${prov.providerName}`)
-    for (const m of list) add(m, prov.providerId)
+      include_adult: false, timezone: 'Asia/Seoul',
+    }
+    const first = await discoverAll('/discover/tv', { ...common, include_null_first_air_dates: false, 'first_air_date.gte': START, 'first_air_date.lte': END, sort_by: 'first_air_date.asc' }, `TV·${prov.providerName}·first`)
+    const air = await discoverAll('/discover/tv', { ...common, 'air_date.gte': START, 'air_date.lte': END, sort_by: 'first_air_date.desc' }, `TV·${prov.providerName}·air`)
+    for (const m of [...first, ...air]) addCand(cand, m, { providerId: prov.providerId })
   }
   return cand
 }
 
 // TV 상세 보강 → [시리즈 행, (범위 내) 시즌 행들]
-async function enrichTv({ base }) {
+async function enrichTv({ base, korean }) {
   let detail
   try {
     detail = await tmdb(`/tv/${base.id}`, { append_to_response: 'watch/providers' })
   } catch (e) { logErr(`TV 상세 실패(${base.id}): ${e.message}`, { mediaType: 'tv' }); return [] }
 
   const krProviders = extractKrFlatrate(detail['watch/providers'])
-  if (!krProviders.length) { stats.skipped++; return [] }
+  const pop = detail.popularity ?? base.popularity ?? 0
+  // 해외작: 한국 OTT 확인 필수 + 인기도 임계값. 한국어작: provider 없어도 포함.
+  if (!korean) {
+    if (!krProviders.length) { stats.skipped++; return [] }
+    if (pop < FOREIGN_MIN_POP) { stats.skipped++; return [] }
+  } else if (pop < KOREAN_MIN_POP) { stats.skipped++; return [] }
 
   const rows = []
   const title = detail.name || base.name
@@ -397,7 +436,23 @@ async function main() {
     catch (e) { logErr(`upsert 실패(batch ${i / BATCH | 0}): ${e.message}`) }
   }
 
-  await writeLog(errors.length ? 'success' : 'success')
+  // full 모드 정리: 이번 실행에서 갱신 안 된 옛 tmdb 자동수집 행은 숨김 처리.
+  // (이전 동기화의 노이즈/사라진 작품 제거. 삭제 대신 hidden=true → FK 안전·자가치유.
+  //  manualOverride 행은 관리자 큐레이션이므로 건드리지 않음. incremental 모드는 일부 범위만
+  //  다루므로 정리하지 않는다.)
+  if (MODE === 'full') {
+    try {
+      const res = await sbFetch(
+        `contents?source=eq.tmdb&manualOverride=eq.false&hidden=eq.false&syncedAt=lt.${encodeURIComponent(RUN_START)}`,
+        { method: 'PATCH', headers: { Prefer: 'return=minimal,count=exact' }, body: JSON.stringify({ hidden: true }) },
+      )
+      const range = res.headers.get('content-range') || ''
+      stats.hiddenStale = Number(range.split('/')[1]) || 0
+      console.log(`🧹 정리: 갱신 안 된 옛 tmdb 행 ${stats.hiddenStale}건 숨김 처리`)
+    } catch (e) { logErr(`정리(숨김) 실패: ${e.message}`) }
+  }
+
+  await writeLog('success')
   console.log(`\n✅ 완료 — inserted ${stats.inserted}, updated ${stats.updated}, skipped ${stats.skipped}, failed ${stats.failed}`)
   console.log(JSON.stringify({ success: true, ...stats, errors: errors.slice(0, 10) }, null, 2))
 }
