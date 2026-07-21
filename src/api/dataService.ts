@@ -71,13 +71,46 @@ async function persist(t: Table, prev: any[], next: any[]) {
 }
 
 // ── Load all (앱 시작 시) ────────────────────────────────────
+/**
+ * 한 테이블 전체를 페이지네이션으로 로드.
+ * PostgREST는 한 번의 select에 기본 1000행만 반환하므로, .range()로 끝까지 긁는다.
+ * (안 그러면 contents가 1000행을 넘는 순간 최근 행들이 캐시에 안 올라와
+ *  그 content를 참조하는 watched/피드 항목이 화면에서 사라진다.)
+ */
+async function selectAllRows(t: Table): Promise<any[] | null> {
+  const PAGE = 1000
+  const all: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(t).select('*').range(from, from + PAGE - 1)
+    if (error) { console.error('[supabase load]', t, error.message); return null }
+    if (!data || data.length === 0) break
+    all.push(...data)
+    if (data.length < PAGE) break
+  }
+  return all
+}
+
 export async function loadAll() {
   await Promise.all(TABLES.map(async t => {
-    const { data, error } = await supabase.from(t).select('*')
-    if (error) { console.error('[supabase load]', t, error.message); return }
-    if (data) cache[t] = data
+    const rows = await selectAllRows(t)
+    if (rows) cache[t] = rows
   }))
   injectUpcomingSeed()
+}
+
+/**
+ * RLS로 "본인 것만" 보이는 유저별 테이블.
+ * 이 테이블들은 auth.uid()가 있어야 행이 반환되므로, 로그인/로그아웃 등
+ * 인증 상태가 바뀐 뒤 반드시 다시 로드해야 한다. (안 그러면 anon으로 로드된
+ * 빈 캐시가 남아 내 피드/찜/알림이 텅 빈 것처럼 보인다.)
+ */
+const USER_SCOPED: Table[] = ['watched', 'bookmarks', 'blocks', 'notifications', 'reports']
+
+export async function reloadUserScoped() {
+  await Promise.all(USER_SCOPED.map(async t => {
+    const rows = await selectAllRows(t)
+    if (rows) cache[t] = rows
+  }))
 }
 
 /**

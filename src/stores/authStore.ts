@@ -44,6 +44,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // 로그인 계정(고정닉)
         const account = await DS.ensureProfile(session.user)
         DS.setSession(account)
+        // RLS 유저별 테이블(watched/bookmarks/…)을 인증 상태로 다시 로드
+        await DS.reloadUserScoped()
         set({ user: account, isAccount: true, initialized: true })
         return
       }
@@ -64,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const account = await DS.ensureProfile(data.user)
     if (account.banned) { await supabase.auth.signOut(); return { ok: false, error: '정지된 계정입니다. 관리자에게 문의하세요.' } }
     DS.setSession(account)
+    await DS.reloadUserScoped()
     set({ user: account, isAccount: true })
     return { ok: true }
   },
@@ -81,6 +84,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     const account = await DS.ensureProfile(data.user, nickname.trim())
     DS.setSession(account)
+    await DS.reloadUserScoped()
     set({ user: account, isAccount: true })
     return { ok: true }
   },
@@ -89,6 +93,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await supabase.auth.signOut()
     const guest = ensureGuest()
     DS.setSession(guest)
+    // 로그아웃 후엔 이전 계정의 유저별 캐시를 비운다(anon → 0행)
+    await DS.reloadUserScoped()
     set({ user: guest, isAccount: false })
   },
 
