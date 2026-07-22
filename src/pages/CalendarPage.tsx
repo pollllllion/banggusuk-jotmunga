@@ -4,10 +4,11 @@ import * as DS from '@/api/dataService'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
+import { ContentInfo } from '@/components/content/ContentInfo'
 import { BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import {
-  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl, castProfileUrl,
+  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
   OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank,
 } from '@/utils/ott'
 import type { Content, ContentType, ContentProvider } from '@/types'
@@ -34,15 +35,6 @@ function keyOf(d: Date): string {
 function fmtDateKo(d: string): string {
   const dt = new Date(d + 'T00:00:00')
   return `${d.replace(/-/g, '. ')} (${WEEKDAYS[dt.getDay()]})`
-}
-
-/** 편성 요약: 시즌·회차·러닝타임을 한 줄로 */
-function scheduleSummary(c: Content): string | null {
-  const parts: string[] = []
-  if (c.numberOfSeasons && c.numberOfSeasons > 1) parts.push(`시즌 ${c.numberOfSeasons}`)
-  if (c.numberOfEpisodes) parts.push(`총 ${c.numberOfEpisodes}부작`)
-  if (c.runtime) parts.push(c.type === 'movie' ? `${c.runtime}분` : `회차당 ${c.runtime}분`)
-  return parts.length ? parts.join(' · ') : null
 }
 
 function ddayOf(release: string): { label: string; over: boolean } {
@@ -154,9 +146,6 @@ export function CalendarPage() {
   const selDate = selected ? effectiveReleaseDate(selected) : null
   const selProviders = selected ? providersOf(selected) : []
   const selSource = selected ? releaseSourceLabel(selected.releaseDateSource) : null
-  const selCast = selected?.castMembers ?? []
-  const selNetworks = selected?.networks ?? []
-  const selSchedule = selected ? scheduleSummary(selected) : null
 
   return (
     <div className="cal-wrap">
@@ -322,52 +311,7 @@ export function CalendarPage() {
 
             {/* 상세 정보 (네이버 검색 스타일) */}
             <div className="cal-detail">
-              <dl className="cal-detail-grid">
-                {selected.creators && selected.creators.length > 0 && (
-                  <>
-                    <dt>{selected.type === 'movie' ? '감독' : '연출·제작'}</dt>
-                    <dd>{selected.creators.join(', ')}</dd>
-                  </>
-                )}
-                {selNetworks.length > 0 && (
-                  <>
-                    <dt>채널·편성</dt>
-                    <dd className="cal-detail-networks">
-                      {selNetworks.map(n => (
-                        <span key={n.name} className="cal-net">{n.name}</span>
-                      ))}
-                    </dd>
-                  </>
-                )}
-                {selSchedule && (<><dt>구성</dt><dd>{selSchedule}</dd></>)}
-                {selected.genres && selected.genres.length > 0 && (
-                  <><dt>장르</dt><dd>{selected.genres.join(' · ')}</dd></>
-                )}
-                {typeof selected.voteAverage === 'number' && selected.voteAverage > 0 && (
-                  <><dt>평점</dt><dd>⭐ {selected.voteAverage.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
-                )}
-              </dl>
-
-              {selCast.length > 0 && (
-                <div className="cal-cast">
-                  <div className="cal-cast-label">출연</div>
-                  <div className="cal-cast-list">
-                    {selCast.map((p, i) => {
-                      const url = castProfileUrl(p.profilePath)
-                      return (
-                        <div className="cal-cast-item" key={p.name + i}>
-                          <div className="cal-cast-photo">
-                            {url ? <img src={url} alt={p.name} loading="lazy" /> : <span>{p.name.slice(0, 1)}</span>}
-                          </div>
-                          <div className="cal-cast-name">{p.name}</div>
-                          {p.character && <div className="cal-cast-role">{p.character}</div>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
+              <ContentInfo content={selected} />
               <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
             </div>
             <div className="cal-modal-actions">

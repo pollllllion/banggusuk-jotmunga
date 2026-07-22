@@ -6,6 +6,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { DiscussionBoard } from '@/components/content/DiscussionBoard'
+import { ContentInfo } from '@/components/content/ContentInfo'
 import { ReviewCard } from '@/components/review/ReviewCard'
 import { Stars } from '@/components/ui/Score'
 import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
@@ -28,9 +29,17 @@ export function ContentDetailPage() {
   const content = DS.getContentById(id!)
   if (!content) { navigate('/browse'); return null }
 
-  // 아직 안 나온 작품은 리뷰(평점) 대신 기대평 수다방을 보여준다
-  const isUpcoming = content.status === 'upcoming' ||
-    (!!content.releaseDate && new Date(content.releaseDate + 'T00:00:00') > new Date())
+  // 공개 여부는 캘린더와 동일하게 '공개일' 기준으로 판단한다.
+  // (TMDB 동기화는 status를 전부 'upcoming'으로 저장하므로 status만 보면 이미 개봉한 작품도 '공개예정'이 됨)
+  const relDate = content.manualOverride && content.manualReleaseDate ? content.manualReleaseDate : content.releaseDate
+  const now = new Date()
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const isUpcoming = relDate ? relDate > todayKey : content.status === 'upcoming'
+  // 공개일이 있는(=캘린더/TMDB) 작품은 날짜로 판정, 없으면 큐레이션 status(연재중/완결) 사용
+  const statusLabel = isUpcoming ? '공개예정'
+    : relDate ? null
+    : content.status === 'ongoing' ? '연재중'
+    : content.status === 'completed' ? '완결' : null
 
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
   let reviews = DS.getReviewsByContent(content.id).filter(r => !blockedIds.includes(r.authorId || ''))
@@ -73,13 +82,9 @@ export function ContentDetailPage() {
           <span className={`type-badge type-${content.type}`}>{TYPE_LABELS[content.type]}</span>
           <h1>{content.title}</h1>
           <div className="content-hero-meta">
-            {content.creators.length > 0 && <span><b>제작:</b> {content.creators.join(', ')} · </span>}
             {content.platform && <span>{content.platform} · </span>}
-            {content.releaseYear && <span>{content.releaseYear}년</span>}
-            {content.status && <span> · {content.status === 'upcoming' ? '공개예정' : content.status === 'ongoing' ? '연재중' : '완결'}</span>}
-          </div>
-          <div className="content-genres">
-            {content.genres.map(g => <span key={g} className="genre-tag">{g}</span>)}
+            {relDate ? <span>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</span> : content.releaseYear && <span>{content.releaseYear}년</span>}
+            {statusLabel && !relDate && <span> · {statusLabel}</span>}
           </div>
           <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
 
@@ -98,6 +103,8 @@ export function ContentDetailPage() {
           </div>
         </div>
       </div>
+
+      <ContentInfo content={content} />
 
       {isUpcoming ? (
         <DiscussionBoard contentId={content.id} />
