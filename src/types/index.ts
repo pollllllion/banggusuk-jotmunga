@@ -23,6 +23,7 @@ export interface ContentProvider {
 // releaseDate 가 어디서 왔는지 (신뢰도 표시용)
 export type ReleaseDateSource =
   | 'kr_digital'          // 한국 디지털(OTT) 공개일
+  | 'kr_ott_post_theatrical' // 극장 개봉 후 OTT/디지털 공개(극장 이력 있음)
   | 'kr_theatrical'       // 한국 극장 개봉일
   | 'tmdb_release_date'   // TMDB 대표 개봉일
   | 'tmdb_first_air_date' // TV 최초 방영일

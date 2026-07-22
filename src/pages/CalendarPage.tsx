@@ -225,7 +225,11 @@ export function CalendarPage() {
                 const items = byDate[k] || []
                 const cls = di === 0 ? 'sun' : di === 6 ? 'sat' : ''
                 return (
-                  <div className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''}`} key={di}>
+                  <div
+                    className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''} ${items.length ? 'has-items' : ''}`}
+                    key={di}
+                    onClick={() => items.length && setDayList({ key: k, items })}
+                    title={items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : undefined}>
                     <span className="cal-daynum">{date.getDate()}</span>
                     {items.slice(0, MAX_PER_CELL).map(c => {
                       const provs = providersOf(c)
@@ -233,7 +237,7 @@ export function CalendarPage() {
                         <div
                           key={c.id}
                           className={`cal-item type-${c.type}`}
-                          onClick={() => openItem(c)}
+                          onClick={e => { e.stopPropagation(); openItem(c) }}
                           title={c.title}>
                           {provs.length > 0
                             ? <ProviderLogos providers={provs.slice(0, 1)} size={14} />
@@ -243,7 +247,7 @@ export function CalendarPage() {
                       )
                     })}
                     {items.length > MAX_PER_CELL && (
-                      <span className="cal-more" onClick={() => setDayList({ key: k, items })}>
+                      <span className="cal-more" onClick={e => { e.stopPropagation(); setDayList({ key: k, items }) }}>
                         +{items.length - MAX_PER_CELL}개 더
                       </span>
                     )}
@@ -306,6 +310,9 @@ export function CalendarPage() {
                     <span className="cal-badge upcoming">공개 예정</span>
                   )}
                   <span className="cal-badge type">{TYPE_EMOJIS[selected.type]} {TYPE_LABELS[selected.type]}</span>
+                  {selected.releaseDateSource === 'kr_ott_post_theatrical' && (
+                    <span className="cal-badge ott-release">극장 개봉작 · OTT 공개</span>
+                  )}
                   {selProviders.length === 0 && selected.platform && <span className="cal-badge plat">{selected.platform}</span>}
                 </div>
                 <h2>{selected.title}</h2>

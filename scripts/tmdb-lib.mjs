@@ -146,8 +146,12 @@ export function pickKrMovieDate(releaseDatesResults, fallbackDate) {
       { type: 2, source: 'kr_theatrical' },
       { type: 1, source: 'kr_theatrical' },
     ]
+    const hasTheatrical = earliestByType.has(3) || earliestByType.has(2) || earliestByType.has(1)
     for (const p of priority) {
-      if (earliestByType.has(p.type)) return { date: earliestByType.get(p.type), source: p.source }
+      if (!earliestByType.has(p.type)) continue
+      // 극장 개봉(type 3/2/1) 이력이 있는 영화의 디지털/OTT 공개(type 4)는 별도 소스로 표시
+      const source = (p.type === 4 && hasTheatrical) ? 'kr_ott_post_theatrical' : p.source
+      return { date: earliestByType.get(p.type), source }
     }
   }
   if (fallbackDate) return { date: String(fallbackDate).slice(0, 10), source: 'tmdb_release_date' }

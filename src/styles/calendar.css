@@ -73,6 +73,8 @@
 }
 .cal-cell:nth-child(7n) { border-right: none; }
 .cal-cell.empty { background: var(--bg); }
+.cal-cell.has-items { cursor: pointer; transition: background var(--duration) var(--ease); }
+.cal-cell.has-items:hover { background: var(--primary-50); }
 .cal-daynum { font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 2px; }
 .cal-cell.sun .cal-daynum { color: var(--danger); }
 .cal-cell.sat .cal-daynum { color: var(--info); }
@@ -137,6 +139,7 @@
 .cal-badge.dday { background: var(--dark); color: #fff; }
 .cal-badge.type { background: var(--primary-50); color: var(--text-secondary); }
 .cal-badge.plat { background: var(--accent-light); color: #92400E; }
+.cal-badge.ott-release { background: #1D1D28; color: #fff; }
 .cal-badge.upcoming { background: var(--success, #10B981); color: #fff; }
 .cal-modal-info h2 { font-size: 18px; font-weight: 800; margin: 0 0 6px; color: var(--text); letter-spacing: -0.01em; }
 .cal-modal-ott { margin: 2px 0 8px; }

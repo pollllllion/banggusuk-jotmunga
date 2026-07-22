@@ -44,6 +44,11 @@ const IMAGE_LOGOS: Record<string, string> = {
 // 앱 아이콘(브랜드 컬러 + 약칭)으로 그리는 플랫폼/채널 (normName 키)
 const PLATFORM_SPECS: Record<string, LogoSpec> = {
   // ── OTT ──
+  // 넷플릭스·티빙·디즈니+·웨이브: 평소엔 TMDB 로고를 쓰고, 로고 경로가 없을 때만 폴백으로 사용
+  netflix:          { bg: '#000000', fg: '#E50914', label: 'N' },
+  tving:            { bg: '#FF153C', fg: '#FFFFFF', label: 'T' },
+  disneyplus:       { bg: '#0E1A4C', fg: '#FFFFFF', label: 'D+' },
+  wavve:            { bg: '#1731C8', fg: '#FFFFFF', label: 'W' },
   watcha:           { bg: '#000000', fg: '#FF0558', label: 'W' },
   appletvplus:      { bg: '#000000', fg: '#FFFFFF', label: 'tv+' },
   amazonprimevideo: { bg: '#0F171E', fg: '#1F9FEF', label: 'P' },
@@ -175,6 +180,7 @@ export function platformSortRank(c: Content): number {
 export function releaseSourceLabel(src: ReleaseDateSource | null | undefined): string | null {
   switch (src) {
     case 'kr_digital': return '국내 OTT 공개일'
+    case 'kr_ott_post_theatrical': return '극장 개봉작 · OTT 공개일'
     case 'kr_theatrical': return '국내 극장 개봉일'
     case 'tmdb_release_date': return 'TMDB 개봉일'
     case 'tmdb_first_air_date': return '최초 방영일'

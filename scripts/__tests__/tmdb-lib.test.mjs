@@ -157,8 +157,12 @@ describe('영화 대한민국 공개일 우선순위', () => {
       { type: 4, release_date: '2026-04-20T00:00:00.000Z' }, // 같은 타입 → 더 빠른 날짜
     ],
   }]
-  it('Digital(4)이 Theatrical(3)보다 우선, 같은 타입은 가장 빠른 날짜', () => {
-    expect(pickKrMovieDate(results, null)).toEqual({ date: '2026-04-20', source: 'kr_digital' })
+  it('Digital(4)+Theatrical(3) 공존 → 극장개봉작 OTT 공개, 같은 타입은 가장 빠른 날짜', () => {
+    expect(pickKrMovieDate(results, null)).toEqual({ date: '2026-04-20', source: 'kr_ott_post_theatrical' })
+  })
+  it('극장 이력 없는 Digital(4)만 → kr_digital (OTT 오리지널 영화)', () => {
+    const r = [{ iso_3166_1: 'KR', release_dates: [{ type: 4, release_date: '2026-05-01' }] }]
+    expect(pickKrMovieDate(r, null)).toEqual({ date: '2026-05-01', source: 'kr_digital' })
   })
   it('Digital 없으면 Theatrical 사용', () => {
     const r = [{ iso_3166_1: 'KR', release_dates: [{ type: 3, release_date: '2026-03-10' }] }]

@@ -5,6 +5,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { CONTENT_TYPES, GENRES, TYPE_LABELS } from '@/utils/constants'
 import { timeAgo } from '@/utils/helpers'
+import { OTT_FILTERS } from '@/utils/ott'
 import type { Content, ContentType } from '@/types'
 
 const REASON_LABELS: Record<string, string> = {
@@ -159,12 +160,15 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
     (content?.castMembers || []).map(c => (c.character ? `${c.name}, ${c.character}` : c.name)).join('\n'),
   )
   const [networks, setNetworks] = useState((content?.networks || []).map(n => n.name).join(', '))
+  const [ott, setOtt] = useState<string[]>((content?.providers || []).map(p => p.providerName))
   const [runtime, setRuntime] = useState(content?.runtime?.toString() || '')
   const [seasons, setSeasons] = useState(content?.numberOfSeasons?.toString() || '')
   const [episodes, setEpisodes] = useState(content?.numberOfEpisodes?.toString() || '')
   const isTmdb = content?.source === 'tmdb'
 
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
+  const toggleOtt = (name: string) => setOtt(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
+  const nameToId = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h }
 
   const submit = () => {
     if (!title.trim()) { toast('제목을 입력하세요.'); return }
@@ -181,6 +185,17 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
     const networkList = networks.split(',').map(s => s.trim()).filter(Boolean).map(name => ({
       name, logoPath: prevNets.find(p => p.name === name)?.logoPath ?? null,
     }))
+    // OTT: 선택 칩 → providers. 기존 providerId/logoPath(넷플릭스 등 TMDB 로고)는 이름 같으면 유지.
+    const prevProv = content?.providers || []
+    const providers = ott.map(name => {
+      const prev = prevProv.find(p => p.providerName === name)
+      return {
+        providerId: prev?.providerId ?? nameToId(name),
+        providerName: name,
+        logoPath: prev?.logoPath ?? null,
+        monetizationType: 'flatrate' as const,
+      }
+    })
     const data: Partial<Content> = {
       type, title: title.trim(),
       posterUrl: posterUrl.trim() || null,
@@ -195,6 +210,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       manualOverride,
       castMembers,
       networks: networkList,
+      providers,
       runtime: runtime ? parseInt(runtime, 10) : null,
       numberOfSeasons: seasons ? parseInt(seasons, 10) : null,
       numberOfEpisodes: episodes ? parseInt(episodes, 10) : null,
@@ -262,6 +278,14 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
         <label>출연진 (한 줄에 한 명 · “이름, 배역”)</label>
         <textarea className="form-input" value={cast} onChange={e => setCast(e.target.value)}
           style={{ minHeight: 72, resize: 'vertical' }} placeholder={'남주혁, 구천\n노윤서, 생강'} />
+      </div>
+      <div className="form-group">
+        <label>OTT 제공 (아이콘 표시 · 캘린더/상세)</label>
+        <div className="tag-chips">
+          {OTT_FILTERS.map(o => (
+            <span key={o.name} className={`tag-chip ${ott.includes(o.name) ? 'active' : ''}`} onClick={() => toggleOtt(o.name)}>{o.label}</span>
+          ))}
+        </div>
       </div>
       <div className="form-group"><label>채널·방영사 (쉼표 구분)</label><input className="form-input" value={networks} onChange={e => setNetworks(e.target.value)} placeholder="tvN, Netflix" /></div>
       <div className="form-row" style={{ marginBottom: 10 }}>
