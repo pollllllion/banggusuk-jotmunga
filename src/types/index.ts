@@ -128,6 +128,19 @@ export interface Discussion {
   authorId: string | null    // 로그인 글이면 auth uid, 유동닉이면 null
   guestName?: string | null  // 유동닉 표시명
   guestPwHash?: string | null // 유동닉 비번 SHA-256 hex
+  title?: string | null      // 게시판 글 제목 (구 글은 없을 수 있음)
+  body: string
+  likes: string[]
+  createdAt: string
+}
+
+// 방구석토론방 게시글 댓글 (고정닉/유동닉)
+export interface DiscussionComment {
+  id: string
+  discussionId: string
+  authorId: string | null
+  guestName?: string | null
+  guestPwHash?: string | null
   body: string
   likes: string[]
   createdAt: string

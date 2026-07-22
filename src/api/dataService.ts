@@ -10,18 +10,18 @@ import { uuid } from '@/utils/helpers'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import type {
   User, Content, ContentType, Review, Comment, Notification,
-  Report, Block, Bookmark, Watched, Announcement, Discussion,
+  Report, Block, Bookmark, Watched, Announcement, Discussion, DiscussionComment,
 } from '@/types'
 
 type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'profiles'
+  | 'bookmarks' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'discussion_comments' | 'profiles'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'profiles']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'discussion_comments', 'profiles']
 
 const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], profiles: [],
+  bookmarks: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [],
 }
 
 function rowKey(t: Table, r: any): string {
@@ -383,10 +383,49 @@ export async function toggleCommentLike(id: string, userId: string): Promise<voi
 
 export function deleteDiscussion(id: string): void {
   saveDiscussions(getDiscussions().filter(d => d.id !== id))
+  // 딸린 댓글도 캐시에서 제거(서버는 FK on delete cascade)
+  cache.discussion_comments = cache.discussion_comments.filter((c: any) => c.discussionId !== id)
+}
+
+// ── Discussion Comments (게시글 댓글) ───────────────────────
+export function getDiscussionComments(): DiscussionComment[] { return load('discussion_comments') }
+export function saveDiscussionComments(c: DiscussionComment[]) { store('discussion_comments', c) }
+
+export function getDiscussionCommentsByPost(discussionId: string): DiscussionComment[] {
+  return getDiscussionComments()
+    .filter(c => c.discussionId === discussionId)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+}
+
+export function countDiscussionComments(discussionId: string): number {
+  return getDiscussionComments().filter(c => c.discussionId === discussionId).length
+}
+
+export function createDiscussionComment(data: Partial<DiscussionComment>): DiscussionComment {
+  const c: DiscussionComment = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as DiscussionComment
+  saveDiscussionComments([...getDiscussionComments(), c])
+  return c
+}
+
+export function deleteDiscussionComment(id: string): void {
+  saveDiscussionComments(getDiscussionComments().filter(c => c.id !== id))
+}
+
+/** 게시글 댓글 공감 토글 — 서버 RPC(추천=로그인만), 캐시 낙관적 갱신 */
+export async function toggleDiscussionCommentLike(id: string, userId: string): Promise<void> {
+  const cs = getDiscussionComments()
+  const idx = cs.findIndex(c => c.id === id)
+  if (idx >= 0) {
+    const cur = cs[idx]
+    const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+    const next = [...cs]; next[idx] = { ...cur, likes }; cache.discussion_comments = next
+  }
+  try { await supabase.rpc('toggle_discussion_comment_like', { p_comment_id: id }) }
+  catch (e) { console.error('[toggle_discussion_comment_like]', e) }
 }
 
 /** 유동닉 글 삭제 — 서버에서 비번 검증(pgcrypto). 성공 시 true, 비번 틀리면 false */
-export async function deleteGuestPost(table: 'reviews' | 'discussions' | 'comments', id: string, password: string): Promise<boolean> {
+export async function deleteGuestPost(table: 'reviews' | 'discussions' | 'comments' | 'discussion_comments', id: string, password: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('delete_guest_post', { p_table: table, p_id: id, p_password: password })
   if (error) { console.error('[delete_guest_post]', error); return false }
   if (data === true) {

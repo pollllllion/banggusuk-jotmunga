@@ -17,6 +17,7 @@ export function WriteDiscussionModal({ onClose, onPosted }: {
 
   const [picked, setPicked] = useState<Content | null>(null)
   const [q, setQ] = useState('')
+  const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [guestName, setGuestName] = useState('')
   const [guestPw, setGuestPw] = useState('')
@@ -34,18 +35,21 @@ export function WriteDiscussionModal({ onClose, onPosted }: {
 
   const submit = async () => {
     if (!picked) { toast('작품을 먼저 선택하세요.'); return }
+    const head = title.trim()
     const text = body.trim()
+    if (!head) { toast('제목을 입력하세요.'); return }
+    if (head.length > 80) { toast('제목은 80자 이내로 입력해주세요.'); return }
     if (!text) { toast('내용을 입력하세요.'); return }
-    if (text.length > 500) { toast('500자 이내로 입력해주세요.'); return }
+    if (text.length > 5000) { toast('내용은 5000자 이내로 입력해주세요.'); return }
     setSaving(true)
     try {
       if (isAccount && user) {
-        DS.createDiscussion({ contentId: picked.id, authorId: user.id, body: text })
+        DS.createDiscussion({ contentId: picked.id, authorId: user.id, title: head, body: text })
       } else {
         if (!guestName.trim()) { toast('닉네임을 입력하세요.'); setSaving(false); return }
         if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); setSaving(false); return }
         const hash = await sha256hex(guestPw)
-        DS.createDiscussion({ contentId: picked.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text })
+        DS.createDiscussion({ contentId: picked.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, title: head, body: text })
       }
       toast('글을 올렸어요!')
       onPosted()
@@ -94,14 +98,18 @@ export function WriteDiscussionModal({ onClose, onPosted }: {
 
             {!isAccount && <div style={{ marginTop: 12 }}><GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} /></div>}
 
+            <input
+              className="form-input" style={{ marginTop: 10, fontWeight: 700 }}
+              placeholder="제목" maxLength={80} value={title} onChange={e => setTitle(e.target.value)}
+            />
             <textarea
-              className="form-input" style={{ marginTop: 10, minHeight: 96, resize: 'vertical' }}
+              className="form-input" style={{ marginTop: 8, minHeight: 140, resize: 'vertical' }}
               placeholder="이 작품에 대한 감상·떡밥·추천 뭐든 자유롭게!"
-              maxLength={520} value={body} onChange={e => setBody(e.target.value)}
+              maxLength={5000} value={body} onChange={e => setBody(e.target.value)}
             />
             <div className="modal-actions" style={{ alignItems: 'center' }}>
-              <span className="disc-count" style={{ marginRight: 'auto', fontSize: 12, color: 'var(--subtext)' }}>{body.length}/500</span>
-              <button className="btn btn-primary" onClick={submit} disabled={saving || !body.trim()}>
+              <span className="disc-count" style={{ marginRight: 'auto', fontSize: 12, color: 'var(--subtext)' }}>{body.length}/5000</span>
+              <button className="btn btn-primary" onClick={submit} disabled={saving || !title.trim() || !body.trim()}>
                 {saving ? '올리는 중…' : '글 올리기'}
               </button>
             </div>
