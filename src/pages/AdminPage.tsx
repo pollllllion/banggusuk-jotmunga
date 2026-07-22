@@ -19,8 +19,10 @@ export function AdminPage() {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const location = useLocation()
-  // 캘린더의 '+ 신작 등록' 바로가기로 진입했을 때 작품 등록 폼을 바로 연다.
-  const openNewContent = Boolean((location.state as { newContent?: boolean } | null)?.newContent)
+  const navState = location.state as { newContent?: boolean; editContentId?: string } | null
+  // 캘린더의 '+ 신작 등록' 바로가기로 진입 → 등록 폼, '이 작품 정보 수정' → 해당 작품 편집 폼.
+  const openNewContent = Boolean(navState?.newContent)
+  const editContentId = navState?.editContentId
   const [tab, setTab] = useState<'contents' | 'reports' | 'users' | 'announce'>('contents')
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
@@ -50,7 +52,7 @@ export function AdminPage() {
         <button className={`admin-tab ${tab === 'announce' ? 'active' : ''}`} onClick={() => setTab('announce')}>공지</button>
       </div>
 
-      {tab === 'contents' && <ContentsTab rerender={rerender} openNew={openNewContent} />}
+      {tab === 'contents' && <ContentsTab rerender={rerender} openNew={openNewContent} editId={editContentId} />}
 
       {tab === 'reports' && (!reports.length ? <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>신고 내역이 없습니다.</p> :
         [...reports].sort((a, b) => (a.status === 'pending' ? -1 : 1)).map(r => (
@@ -87,7 +89,7 @@ export function AdminPage() {
 }
 
 // ── 작품 관리 탭 ─────────────────────────────────────────────
-function ContentsTab({ rerender, openNew }: { rerender: () => void; openNew?: boolean }) {
+function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; openNew?: boolean; editId?: string }) {
   const toast = useToastStore(s => s.show)
   const { user } = useAuthStore()
   const [editing, setEditing] = useState<Content | null>(null)
@@ -97,6 +99,13 @@ function ContentsTab({ rerender, openNew }: { rerender: () => void; openNew?: bo
 
   // 캘린더 '+ 신작 등록' 바로가기로 들어오면 폼을 자동으로 연다.
   useEffect(() => { if (openNew) { setEditing(null); setShowForm(true) } }, [openNew])
+  // 캘린더 '이 작품 정보 수정' 바로가기로 들어오면 해당 작품 편집 폼을 연다.
+  useEffect(() => {
+    if (!editId) return
+    const c = DS.getContentById(editId)
+    if (c) { setEditing(c); setShowForm(true) }
+    else toast('해당 작품을 찾을 수 없어요.')
+  }, [editId])
 
   const q = query.trim().toLowerCase()
   // 최신 개봉순(공개일 내림차순, 없으면 뒤로). 검색은 제목 기준.

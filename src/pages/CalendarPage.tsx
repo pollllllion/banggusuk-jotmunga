@@ -339,6 +339,11 @@ export function CalendarPage() {
                 <CommentIcon /> 작품방 들어가기
               </button>
             </div>
+            {user?.role === 'admin' && (
+              <button className="cal-admin-edit" onClick={() => navigate('/admin', { state: { editContentId: selected.id } })}>
+                ✏️ 관리자 · 이 작품 정보 수정
+              </button>
+            )}
             {selProviders.length > 0 && (
               <p className="cal-modal-just">OTT 제공 정보: JustWatch · 실제 국내 공개일과 다를 수 있어요.</p>
             )}

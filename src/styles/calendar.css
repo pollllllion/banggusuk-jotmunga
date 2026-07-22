@@ -199,6 +199,13 @@
 .cal-act.primary { background: var(--dark); color: #fff; border-color: var(--dark); }
 .cal-act.primary:hover { background: var(--primary-dark); }
 .cal-act.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-admin-edit {
+  display: block; margin: -8px 20px 12px; padding: 8px 12px; width: calc(100% - 40px);
+  border: 1px dashed var(--border); border-radius: var(--radius-md); background: none;
+  font-size: 13px; font-weight: 600; color: var(--subtext); cursor: pointer;
+  transition: all var(--duration) var(--ease);
+}
+.cal-admin-edit:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-50); }
 .cal-modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 22px; color: var(--subtext); cursor: pointer; line-height: 1; }
 
 /* ── 날짜별 전체 리스트 모달 (더보기) ── */
