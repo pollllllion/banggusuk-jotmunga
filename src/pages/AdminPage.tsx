@@ -1,11 +1,13 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { CONTENT_TYPES, GENRES, TYPE_LABELS } from '@/utils/constants'
+import { CONTENT_TYPES, GENRES, TYPE_LABELS, WEBTOON_PLATFORMS } from '@/utils/constants'
 import { timeAgo } from '@/utils/helpers'
 import { OTT_FILTERS } from '@/utils/ott'
+import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
+import { PosterUploader } from '@/components/content/PosterUploader'
 import type { Content, ContentType } from '@/types'
 
 const REASON_LABELS: Record<string, string> = {
@@ -16,6 +18,9 @@ const TARGET_LABELS: Record<string, string> = { review: '리뷰', comment: '댓�
 export function AdminPage() {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
+  const location = useLocation()
+  // 캘린더의 '+ 신작 등록' 바로가기로 진입했을 때 작품 등록 폼을 바로 연다.
+  const openNewContent = Boolean((location.state as { newContent?: boolean } | null)?.newContent)
   const [tab, setTab] = useState<'contents' | 'reports' | 'users' | 'announce'>('contents')
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
@@ -45,7 +50,7 @@ export function AdminPage() {
         <button className={`admin-tab ${tab === 'announce' ? 'active' : ''}`} onClick={() => setTab('announce')}>공지</button>
       </div>
 
-      {tab === 'contents' && <ContentsTab rerender={rerender} />}
+      {tab === 'contents' && <ContentsTab rerender={rerender} openNew={openNewContent} />}
 
       {tab === 'reports' && (!reports.length ? <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>신고 내역이 없습니다.</p> :
         [...reports].sort((a, b) => (a.status === 'pending' ? -1 : 1)).map(r => (
@@ -82,12 +87,16 @@ export function AdminPage() {
 }
 
 // ── 작품 관리 탭 ─────────────────────────────────────────────
-function ContentsTab({ rerender }: { rerender: () => void }) {
+function ContentsTab({ rerender, openNew }: { rerender: () => void; openNew?: boolean }) {
   const toast = useToastStore(s => s.show)
   const { user } = useAuthStore()
   const [editing, setEditing] = useState<Content | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showTmdb, setShowTmdb] = useState(false)
   const [query, setQuery] = useState('')
+
+  // 캘린더 '+ 신작 등록' 바로가기로 들어오면 폼을 자동으로 연다.
+  useEffect(() => { if (openNew) { setEditing(null); setShowForm(true) } }, [openNew])
 
   const q = query.trim().toLowerCase()
   // 최신 개봉순(공개일 내림차순, 없으면 뒤로). 검색은 제목 기준.
@@ -103,24 +112,39 @@ function ContentsTab({ rerender }: { rerender: () => void }) {
     DS.deleteContent(c.id); toast('작품이 삭제되었습니다.'); rerender()
   }
 
+  // TMDB 검색 등록 결과 처리: 이미 있으면 수정으로, 새로면 등록 후 상세 채우기로.
+  const onTmdbRegistered = (c: Content, existed: boolean) => {
+    setShowTmdb(false)
+    toast(existed
+      ? `이미 등록된 작품이에요. 수정 화면을 엽니다.`
+      : `'${c.title}' 등록 완료! 공개일·OTT를 채워주세요.`)
+    setEditing(c); setShowForm(true)
+    rerender()
+  }
+
+  if (showForm) {
+    return <ContentForm content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />
+  }
+  if (showTmdb) {
+    return <TmdbRegisterPanel onRegistered={onTmdbRegistered} onCancel={() => setShowTmdb(false)} />
+  }
+
   return (
     <>
-      {!showForm && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={startNew}>+ 새 작품 등록</button>
-          <input
-            className="form-input"
-            style={{ flex: 1, minWidth: 180, maxWidth: 320, marginBottom: 0 }}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="작품 제목 검색…"
-          />
-          <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{contents.length}편</span>
-        </div>
-      )}
-      {showForm && <ContentForm content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" onClick={startNew}>+ 새 작품 등록</button>
+        {tmdbEnabled && <button className="btn btn-secondary" onClick={() => setShowTmdb(true)}>📥 TMDB 검색 등록</button>}
+        <input
+          className="form-input"
+          style={{ flex: 1, minWidth: 180, maxWidth: 320, marginBottom: 0 }}
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="작품 제목 검색…"
+        />
+        <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{contents.length}편</span>
+      </div>
 
-      {!showForm && contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
+      {contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
       {contents.map(c => (
         <div key={c.id} className="admin-card fade-in">
           <div className="admin-card-body">
@@ -141,6 +165,107 @@ function ContentsTab({ rerender }: { rerender: () => void }) {
   )
 }
 
+// ── TMDB 검색 등록 패널 (어드민) ─────────────────────────────
+// 제목 검색 → 결과 클릭 → 동기화 스크립트와 동일한 id로 등록(중복 안전).
+// source:'tmdb' + manualOverride:true 로 저장 → 자동 동기화의 stale 정리(숨김)에서 보호되고,
+// 관리자가 채운 상세정보를 다음 동기화가 덮어쓰지 않는다.
+const TMDB_TYPES: { code: ContentType; label: string; emoji: string }[] = [
+  { code: 'movie', label: '영화', emoji: '\u{1F3AC}' },
+  { code: 'drama', label: '드라마', emoji: '\u{1F4FA}' },
+  { code: 'variety', label: '예능', emoji: '\u{1F3A4}' },
+]
+
+function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Content, existed: boolean) => void; onCancel: () => void }) {
+  const toast = useToastStore(s => s.show)
+  const [type, setType] = useState<ContentType>('movie')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<TmdbResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const [searched, setSearched] = useState(false)
+
+  const doSearch = async () => {
+    if (!query.trim()) return
+    setLoading(true); setSearched(true)
+    try {
+      setResults(await smartSearchTmdb(type === 'movie' ? 'movie' : 'tv', query))
+    } catch (e: any) {
+      toast(e?.message || 'TMDB 검색에 실패했어요.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const pick = (r: TmdbResult) => {
+    const id = tmdbContentId(type, r.tmdbId)
+    const existing = DS.getContentById(id)
+    if (existing) { onRegistered(existing, true); return }
+    const created = DS.createContent({
+      id, source: 'tmdb', manualOverride: true, type,
+      title: r.title,
+      posterUrl: r.posterUrl,
+      releaseYear: r.year,
+      synopsis: r.overview,
+      genres: [],
+    })
+    onRegistered(created, false)
+  }
+
+  return (
+    <div className="settings-section" style={{ marginBottom: 16 }}>
+      <h3>📥 TMDB 검색 등록</h3>
+      <p style={{ fontSize: 12, color: 'var(--subtext)', margin: '2px 0 12px', lineHeight: 1.5 }}>
+        제목으로 검색해 정식 TMDB id로 등록합니다(중복 안전). 등록 후 공개일·OTT를 이어서 채워주세요.
+      </p>
+      <div className="form-group" style={{ marginBottom: 10 }}>
+        <label>종류</label>
+        <div className="tag-chips">
+          {TMDB_TYPES.map(t => (
+            <span key={t.code} className={`tag-chip ${type === t.code ? 'active' : ''}`}
+              onClick={() => { setType(t.code); setResults([]); setSearched(false) }}>{t.emoji} {t.label}</span>
+          ))}
+        </div>
+      </div>
+      <div className="form-group">
+        <label>제목 검색</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            className="form-input" autoFocus placeholder="작품 제목" value={query}
+            style={{ flex: 1, marginBottom: 0 }}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') doSearch() }}
+          />
+          <button className="btn btn-primary" onClick={doSearch} disabled={loading || !query.trim()}>
+            {loading ? '검색중' : '검색'}
+          </button>
+        </div>
+      </div>
+
+      {searched && !loading && results.length === 0 && (
+        <p style={{ color: 'var(--subtext)', fontSize: 13, margin: '8px 0' }}>
+          검색 결과가 없어요. 제목을 바꿔보세요. (웹툰/웹소설은 ‘+ 새 작품 등록’으로 수기 입력)
+        </p>
+      )}
+      <div className="tmdb-results">
+        {results.map(r => (
+          <div key={r.tmdbId} className="tmdb-result" onClick={() => pick(r)}>
+            {r.posterUrl
+              ? <img src={r.posterUrl} alt={r.title} />
+              : <div className="noimg">No Image</div>}
+            <div>
+              <div className="t">{r.title}</div>
+              <div className="m">{r.year || '연도미상'}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="write-actions" style={{ marginTop: 12 }}>
+        <button className="btn btn-secondary" onClick={onCancel}>닫기</button>
+      </div>
+    </div>
+  )
+}
+
 function ContentForm({ content, authorId, onDone, onCancel }: { content: Content | null; authorId: string; onDone: () => void; onCancel: () => void }) {
   const toast = useToastStore(s => s.show)
   const [type, setType] = useState<ContentType>(content?.type || 'movie')
@@ -150,6 +275,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [releaseYear, setReleaseYear] = useState(content?.releaseYear?.toString() || '')
   const [releaseDate, setReleaseDate] = useState(content?.releaseDate || '')
   const [status, setStatus] = useState<'upcoming' | 'ongoing' | 'completed' | ''>(content?.status || '')
+  const [releasePattern, setReleasePattern] = useState(content?.releasePattern || '')
   const [creators, setCreators] = useState(content?.creators.join(', ') || '')
   const [genres, setGenres] = useState<string[]>(content?.genres || [])
   const [synopsis, setSynopsis] = useState(content?.synopsis || '')
@@ -165,6 +291,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [seasons, setSeasons] = useState(content?.numberOfSeasons?.toString() || '')
   const [episodes, setEpisodes] = useState(content?.numberOfEpisodes?.toString() || '')
   const isTmdb = content?.source === 'tmdb'
+  const isBook = type === 'webtoon' || type === 'webnovel' // 웹툰/웹소설: 영상 전용 필드(출연·OTT·채널·러닝타임 등) 숨김
 
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
   const toggleOtt = (name: string) => setOtt(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
@@ -203,6 +330,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       releaseYear: releaseYear ? parseInt(releaseYear, 10) : null,
       releaseDate: releaseDate || null,
       status: status || null,
+      releasePattern: releasePattern.trim() || null,
       creators: creators.split(',').map(s => s.trim()).filter(Boolean),
       genres,
       synopsis: synopsis.trim(),
@@ -230,7 +358,12 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       <div className="form-row" style={{ marginBottom: 10 }}>
         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
           <label>타입</label>
-          <select className="form-input" value={type} onChange={e => setType(e.target.value as ContentType)}>
+          <select className="form-input" value={type} onChange={e => {
+            const t = e.target.value as ContentType
+            setType(t)
+            // 웹툰/웹소설은 대개 공개예정 신작을 넣으므로 상태 기본값을 잡아준다(비어있을 때만).
+            if ((t === 'webtoon' || t === 'webnovel') && !status) setStatus('upcoming')
+          }}>
             {CONTENT_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
           </select>
         </div>
@@ -252,49 +385,74 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
           </select>
         </div>
       </div>
+      {/* 웹툰/웹소설: 플랫폼 표기 흔들림 방지용 빠른 선택 칩 + 공개일 안내 */}
+      {(type === 'webtoon' || type === 'webnovel') && (
+        <div className="form-group">
+          <div className="tag-chips" style={{ marginBottom: 6 }}>
+            {WEBTOON_PLATFORMS.map(p => (
+              <span key={p} className={`tag-chip ${platform === p ? 'active' : ''}`} onClick={() => setPlatform(p)}>{p}</span>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--subtext)', margin: 0, lineHeight: 1.5 }}>
+            💡 연재 시작일을 아래 <b>‘공개일’</b>에 넣으면 캘린더에 신작으로 표시돼요.
+          </p>
+        </div>
+      )}
       <div className="form-group">
         <label>공개일 (캘린더 표시 · 선택)</label>
         <input className="form-input" type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)} />
       </div>
+      <div className="form-group">
+        <label>공개 패턴 (선택 · 입력하면 자동 유추보다 우선)</label>
+        <input className="form-input" value={releasePattern} onChange={e => setReleasePattern(e.target.value)}
+          placeholder="예: 매주 수·목 공개 / 한번에 공개 / 매주 목 2화씩" />
+        <p style={{ fontSize: 12, color: 'var(--subtext)', margin: '4px 0 0', lineHeight: 1.5 }}>
+          비워두면 TMDB 회차 데이터로 자동 표시돼요. 웹툰/웹소설·자동 유추 안 되는 작품은 직접 적어주세요.
+        </p>
+      </div>
       <div className="form-group" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
-          <input type="checkbox" checked={manualOverride} onChange={e => setManualOverride(e.target.checked)} />
-          정보 수동 고정 {isTmdb && <span style={{ color: 'var(--subtext)', fontSize: 12 }}>(자동 동기화가 이 작품 정보를 덮어쓰지 않음)</span>}
-        </label>
+        {!isBook && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+            <input type="checkbox" checked={manualOverride} onChange={e => setManualOverride(e.target.checked)} />
+            정보 수동 고정 {isTmdb && <span style={{ color: 'var(--subtext)', fontSize: 12 }}>(자동 동기화가 이 작품 정보를 덮어쓰지 않음)</span>}
+          </label>
+        )}
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
           <input type="checkbox" checked={hidden} onChange={e => setHidden(e.target.checked)} />
           캘린더에서 숨김
         </label>
       </div>
-      <div className="form-group"><label>{type === 'movie' ? '감독 (쉼표 구분)' : '연출·제작 (쉼표 구분)'}</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder="봉준호, 송강호" /></div>
+      <div className="form-group"><label>{type === 'movie' ? '감독 (쉼표 구분)' : isBook ? '작가 (쉼표 구분)' : '연출·제작 (쉼표 구분)'}</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder={isBook ? '작가명' : '봉준호, 송강호'} /></div>
 
-      {/* ── 상세 정보 (캘린더 모달) ── */}
-      {isTmdb && !manualOverride && (
-        <p style={{ fontSize: 12, color: 'var(--danger)', margin: '2px 0 10px', lineHeight: 1.5 }}>
-          ⚠️ TMDB 자동 수집 작품입니다. 아래 정보를 직접 고치려면 <b>‘정보 수동 고정’</b>을 켜세요. 안 켜면 다음 자동 동기화 때 되돌아갈 수 있어요.
-        </p>
-      )}
-      <div className="form-group">
-        <label>출연진 (한 줄에 한 명 · “이름, 배역”)</label>
-        <textarea className="form-input" value={cast} onChange={e => setCast(e.target.value)}
-          style={{ minHeight: 72, resize: 'vertical' }} placeholder={'남주혁, 구천\n노윤서, 생강'} />
-      </div>
-      <div className="form-group">
-        <label>OTT 제공 (아이콘 표시 · 캘린더/상세)</label>
-        <div className="tag-chips">
-          {OTT_FILTERS.map(o => (
-            <span key={o.name} className={`tag-chip ${ott.includes(o.name) ? 'active' : ''}`} onClick={() => toggleOtt(o.name)}>{o.label}</span>
-          ))}
+      {/* ── 상세 정보 (영상 전용 · 캘린더 모달) — 웹툰/웹소설에는 숨김 ── */}
+      {!isBook && (<>
+        {isTmdb && !manualOverride && (
+          <p style={{ fontSize: 12, color: 'var(--danger)', margin: '2px 0 10px', lineHeight: 1.5 }}>
+            ⚠️ TMDB 자동 수집 작품입니다. 아래 정보를 직접 고치려면 <b>‘정보 수동 고정’</b>을 켜세요. 안 켜면 다음 자동 동기화 때 되돌아갈 수 있어요.
+          </p>
+        )}
+        <div className="form-group">
+          <label>출연진 (한 줄에 한 명 · “이름, 배역”)</label>
+          <textarea className="form-input" value={cast} onChange={e => setCast(e.target.value)}
+            style={{ minHeight: 72, resize: 'vertical' }} placeholder={'남주혁, 구천\n노윤서, 생강'} />
         </div>
-      </div>
-      <div className="form-group"><label>채널·방영사 (쉼표 구분)</label><input className="form-input" value={networks} onChange={e => setNetworks(e.target.value)} placeholder="tvN, Netflix" /></div>
-      <div className="form-row" style={{ marginBottom: 10 }}>
-        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>러닝타임(분)</label><input className="form-input" type="number" value={runtime} onChange={e => setRuntime(e.target.value)} placeholder="60" /></div>
-        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>시즌 수</label><input className="form-input" type="number" value={seasons} onChange={e => setSeasons(e.target.value)} placeholder="1" /></div>
-        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>총 회차</label><input className="form-input" type="number" value={episodes} onChange={e => setEpisodes(e.target.value)} placeholder="16" /></div>
-      </div>
+        <div className="form-group">
+          <label>OTT 제공 (아이콘 표시 · 캘린더/상세)</label>
+          <div className="tag-chips">
+            {OTT_FILTERS.map(o => (
+              <span key={o.name} className={`tag-chip ${ott.includes(o.name) ? 'active' : ''}`} onClick={() => toggleOtt(o.name)}>{o.label}</span>
+            ))}
+          </div>
+        </div>
+        <div className="form-group"><label>채널·방영사 (쉼표 구분)</label><input className="form-input" value={networks} onChange={e => setNetworks(e.target.value)} placeholder="tvN, Netflix" /></div>
+        <div className="form-row" style={{ marginBottom: 10 }}>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>러닝타임(분)</label><input className="form-input" type="number" value={runtime} onChange={e => setRuntime(e.target.value)} placeholder="60" /></div>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>시즌 수</label><input className="form-input" type="number" value={seasons} onChange={e => setSeasons(e.target.value)} placeholder="1" /></div>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>총 회차</label><input className="form-input" type="number" value={episodes} onChange={e => setEpisodes(e.target.value)} placeholder="16" /></div>
+        </div>
+      </>)}
 
-      <div className="form-group"><label>포스터 이미지 URL (선택)</label><input className="form-input" value={posterUrl} onChange={e => setPosterUrl(e.target.value)} placeholder="https://..." /></div>
+      <PosterUploader value={posterUrl} onChange={setPosterUrl} />
       <div className="form-group">
         <label>장르</label>
         <div className="tag-chips">

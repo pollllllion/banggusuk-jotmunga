@@ -68,6 +68,7 @@ export interface Content {
   region?: string | null              // 'KR'
   hidden?: boolean                    // 캘린더에서 숨김
   syncedAt?: string | null
+  releasePattern?: string | null      // 공개 패턴 수동 입력(예: "매주 수·목 공개"). 있으면 자동유추보다 우선
 
   // ── 상세정보 확장 (감독/연출은 creators, 장르는 genres 재사용) ──
   castMembers?: CastMember[]          // 출연진 (상위 N명)

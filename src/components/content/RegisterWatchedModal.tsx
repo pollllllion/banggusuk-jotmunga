@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { searchTmdb, tmdbEnabled, type TmdbResult } from '@/utils/tmdb'
+import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
 import { CONTENT_TYPES } from '@/utils/constants'
 import { uuid } from '@/utils/helpers'
 import type { Content, ContentType } from '@/types'
@@ -10,8 +10,6 @@ import type { Content, ContentType } from '@/types'
 /** TMDB로 검색하는 카테고리(영화/드라마/예능) vs 수기 입력(웹툰/웹소설) */
 const SEARCHABLE: ContentType[] = ['movie', 'drama', 'variety']
 const tmdbKind = (type: ContentType): 'movie' | 'tv' => (type === 'movie' ? 'movie' : 'tv')
-const idPrefix = (type: ContentType): string =>
-  type === 'movie' ? 'tmdb-mv-' : type === 'drama' ? 'tmdb-dr-' : 'tmdb-tv-'
 
 export function RegisterWatchedModal({ onClose, onRegistered }: {
   onClose: () => void
@@ -38,13 +36,34 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
     if (!type || !query.trim()) return
     setLoading(true); setSearched(true)
     try {
-      setResults(await searchTmdb(tmdbKind(type), query))
+      setResults(await smartSearchTmdb(tmdbKind(type), query))
     } catch (e: any) {
       toast(e?.message || '검색에 실패했어요.')
     } finally {
       setLoading(false)
     }
   }
+
+  // 실시간 검색: 타이핑이 멈추면(디바운스 350ms) 자동으로 TMDB 검색해 아래에 표시.
+  // alive 플래그 + clearTimeout 으로 이전 키 입력의 응답이 최신 결과를 덮지 않게 한다(경쟁 조건 방지).
+  useEffect(() => {
+    if (!type || !SEARCHABLE.includes(type)) return
+    const q = query.trim()
+    if (q.length < 2) { setResults([]); setSearched(false); setLoading(false); return }
+    let alive = true
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const r = await smartSearchTmdb(tmdbKind(type), q)
+        if (alive) { setResults(r); setSearched(true) }
+      } catch {
+        if (alive) { setResults([]); setSearched(true) } // 실시간이라 키마다 토스트는 안 띄움
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }, 350)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [query, type])
 
   const register = async (input: DS.RegisterWatchedInput) => {
     if (!user || !isAccount) { toast('본 작품 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return }
@@ -65,7 +84,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
   const pickTmdb = (r: TmdbResult) => {
     if (!type) return
     register({
-      contentId: idPrefix(type) + r.tmdbId,
+      contentId: tmdbContentId(type, r.tmdbId),
       type,
       title: r.title,
       posterUrl: r.posterUrl,

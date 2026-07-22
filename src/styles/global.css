@@ -421,6 +421,14 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .feed-typefilter button:hover { border-color: var(--primary); color: var(--primary); }
 .feed-typefilter button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* 내 피드 — 개봉 연도별 묶음 */
+.feed-years { display: flex; flex-direction: column; gap: 22px; }
+.feed-year-group { display: flex; flex-direction: column; gap: 12px; }
+.feed-year-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light); }
+.feed-year-label { font-size: 16px; font-weight: 800; color: var(--dark); }
+.feed-year-count { font-size: 13px; font-weight: 600; color: var(--primary); }
+
 .watched-card { position: relative; }
 .watched-card .watched-remove {
   position: absolute; top: 6px; left: 6px; z-index: 2;
@@ -441,6 +449,20 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .tmdb-result .t { font-weight: 600; font-size: 14px; color: var(--text); }
 .tmdb-result .m { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+
+/* 포스터 업로더 (붙여넣기·드롭·파일선택) */
+.poster-uploader {
+  position: relative; border: 1.5px dashed var(--border); border-radius: var(--radius-md);
+  min-height: 96px; display: flex; align-items: center; justify-content: center;
+  padding: 10px; background: var(--bg); outline: none; cursor: text;
+}
+.poster-uploader:focus, .poster-uploader:focus-within { border-color: var(--primary); background: #fff; }
+.poster-uploader-empty { color: var(--subtext); font-size: 13px; text-align: center; line-height: 1.5; }
+.poster-uploader-preview { max-height: 180px; max-width: 100%; border-radius: var(--radius-sm); object-fit: contain; }
+.poster-uploader-badge {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.45); color: #fff; font-size: 13px; border-radius: var(--radius-md);
+}
 .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .cat-chips button {
   padding: 10px 14px; border-radius: var(--radius-md); font-size: 14px; font-weight: 600;

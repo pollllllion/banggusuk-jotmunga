@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { useAuthStore } from '@/stores/authStore'
@@ -7,6 +7,7 @@ import { Poster } from '@/components/content/Poster'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
+import { getAirPattern } from '@/utils/airPattern'
 import {
   effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
   OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank,
@@ -76,6 +77,16 @@ export function CalendarPage() {
   const [selected, setSelected] = useState<Content | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
+  const [airPattern, setAirPattern] = useState<string | null>(null)
+
+  // 선택된 작품의 공개 패턴(매주 수목/한번에 등)을 TMDB 회차 데이터로 조회. alive 로 경쟁 조건 방지.
+  useEffect(() => {
+    setAirPattern(null)
+    if (!selected || selected.releasePattern) return // 수동 입력이 있으면 자동 조회 불필요
+    let alive = true
+    getAirPattern(selected.id).then(p => { if (alive) setAirPattern(p) })
+    return () => { alive = false }
+  }, [selected])
 
   const todayKey = keyOf(now)
 
@@ -161,6 +172,10 @@ export function CalendarPage() {
           <button className="cal-navbtn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           <button className="cal-today-btn" onClick={goToday}>오늘</button>
         </div>
+        {user?.role === 'admin' && (
+          <button className="cal-today-btn" style={{ marginLeft: 'auto' }}
+            onClick={() => navigate('/admin', { state: { newContent: true } })}>+ 신작 등록</button>
+        )}
       </div>
 
       {/* 작품 타입 필터 */}
@@ -306,6 +321,7 @@ export function CalendarPage() {
                     {selSource && <span className="cal-src"> · {selSource}</span>}
                   </div>
                 )}
+                {(selected.releasePattern || airPattern) && <div className="cal-modal-pattern">📺 {selected.releasePattern || airPattern}</div>}
               </div>
             </div>
 

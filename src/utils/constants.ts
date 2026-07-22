@@ -17,6 +17,9 @@ export const TYPE_EMOJIS: Record<string, string> = {
   movie: '\u{1F3AC}', drama: '\u{1F4FA}', variety: '\u{1F3A4}', webtoon: '\u{1F5BC}', webnovel: '\u{1F4DA}',
 }
 
+// ── 웹툰/웹소설 플랫폼 (어드민 수기 등록 빠른 선택 칩 · 표기 흔들림 방지) ──
+export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카오페이지', '네이버시리즈', '리디', '문피아'] as const
+
 // ── 왼쪽 사이드바 게시판 (신규 구조) ────────────────────────
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
 export const BOARDS: { slug: string; label: string; emoji: string; path: string }[] = [

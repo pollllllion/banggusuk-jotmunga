@@ -10,27 +10,47 @@ import type { Content, ContentType } from '@/types'
 
 type Filter = 'all' | ContentType
 
+/** 개봉 연도별로 묶기 — 최신 연도부터, 연도 미상(null)은 맨 뒤 */
+function groupByYear(list: Content[]): { year: number | null; items: Content[] }[] {
+  const map = new Map<number | null, Content[]>()
+  for (const c of list) {
+    const y = c.releaseYear ?? null
+    const arr = map.get(y)
+    if (arr) arr.push(c)
+    else map.set(y, [c])
+  }
+  return [...map.entries()]
+    .map(([year, items]) => ({ year, items }))
+    .sort((a, b) => {
+      if (a.year === null) return 1
+      if (b.year === null) return -1
+      return b.year - a.year
+    })
+}
+
 export function MyFeedPage() {
   const navigate = useNavigate()
   const { user, isAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const [showModal, setShowModal] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
+  // tick 을 의존성에 포함해야 등록/삭제(rerender) 직후 watched 캐시를 다시 읽어 즉시 반영된다.
+  // (DS.getUserWatched 는 인메모리 캐시라 React 가 변화를 모르므로 tick 으로 강제 재계산)
   const contents = useMemo(() => {
     if (!user) return []
     return DS.getUserWatched(user.id)
       .map(w => DS.getContentById(w.contentId))
       .filter((c): c is Content => Boolean(c))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user, tick])
 
   if (!user) return null
 
   const filtered = filter === 'all' ? contents : contents.filter(c => c.type === filter)
   const typesPresent = new Set(contents.map(c => c.type))
+  const yearGroups = groupByYear(filtered) // 개봉 연도별 묶음 (최신순, 연도 미상은 맨 뒤)
 
   const openRegister = () => {
     if (!isAccount) { toast('본 작품 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return }
@@ -76,17 +96,27 @@ export function MyFeedPage() {
           <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openRegister}>+ 본 작품 등록</button>
         </div>
       ) : (
-        <div className="content-grid">
-          {filtered.map(c => (
-            <div key={c.id} className="content-card watched-card fade-in" onClick={() => navigate(`/content/${c.id}?tab=talk`)}>
-              <button className="watched-remove" title="내 피드에서 빼기" onClick={e => remove(e, c)}>✕</button>
-              <Poster content={c} showScore={false} />
-              <div className="c-title">{c.title}</div>
-              <div className="c-meta">
-                {TYPE_LABELS[c.type]}
-                {c.releaseYear ? ` · ${c.releaseYear}` : ''}
+        <div className="feed-years">
+          {yearGroups.map(g => (
+            <section key={g.year ?? 'unknown'} className="feed-year-group">
+              <div className="feed-year-head">
+                <span className="feed-year-label">{g.year ? `${g.year}년` : '연도 미상'}</span>
+                <span className="feed-year-count">{g.items.length}편</span>
               </div>
-            </div>
+              <div className="content-grid">
+                {g.items.map(c => (
+                  <div key={c.id} className="content-card watched-card fade-in" onClick={() => navigate(`/content/${c.id}?tab=talk`)}>
+                    <button className="watched-remove" title="내 피드에서 빼기" onClick={e => remove(e, c)}>✕</button>
+                    <Poster content={c} showScore={false} />
+                    <div className="c-title">{c.title}</div>
+                    <div className="c-meta">
+                      {TYPE_LABELS[c.type]}
+                      {c.releaseYear ? ` · ${c.releaseYear}` : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
