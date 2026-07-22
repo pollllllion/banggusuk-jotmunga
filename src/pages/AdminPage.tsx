@@ -86,7 +86,13 @@ function ContentsTab({ rerender }: { rerender: () => void }) {
   const { user } = useAuthStore()
   const [editing, setEditing] = useState<Content | null>(null)
   const [showForm, setShowForm] = useState(false)
-  const contents = DS.getContents()
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  // 최신 개봉순(공개일 내림차순, 없으면 뒤로). 검색은 제목 기준.
+  const contents = [...DS.getContents()]
+    .filter(c => !q || c.title.toLowerCase().includes(q))
+    .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
 
   const startNew = () => { setEditing(null); setShowForm(true) }
   const startEdit = (c: Content) => { setEditing(c); setShowForm(true) }
@@ -98,9 +104,22 @@ function ContentsTab({ rerender }: { rerender: () => void }) {
 
   return (
     <>
-      {!showForm && <button className="btn btn-primary" style={{ marginBottom: 12 }} onClick={startNew}>+ 새 작품 등록</button>}
+      {!showForm && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={startNew}>+ 새 작품 등록</button>
+          <input
+            className="form-input"
+            style={{ flex: 1, minWidth: 180, maxWidth: 320, marginBottom: 0 }}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="작품 제목 검색…"
+          />
+          <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{contents.length}편</span>
+        </div>
+      )}
       {showForm && <ContentForm content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />}
 
+      {!showForm && contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
       {contents.map(c => (
         <div key={c.id} className="admin-card fade-in">
           <div className="admin-card-body">
@@ -135,12 +154,33 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [synopsis, setSynopsis] = useState(content?.synopsis || '')
   const [hidden, setHidden] = useState(content?.hidden || false)
   const [manualOverride, setManualOverride] = useState(content?.manualOverride || false)
+  // 상세 정보 (캘린더 모달)
+  const [cast, setCast] = useState(
+    (content?.castMembers || []).map(c => (c.character ? `${c.name}, ${c.character}` : c.name)).join('\n'),
+  )
+  const [networks, setNetworks] = useState((content?.networks || []).map(n => n.name).join(', '))
+  const [runtime, setRuntime] = useState(content?.runtime?.toString() || '')
+  const [seasons, setSeasons] = useState(content?.numberOfSeasons?.toString() || '')
+  const [episodes, setEpisodes] = useState(content?.numberOfEpisodes?.toString() || '')
   const isTmdb = content?.source === 'tmdb'
 
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
 
   const submit = () => {
     if (!title.trim()) { toast('제목을 입력하세요.'); return }
+    // 출연진: "이름, 배역" 한 줄씩. 기존 프로필 사진(profilePath)은 이름이 같으면 유지.
+    const prevCast = content?.castMembers || []
+    const castMembers = cast.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+      const i = line.indexOf(',')
+      const name = (i >= 0 ? line.slice(0, i) : line).trim()
+      const character = i >= 0 ? (line.slice(i + 1).trim() || null) : null
+      return { name, character, profilePath: prevCast.find(p => p.name === name)?.profilePath ?? null }
+    })
+    // 채널: 쉼표 구분. 기존 로고(logoPath)는 이름이 같으면 유지.
+    const prevNets = content?.networks || []
+    const networkList = networks.split(',').map(s => s.trim()).filter(Boolean).map(name => ({
+      name, logoPath: prevNets.find(p => p.name === name)?.logoPath ?? null,
+    }))
     const data: Partial<Content> = {
       type, title: title.trim(),
       posterUrl: posterUrl.trim() || null,
@@ -153,6 +193,11 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       synopsis: synopsis.trim(),
       hidden,
       manualOverride,
+      castMembers,
+      networks: networkList,
+      runtime: runtime ? parseInt(runtime, 10) : null,
+      numberOfSeasons: seasons ? parseInt(seasons, 10) : null,
+      numberOfEpisodes: episodes ? parseInt(episodes, 10) : null,
       // 수동 고정이면 실제 공개일을 manualReleaseDate 로 박고 자동 동기화가 못 덮게 한다
       ...(manualOverride
         ? { manualReleaseDate: releaseDate || null, releaseDateSource: 'manual' as const }
@@ -198,14 +243,33 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
       <div className="form-group" style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
           <input type="checkbox" checked={manualOverride} onChange={e => setManualOverride(e.target.checked)} />
-          공개일 수동 고정 {isTmdb && <span style={{ color: 'var(--subtext)', fontSize: 12 }}>(자동 동기화가 이 날짜·제목을 덮어쓰지 않음)</span>}
+          정보 수동 고정 {isTmdb && <span style={{ color: 'var(--subtext)', fontSize: 12 }}>(자동 동기화가 이 작품 정보를 덮어쓰지 않음)</span>}
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
           <input type="checkbox" checked={hidden} onChange={e => setHidden(e.target.checked)} />
           캘린더에서 숨김
         </label>
       </div>
-      <div className="form-group"><label>제작진 (쉼표 구분)</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder="봉준호, 송강호" /></div>
+      <div className="form-group"><label>{type === 'movie' ? '감독 (쉼표 구분)' : '연출·제작 (쉼표 구분)'}</label><input className="form-input" value={creators} onChange={e => setCreators(e.target.value)} placeholder="봉준호, 송강호" /></div>
+
+      {/* ── 상세 정보 (캘린더 모달) ── */}
+      {isTmdb && !manualOverride && (
+        <p style={{ fontSize: 12, color: 'var(--danger)', margin: '2px 0 10px', lineHeight: 1.5 }}>
+          ⚠️ TMDB 자동 수집 작품입니다. 아래 정보를 직접 고치려면 <b>‘정보 수동 고정’</b>을 켜세요. 안 켜면 다음 자동 동기화 때 되돌아갈 수 있어요.
+        </p>
+      )}
+      <div className="form-group">
+        <label>출연진 (한 줄에 한 명 · “이름, 배역”)</label>
+        <textarea className="form-input" value={cast} onChange={e => setCast(e.target.value)}
+          style={{ minHeight: 72, resize: 'vertical' }} placeholder={'남주혁, 구천\n노윤서, 생강'} />
+      </div>
+      <div className="form-group"><label>채널·방영사 (쉼표 구분)</label><input className="form-input" value={networks} onChange={e => setNetworks(e.target.value)} placeholder="tvN, Netflix" /></div>
+      <div className="form-row" style={{ marginBottom: 10 }}>
+        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>러닝타임(분)</label><input className="form-input" type="number" value={runtime} onChange={e => setRuntime(e.target.value)} placeholder="60" /></div>
+        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>시즌 수</label><input className="form-input" type="number" value={seasons} onChange={e => setSeasons(e.target.value)} placeholder="1" /></div>
+        <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>총 회차</label><input className="form-input" type="number" value={episodes} onChange={e => setEpisodes(e.target.value)} placeholder="16" /></div>
+      </div>
+
       <div className="form-group"><label>포스터 이미지 URL (선택)</label><input className="form-input" value={posterUrl} onChange={e => setPosterUrl(e.target.value)} placeholder="https://..." /></div>
       <div className="form-group">
         <label>장르</label>

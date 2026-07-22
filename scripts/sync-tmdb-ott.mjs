@@ -23,9 +23,13 @@
  */
 import {
   TARGET_PROVIDER_NAMES, IMG_POSTER, IMG_BACKDROP,
-  matchTargetProviders, extractKrFlatrate, pickKrMovieDate, withinRange,
-  buildContentId, mergeProviders, tmdbUrl, imgUrl, fetchWithRetry, pMap,
+  matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate, withinRange,
+  buildContentId, mergeProviders, tmdbUrl, imgUrl, fetchWithRetry, pMap, normName,
+  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
 } from './tmdb-lib.mjs'
+
+// watch-provider 카탈로그(정규명 → {providerId, logoPath}) — networks 폴백 로고 통일용. main에서 채움.
+const PROVIDER_DIR = new Map()
 
 // ── 설정 ───────────────────────────────────────────────────
 const DRY = process.argv.includes('--dry')
@@ -160,7 +164,7 @@ async function collectMovies(providers) {
 async function enrichMovie({ base, korean }) {
   let detail
   try {
-    detail = await tmdb(`/movie/${base.id}`, { append_to_response: 'watch/providers,release_dates' })
+    detail = await tmdb(`/movie/${base.id}`, { append_to_response: 'watch/providers,release_dates,credits' })
   } catch (e) { logErr(`영화 상세 실패(${base.id}): ${e.message}`, { mediaType: 'movie' }); return null }
 
   const krProviders = extractKrFlatrate(detail['watch/providers'])
@@ -185,11 +189,15 @@ async function enrichMovie({ base, korean }) {
     overview: detail.overview || base.overview || '',
     releaseDate: date, releaseDateSource: source,
     posterPath: poster, backdropPath: detail.backdrop_path || base.backdrop_path,
-    genreIds: detail.genres?.map(g => g.id) || base.genre_ids || [],
     voteAverage: detail.vote_average ?? base.vote_average ?? null,
     voteCount: detail.vote_count ?? base.vote_count ?? null,
     popularity: detail.popularity ?? base.popularity ?? 0,
     providers: krProviders, contentType: 'movie',
+    // 상세정보
+    genres: pickGenres(detail.genres, base.genre_ids),
+    creators: extractDirectors(detail.credits?.crew),
+    castMembers: extractCast(detail.credits),
+    runtime: detail.runtime || null,
   })
 }
 
@@ -227,10 +235,13 @@ async function collectTv(providers) {
 async function enrichTv({ base, korean }) {
   let detail
   try {
-    detail = await tmdb(`/tv/${base.id}`, { append_to_response: 'watch/providers' })
+    detail = await tmdb(`/tv/${base.id}`, { append_to_response: 'watch/providers,credits' })
   } catch (e) { logErr(`TV 상세 실패(${base.id}): ${e.message}`, { mediaType: 'tv' }); return [] }
 
-  const krProviders = extractKrFlatrate(detail['watch/providers'])
+  // KR watch-provider 우선. 비어 있으면 networks(방영사)에서 대상 OTT를 폴백으로 채운다.
+  // (넷플릭스/디즈니+ 오리지널 예정작은 KR watch-provider 등재가 늦어 여기서 잡힌다. 예: '동궁')
+  let krProviders = extractKrFlatrate(detail['watch/providers'])
+  if (!krProviders.length) krProviders = networksToProviders(detail.networks, PROVIDER_DIR)
   const pop = detail.popularity ?? base.popularity ?? 0
   // 해외작: 한국 OTT 확인 필수 + 인기도 임계값. 한국어작: provider 없어도 포함.
   if (!korean) {
@@ -243,6 +254,19 @@ async function enrichTv({ base, korean }) {
   const poster = detail.poster_path || base.poster_path
   const genreIds = detail.genres?.map(g => g.id) || base.genre_ids || []
 
+  // TV 공통 상세: 예능/드라마 구분, 연출(created_by), 장르, 출연, 채널, 편성
+  const tvType = tvContentType(genreIds)              // 'variety' | 'drama'
+  const shared = {
+    contentType: tvType,
+    genres: pickGenres(detail.genres, base.genre_ids),
+    creators: (detail.created_by || []).map(c => c.name),
+    castMembers: extractCast(detail.credits),
+    networks: mapNetworks(detail.networks),
+    runtime: detail.episode_run_time?.[0] || null,
+    numberOfSeasons: detail.number_of_seasons ?? null,
+    numberOfEpisodes: detail.number_of_episodes ?? null,
+  }
+
   // 신규 시리즈: first_air_date 가 범위 내
   const first = detail.first_air_date || base.first_air_date
   if (withinRange(first, START, END) && title && poster) {
@@ -252,8 +276,9 @@ async function enrichTv({ base, korean }) {
       overview: detail.overview || base.overview || '',
       releaseDate: String(first).slice(0, 10), releaseDateSource: 'tmdb_first_air_date',
       posterPath: poster, backdropPath: detail.backdrop_path || base.backdrop_path,
-      genreIds, voteAverage: detail.vote_average ?? null, voteCount: detail.vote_count ?? null,
-      popularity: detail.popularity ?? base.popularity ?? 0, providers: krProviders, contentType: 'drama',
+      voteAverage: detail.vote_average ?? null, voteCount: detail.vote_count ?? null,
+      popularity: detail.popularity ?? base.popularity ?? 0, providers: krProviders,
+      ...shared,
     }))
   }
 
@@ -270,8 +295,9 @@ async function enrichTv({ base, korean }) {
       overview: s.overview || detail.overview || '',
       releaseDate: String(sd).slice(0, 10), releaseDateSource: 'tmdb_season_air_date',
       posterPath: s.poster_path || poster, backdropPath: detail.backdrop_path || null,
-      genreIds, voteAverage: detail.vote_average ?? null, voteCount: detail.vote_count ?? null,
-      popularity: detail.popularity ?? 0, providers: krProviders, contentType: 'drama',
+      voteAverage: detail.vote_average ?? null, voteCount: detail.vote_count ?? null,
+      popularity: detail.popularity ?? 0, providers: krProviders,
+      ...shared,
     }))
     stats.seasonsFetched++
   }
@@ -284,12 +310,12 @@ function normalizeRow(x) {
   const nowIso = new Date().toISOString()
   return {
     id,
-    type: x.contentType,                 // 기존 Content.type (movie|drama)
+    type: x.contentType,                 // 기존 Content.type (movie|drama|variety)
     title: x.title,
     posterUrl: imgUrl(IMG_POSTER, x.posterPath),
     synopsis: x.overview || '',
-    genres: [],                          // 장르 한글명 매핑은 UI/후속에서. 여기선 비움(genre_ids 별도 저장 안 함)
-    creators: [],
+    genres: x.genres || [],              // 한글 장르명
+    creators: x.creators || [],          // 감독(영화) / 연출·제작(TV)
     platform: x.providers?.[0]?.providerName || null,
     releaseYear: x.releaseDate ? Number(x.releaseDate.slice(0, 4)) : null,
     releaseDate: x.releaseDate,
@@ -315,6 +341,12 @@ function normalizeRow(x) {
     region: REGION,
     hidden: false,
     syncedAt: nowIso,
+    // ── 상세정보 확장 ──
+    castMembers: x.castMembers || [],
+    networks: x.networks || [],
+    runtime: x.runtime ?? null,
+    numberOfSeasons: x.numberOfSeasons ?? null,
+    numberOfEpisodes: x.numberOfEpisodes ?? null,
   }
 }
 
@@ -350,8 +382,28 @@ async function upsertRows(rows) {
 }
 
 /**
- * manualOverride=true 인 기존 행은 releaseDate/title/manual* 을 덮어쓰지 않는다.
- * (poster/overview/providers/popularity/voteAverage/syncedAt 등은 갱신)
+ * 이미 존재하는 행을 title 등 NOT NULL 컬럼 없이 부분 갱신(PATCH).
+ * upsert(POST)는 INSERT 경로에서 title NOT NULL 검사를 먼저 통과해야 하므로
+ * title을 뺀 manualOverride 보호 행은 반드시 PATCH(업데이트 전용)로 써야 한다.
+ */
+async function patchRows(rows) {
+  for (const r of rows) {
+    const { id, ...patch } = r
+    try {
+      await sbFetch(`contents?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(patch),
+      })
+    } catch (e) { logErr(`보호 행 PATCH 실패(${id}): ${e.message}`) }
+  }
+}
+
+/**
+ * manualOverride=true 인 기존 행은 "관리자 큐레이션 소유"로 간주한다.
+ * → 자동 텔레메트리(인기도·평점·백드롭·동기화시각)만 갱신하고,
+ *   제목·공개일·줄거리·장르·제작진·출연·채널·편성 등 콘텐츠 필드는 절대 덮어쓰지 않는다.
+ *   (관리자가 수동으로 고친 잘못된/누락된 정보가 다음 동기화 때 되돌아가지 않게)
  */
 async function upsertProtected(rows) {
   if (!rows.length) return
@@ -359,8 +411,15 @@ async function upsertProtected(rows) {
   const normal = [], guarded = []
   for (const r of rows) {
     if (flags.get(r.id)) {
-      const { releaseDate, title, manualReleaseDate, manualOverride, releaseDateSource, status, releaseYear, ...safe } = r
-      guarded.push(safe)
+      guarded.push({
+        id: r.id,
+        popularity: r.popularity,
+        voteAverage: r.voteAverage,
+        voteCount: r.voteCount,
+        backdropUrl: r.backdropUrl,
+        tmdbUrl: r.tmdbUrl,
+        syncedAt: r.syncedAt,
+      })
       stats.updated++
     } else {
       normal.push(r)
@@ -368,7 +427,7 @@ async function upsertProtected(rows) {
     }
   }
   if (normal.length) await upsertRows(normal)
-  if (guarded.length) await upsertRows(guarded)
+  if (guarded.length) await patchRows(guarded)   // 보호 행은 update-only (콘텐츠 필드 미포함)
 }
 
 // ── 동기화 로그 (best-effort) ──────────────────────────────
@@ -395,6 +454,12 @@ async function main() {
   const [movieProviders, tvProviders] = await Promise.all([loadProviders('movie'), loadProviders('tv')])
   stats.providersProcessed = movieProviders.length + tvProviders.length
   console.log(`📡 매칭된 provider — 영화 ${movieProviders.length}종, TV ${tvProviders.length}종`)
+
+  // networks 폴백이 쓸 표준 로고/ID 사전 구축 (TV 우선, 없으면 영화 카탈로그)
+  for (const p of [...tvProviders, ...movieProviders]) {
+    const k = normName(p.providerName)
+    if (!PROVIDER_DIR.has(k)) PROVIDER_DIR.set(k, { providerId: p.providerId, logoPath: p.logoPath })
+  }
 
   // 수집
   const movieCand = await collectMovies(movieProviders)

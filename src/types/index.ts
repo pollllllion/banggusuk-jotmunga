@@ -67,6 +67,24 @@ export interface Content {
   region?: string | null              // 'KR'
   hidden?: boolean                    // 캘린더에서 숨김
   syncedAt?: string | null
+
+  // ── 상세정보 확장 (감독/연출은 creators, 장르는 genres 재사용) ──
+  castMembers?: CastMember[]          // 출연진 (상위 N명)
+  networks?: NetworkInfo[]            // 채널/방영사 (TV: tvN·JTBC·Netflix ...)
+  runtime?: number | null            // 러닝타임(분) · TV는 회차당
+  numberOfSeasons?: number | null    // 시즌 수(TV)
+  numberOfEpisodes?: number | null   // 총 회차(TV)
+}
+
+export interface CastMember {
+  name: string
+  character: string | null
+  profilePath: string | null         // TMDB 프로필 경로 → IMG_PROFILE + profilePath
+}
+
+export interface NetworkInfo {
+  name: string
+  logoPath: string | null
 }
 
 // ── Review (핵심) ───────────────────────────────────────────

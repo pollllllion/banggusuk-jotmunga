@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
-  normName, matchTargetProviders, extractKrFlatrate, pickKrMovieDate,
+  normName, matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate,
   withinRange, buildContentId, mergeProviders, fetchWithRetry,
+  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
 } from '../tmdb-lib.mjs'
 
 describe('normName / provider 이름 매칭', () => {
@@ -32,6 +33,87 @@ describe('normName / provider 이름 매칭', () => {
   })
 })
 
+describe('networksToProviders (KR watch-provider 폴백)', () => {
+  it('대상 OTT 네트워크를 정규명 provider로 변환한다 (예: 동궁 = Netflix)', () => {
+    const nets = [{ id: 213, name: 'Netflix', logo_path: '/n.png', origin_country: '' }]
+    const out = networksToProviders(nets)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ providerName: 'Netflix', logoPath: '/n.png', monetizationType: 'flatrate' })
+  })
+
+  it('providerDir이 있으면 watch-provider 표준 id·로고로 통일한다', () => {
+    const nets = [{ id: 213, name: 'Netflix', logo_path: '/network-logo.png' }]
+    const dir = new Map([['netflix', { providerId: 8, logoPath: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg' }]])
+    const out = networksToProviders(nets, dir)
+    expect(out[0]).toMatchObject({ providerId: 8, logoPath: '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg', providerName: 'Netflix' })
+  })
+
+  it('네트워크명↔provider명 별칭을 보정한다 (Prime Video → Amazon Prime Video, Disney+ → Disney Plus)', () => {
+    const out = networksToProviders([
+      { id: 1024, name: 'Prime Video', logo_path: '/a.png' },
+      { id: 2739, name: 'Disney+', logo_path: '/d.png' },
+    ])
+    expect(out.map(p => p.providerName).sort()).toEqual(['Amazon Prime Video', 'Disney Plus'])
+  })
+
+  it('방송 네트워크(tvN·JTBC 등 비대상)는 무시한다', () => {
+    const out = networksToProviders([
+      { id: 1, name: 'tvN', logo_path: '/t.png' },
+      { id: 2, name: 'JTBC', logo_path: '/j.png' },
+    ])
+    expect(out).toEqual([])
+  })
+
+  it('같은 OTT 중복은 한 번만', () => {
+    const out = networksToProviders([
+      { id: 213, name: 'Netflix', logo_path: '/n.png' },
+      { id: 9999, name: 'Netflix', logo_path: '/n2.png' },
+    ])
+    expect(out).toHaveLength(1)
+  })
+})
+
+describe('상세정보 추출 (장르·타입·출연·연출·채널)', () => {
+  it('pickGenres: detail.genres 한글명 우선, 없으면 id 매핑', () => {
+    expect(pickGenres([{ id: 18, name: '드라마' }, { id: 9648, name: '미스터리' }], [])).toEqual(['드라마', '미스터리'])
+    expect(pickGenres(null, [28, 878])).toEqual(['액션', 'SF'])
+    expect(pickGenres([], [10764])).toEqual(['예능'])
+    // TV 장르 영어명은 id 한글맵으로 교체
+    expect(pickGenres([{ id: 10759, name: 'Action & Adventure' }, { id: 10765, name: 'Sci-Fi & Fantasy' }], [])).toEqual(['액션·모험', 'SF·판타지'])
+  })
+
+  it('tvContentType: 리얼리티(10764)·토크(10767)는 예능, 그 외는 드라마', () => {
+    expect(tvContentType([10764])).toBe('variety')
+    expect(tvContentType([10767])).toBe('variety')
+    expect(tvContentType([18, 9648])).toBe('drama')
+    expect(tvContentType([])).toBe('drama')
+  })
+
+  it('extractCast: 상위 N명 name/character/profilePath', () => {
+    const credits = { cast: [
+      { name: '가나다', character: '주인공', profile_path: '/p.jpg' },
+      { name: '라마바', character: '조연', profile_path: null },
+    ] }
+    const out = extractCast(credits, 1)
+    expect(out).toEqual([{ name: '가나다', character: '주인공', profilePath: '/p.jpg' }])
+  })
+
+  it('extractCast: TV aggregate 형태(roles[].character)도 처리', () => {
+    const out = extractCast({ cast: [{ name: '홍길동', roles: [{ character: '길동' }], profile_path: null }] })
+    expect(out[0]).toMatchObject({ name: '홍길동', character: '길동' })
+  })
+
+  it('extractDirectors: crew 에서 Director만', () => {
+    const crew = [{ job: 'Director', name: '봉준호' }, { job: 'Writer', name: '한진원' }]
+    expect(extractDirectors(crew)).toEqual(['봉준호'])
+  })
+
+  it('mapNetworks: name/logoPath 상위 N', () => {
+    const nets = [{ name: 'tvN', logo_path: '/t.png' }, { name: 'Netflix', logo_path: '/n.png' }]
+    expect(mapNetworks(nets, 1)).toEqual([{ name: 'tvN', logoPath: '/t.png' }])
+  })
+})
+
 describe('영화/TV provider ID 분리', () => {
   it('영화·TV provider 목록을 독립적으로 매칭한다(호출자가 mediaType별로 넘김)', () => {
     const movie = matchTargetProviders([{ provider_id: 8, provider_name: 'Netflix' }])
@@ -54,6 +136,15 @@ describe('extractKrFlatrate', () => {
   it('KR 자료 없으면 빈 배열', () => {
     expect(extractKrFlatrate({ results: {} })).toEqual([])
     expect(extractKrFlatrate(undefined)).toEqual([])
+  })
+  it('광고형 티어·비대상 서비스는 제외한다', () => {
+    const wp = { results: { KR: { flatrate: [
+      { provider_id: 8, provider_name: 'Netflix', logo_path: '/n.jpg' },
+      { provider_id: 1796, provider_name: 'Netflix Standard with Ads', logo_path: '/na.jpg' },
+      { provider_id: 999, provider_name: 'Some Niche Service', logo_path: null },
+    ] } } }
+    const out = extractKrFlatrate(wp)
+    expect(out.map(p => p.providerName)).toEqual(['Netflix'])
   })
 })
 

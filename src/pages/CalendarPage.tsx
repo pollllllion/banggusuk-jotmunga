@@ -7,8 +7,8 @@ import { Poster } from '@/components/content/Poster'
 import { BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import {
-  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
-  OTT_FILTERS, hasProvider, releaseSourceLabel,
+  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl, castProfileUrl,
+  OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank,
 } from '@/utils/ott'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import '@/styles/calendar.css'
@@ -36,6 +36,21 @@ function keyOf(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** 'YYYY-MM-DD' → 'YYYY. MM. DD (요일)' */
+function fmtDateKo(d: string): string {
+  const dt = new Date(d + 'T00:00:00')
+  return `${d.replace(/-/g, '. ')} (${WEEKDAYS[dt.getDay()]})`
+}
+
+/** 편성 요약: 시즌·회차·러닝타임을 한 줄로 */
+function scheduleSummary(c: Content): string | null {
+  const parts: string[] = []
+  if (c.numberOfSeasons && c.numberOfSeasons > 1) parts.push(`시즌 ${c.numberOfSeasons}`)
+  if (c.numberOfEpisodes) parts.push(`총 ${c.numberOfEpisodes}부작`)
+  if (c.runtime) parts.push(c.type === 'movie' ? `${c.runtime}분` : `회차당 ${c.runtime}분`)
+  return parts.length ? parts.join(' · ') : null
+}
+
 function ddayOf(release: string): { label: string; over: boolean } {
   const t = new Date(); t.setHours(0, 0, 0, 0)
   const r = new Date(release + 'T00:00:00')
@@ -53,7 +68,7 @@ function ProviderLogos({ providers, size = 20 }: { providers: ContentProvider[];
   return (
     <span className="ott-logos">
       {shown.map(p => {
-        const url = providerLogoUrl(p.logoPath)
+        const url = providerLogoUrl(p.logoPath, p.providerName)
         return url
           ? <img key={p.providerId} className="ott-logo" src={url} alt={p.providerName} title={p.providerName} style={{ width: size, height: size }} />
           : <span key={p.providerId} className="ott-logo ott-logo-text" title={p.providerName} style={{ width: size, height: size }}>{p.providerName.slice(0, 1)}</span>
@@ -75,6 +90,7 @@ export function CalendarPage() {
   const [phase, setPhase] = useState<Phase>('all')
   const [selected, setSelected] = useState<Content | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
+  const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
 
   const todayKey = keyOf(now)
 
@@ -85,14 +101,23 @@ export function CalendarPage() {
       if (c.hidden) continue
       const date = effectiveReleaseDate(c)
       if (!date) continue
-      if (filter !== 'all' && c.type !== filter) continue
+      // '드라마·예능' 필터는 drama·variety 둘 다 포함
+      if (filter !== 'all') {
+        const match = filter === 'drama' ? (c.type === 'drama' || c.type === 'variety') : c.type === filter
+        if (!match) continue
+      }
       if (ott !== 'all' && !hasProvider(c, ott)) continue
       if (phase === 'upcoming' && !(date > todayKey)) continue
       if (phase === 'released' && date > todayKey) continue
       ;(map[date] ||= []).push(c)
     }
+    // 플랫폼 순서(넷플릭스→티빙→디즈니→극장→웨이브) 우선, 동일 플랫폼은 화제도 내림차순
     for (const k of Object.keys(map)) {
-      map[k].sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+      map[k].sort((a, b) => {
+        const ra = platformSortRank(a), rb = platformSortRank(b)
+        if (ra !== rb) return ra - rb
+        return (b.popularity || 0) - (a.popularity || 0)
+      })
     }
     return map
   }, [filter, ott, phase, todayKey])
@@ -138,6 +163,9 @@ export function CalendarPage() {
   const selDate = selected ? effectiveReleaseDate(selected) : null
   const selProviders = selected ? providersOf(selected) : []
   const selSource = selected ? releaseSourceLabel(selected.releaseDateSource) : null
+  const selCast = selected?.castMembers ?? []
+  const selNetworks = selected?.networks ?? []
+  const selSchedule = selected ? scheduleSummary(selected) : null
 
   return (
     <div className="cal-wrap">
@@ -215,7 +243,7 @@ export function CalendarPage() {
                       )
                     })}
                     {items.length > MAX_PER_CELL && (
-                      <span className="cal-more" onClick={() => openItem(items[MAX_PER_CELL])}>
+                      <span className="cal-more" onClick={() => setDayList({ key: k, items })}>
                         +{items.length - MAX_PER_CELL}개 더
                       </span>
                     )}
@@ -231,6 +259,35 @@ export function CalendarPage() {
         영화·드라마 정보 및 OTT 제공 여부: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a> · OTT 제공 정보 <a href="https://www.justwatch.com/" target="_blank" rel="noreferrer">JustWatch</a> 제공 · 웹툰/웹소설은 직접 큐레이션<br />
         This product uses the TMDB API but is not endorsed or certified by TMDB.
       </p>
+
+      {dayList && (
+        <div className="cal-modal-back" onClick={() => setDayList(null)}>
+          <div className="cal-daylist" onClick={e => e.stopPropagation()}>
+            <button className="cal-modal-close" onClick={() => setDayList(null)}>×</button>
+            <h3 className="cal-daylist-title">
+              📅 {dayList.key.replace(/-/g, '. ')}
+              <span className="cal-daylist-count">공개 {dayList.items.length}개</span>
+            </h3>
+            <div className="cal-daylist-items">
+              {dayList.items.map(c => {
+                const provs = providersOf(c)
+                return (
+                  <button
+                    key={c.id}
+                    className={`cal-daylist-item type-${c.type}`}
+                    onClick={() => { setDayList(null); openItem(c) }}>
+                    {provs.length > 0
+                      ? <ProviderLogos providers={provs.slice(0, 3)} size={18} />
+                      : <span className="emoji">{TYPE_EMOJIS[c.type]}</span>}
+                    <span className="cal-daylist-t">{c.title}</span>
+                    <span className="cal-daylist-type">{TYPE_LABELS[c.type]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div className="cal-modal-back" onClick={() => setSelected(null)}>
@@ -259,12 +316,64 @@ export function CalendarPage() {
                 )}
                 {selDate && (
                   <div className="cal-modal-date">
-                    📅 {selDate.replace(/-/g, '. ')} {isUpcoming(selected, todayKey) ? '공개 예정' : '공개'}
+                    📅 {fmtDateKo(selDate)} {isUpcoming(selected, todayKey) ? '공개 예정' : '공개'}
                     {selSource && <span className="cal-src"> · {selSource}</span>}
                   </div>
                 )}
-                <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
               </div>
+            </div>
+
+            {/* 상세 정보 (네이버 검색 스타일) */}
+            <div className="cal-detail">
+              <dl className="cal-detail-grid">
+                {selected.creators && selected.creators.length > 0 && (
+                  <>
+                    <dt>{selected.type === 'movie' ? '감독' : '연출·제작'}</dt>
+                    <dd>{selected.creators.join(', ')}</dd>
+                  </>
+                )}
+                {selNetworks.length > 0 && (
+                  <>
+                    <dt>채널·편성</dt>
+                    <dd className="cal-detail-networks">
+                      {selNetworks.map(n => (
+                        <span key={n.name} className="cal-net">
+                          <img src={providerLogoUrl(n.logoPath, n.name)!} alt={n.name} />{n.name}
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                )}
+                {selSchedule && (<><dt>구성</dt><dd>{selSchedule}</dd></>)}
+                {selected.genres && selected.genres.length > 0 && (
+                  <><dt>장르</dt><dd>{selected.genres.join(' · ')}</dd></>
+                )}
+                {typeof selected.voteAverage === 'number' && selected.voteAverage > 0 && (
+                  <><dt>평점</dt><dd>⭐ {selected.voteAverage.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
+                )}
+              </dl>
+
+              {selCast.length > 0 && (
+                <div className="cal-cast">
+                  <div className="cal-cast-label">출연</div>
+                  <div className="cal-cast-list">
+                    {selCast.map((p, i) => {
+                      const url = castProfileUrl(p.profilePath)
+                      return (
+                        <div className="cal-cast-item" key={p.name + i}>
+                          <div className="cal-cast-photo">
+                            {url ? <img src={url} alt={p.name} loading="lazy" /> : <span>{p.name.slice(0, 1)}</span>}
+                          </div>
+                          <div className="cal-cast-name">{p.name}</div>
+                          {p.character && <div className="cal-cast-role">{p.character}</div>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
             </div>
             <div className="cal-modal-actions">
               <button className={`cal-act ${bookmarked ? 'on' : ''}`} onClick={toggleAlarm}>
