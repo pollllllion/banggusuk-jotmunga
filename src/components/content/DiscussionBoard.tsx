@@ -47,7 +47,7 @@ export function DiscussionBoard({ contentId }: { contentId: string }) {
   return (
     <div className="disc-wrap">
       <div className="feed-header" style={{ marginTop: 20 }}>
-        <h2 className="feed-title">💬 작품 게시판 {posts.length > 0 && <span style={{ color: 'var(--subtext)', fontWeight: 500 }}>{posts.length}</span>}</h2>
+        <h2 className="feed-title">💬 작품방 {posts.length > 0 && <span style={{ color: 'var(--subtext)', fontWeight: 500 }}>{posts.length}</span>}</h2>
         {!writing && <button className="btn btn-primary btn-small" onClick={() => setWriting(true)}>✍️ 글쓰기</button>}
       </div>
 

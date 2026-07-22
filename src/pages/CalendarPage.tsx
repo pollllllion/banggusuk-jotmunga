@@ -15,17 +15,11 @@ import '@/styles/calendar.css'
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const FILTERS: { code: ContentType | 'all'; label: string }[] = [
-  { code: 'all', label: '전체' },
+  { code: 'all', label: '작품전체' },
   { code: 'movie', label: '영화' },
   { code: 'drama', label: '드라마·예능' },
   { code: 'webtoon', label: '웹툰' },
   { code: 'webnovel', label: '웹소설' },
-]
-type Phase = 'all' | 'upcoming' | 'released'
-const PHASES: { code: Phase; label: string }[] = [
-  { code: 'all', label: '전체' },
-  { code: 'upcoming', label: '공개 예정' },
-  { code: 'released', label: '공개 완료' },
 ]
 
 const MAX_PER_CELL = 3
@@ -87,7 +81,6 @@ export function CalendarPage() {
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() })
   const [filter, setFilter] = useState<ContentType | 'all'>('all')
   const [ott, setOtt] = useState<string>('all')
-  const [phase, setPhase] = useState<Phase>('all')
   const [selected, setSelected] = useState<Content | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
@@ -107,8 +100,6 @@ export function CalendarPage() {
         if (!match) continue
       }
       if (ott !== 'all' && !hasProvider(c, ott)) continue
-      if (phase === 'upcoming' && !(date > todayKey)) continue
-      if (phase === 'released' && date > todayKey) continue
       ;(map[date] ||= []).push(c)
     }
     // 플랫폼 순서(넷플릭스→티빙→디즈니→극장→웨이브) 우선, 동일 플랫폼은 화제도 내림차순
@@ -120,7 +111,7 @@ export function CalendarPage() {
       })
     }
     return map
-  }, [filter, ott, phase, todayKey])
+  }, [filter, ott, todayKey])
 
   // 이번 달 그리드 (일요일 시작)
   const weeks = useMemo(() => {
@@ -181,11 +172,15 @@ export function CalendarPage() {
           <button className="cal-navbtn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           <button className="cal-today-btn" onClick={goToday}>오늘</button>
         </div>
+      </div>
+
+      {/* 작품 타입 필터 */}
+      <div className="cal-subfilters">
         <div className="cal-filters">
           {FILTERS.map(f => (
             <button
               key={f.code}
-              className={`cal-chip ${filter === f.code ? 'active' : ''}`}
+              className={`cal-chip sm ${filter === f.code ? 'active' : ''}`}
               onClick={() => setFilter(f.code)}>
               {f.label}
             </button>
@@ -193,13 +188,8 @@ export function CalendarPage() {
         </div>
       </div>
 
-      {/* 공개 상태 + OTT 필터 */}
+      {/* OTT 필터 */}
       <div className="cal-subfilters">
-        <div className="cal-filters">
-          {PHASES.map(p => (
-            <button key={p.code} className={`cal-chip sm ${phase === p.code ? 'active' : ''}`} onClick={() => setPhase(p.code)}>{p.label}</button>
-          ))}
-        </div>
         <div className="cal-filters cal-ott-filters">
           <button className={`cal-chip sm ${ott === 'all' ? 'active' : ''}`} onClick={() => setOtt('all')}>OTT 전체</button>
           {OTT_FILTERS.map(o => (
@@ -344,9 +334,7 @@ export function CalendarPage() {
                     <dt>채널·편성</dt>
                     <dd className="cal-detail-networks">
                       {selNetworks.map(n => (
-                        <span key={n.name} className="cal-net">
-                          <img src={providerLogoUrl(n.logoPath, n.name)!} alt={n.name} />{n.name}
-                        </span>
+                        <span key={n.name} className="cal-net">{n.name}</span>
                       ))}
                     </dd>
                   </>
@@ -388,7 +376,7 @@ export function CalendarPage() {
                 {bookmarked ? '알림 신청됨' : '찜하고 알림받기'}
               </button>
               <button className="cal-act primary" onClick={() => navigate(`/content/${selected.id}`)}>
-                <CommentIcon /> 수다방 들어가기
+                <CommentIcon /> 작품방 들어가기
               </button>
             </div>
             {selProviders.length > 0 && (

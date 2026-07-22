@@ -106,7 +106,7 @@ export function ContentDetailPage() {
       {/* 리뷰 / 수다방 탭 */}
       <div className="feed-sort" style={{ marginTop: 16, marginBottom: 4 }}>
         <button className={tab === 'reviews' ? 'active' : ''} onClick={() => setTab('reviews')}>⭐ 리뷰</button>
-        <button className={tab === 'talk' ? 'active' : ''} onClick={() => setTab('talk')}>💬 게시판</button>
+        <button className={tab === 'talk' ? 'active' : ''} onClick={() => setTab('talk')}>💬 작품방</button>
       </div>
 
       {tab === 'talk' ? (
