@@ -96,6 +96,7 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   const [showForm, setShowForm] = useState(false)
   const [showTmdb, setShowTmdb] = useState(false)
   const [query, setQuery] = useState('')
+  const [onlyUnverified, setOnlyUnverified] = useState(false)
 
   // 캘린더 '+ 신작 등록' 바로가기로 들어오면 폼을 자동으로 연다.
   useEffect(() => { if (openNew) { setEditing(null); setShowForm(true) } }, [openNew])
@@ -111,10 +112,18 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   // 최신 개봉순(공개일 내림차순, 없으면 뒤로). 검색은 제목 기준.
   const contents = [...DS.getContents()]
     .filter(c => !q || c.title.toLowerCase().includes(q))
+    .filter(c => !onlyUnverified || !c.verified)
     .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
+  const unverifiedCount = DS.getContents().filter(c => !c.verified).length
 
   const startNew = () => { setEditing(null); setShowForm(true) }
   const startEdit = (c: Content) => { setEditing(c); setShowForm(true) }
+
+  const toggleVerify = (c: Content) => {
+    DS.updateContent(c.id, { verified: !c.verified })
+    toast(c.verified ? '인증을 취소했어요.' : '공식 인증했어요.')
+    rerender()
+  }
 
   const handleDelete = (c: Content) => {
     if (!confirm(`'${c.title}' 작품과 관련 리뷰를 모두 삭제하시겠습니까?`)) return
@@ -151,6 +160,10 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
           placeholder="작품 제목 검색…"
         />
         <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{contents.length}편</span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--subtext)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={onlyUnverified} onChange={e => setOnlyUnverified(e.target.checked)} />
+          미인증만 보기 {unverifiedCount > 0 && <b style={{ color: 'var(--danger)' }}>({unverifiedCount})</b>}
+        </label>
       </div>
 
       {contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
@@ -159,12 +172,18 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
           <div className="admin-card-body">
             <div className="value">
               <span className={`type-badge type-${c.type}`}>{TYPE_LABELS[c.type]}</span> {c.title}
+              {c.verified
+                ? <span className="admin-verified-tag ok" title="공식 인증됨">✓ 공식</span>
+                : <span className="admin-verified-tag no" title="사용자 등록 · 미인증">미인증</span>}
             </div>
             <div className="label" style={{ marginTop: 2 }}>
               평점 {c.reviewCount ? c.avgRating.toFixed(1) : '-'} · 리뷰 {c.reviewCount} · {c.genres.join(', ') || '장르 없음'}
             </div>
           </div>
           <div className="admin-card-actions">
+            <button className={`btn btn-small ${c.verified ? 'btn-secondary' : 'btn-primary'}`} onClick={() => toggleVerify(c)}>
+              {c.verified ? '인증취소' : '인증'}
+            </button>
             <button className="btn btn-secondary btn-small" onClick={() => startEdit(c)}>수정</button>
             <button className="btn btn-danger btn-small" onClick={() => handleDelete(c)}>삭제</button>
           </div>
@@ -209,7 +228,7 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
     const existing = DS.getContentById(id)
     if (existing) { onRegistered(existing, true); return }
     const created = DS.createContent({
-      id, source: 'tmdb', manualOverride: true, type,
+      id, source: 'tmdb', manualOverride: true, type, verified: true,
       title: r.title,
       posterUrl: r.posterUrl,
       releaseYear: r.year,
@@ -357,7 +376,7 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
         : {}),
     }
     if (content) { DS.updateContent(content.id, data); toast('작품이 수정되었습니다.') }
-    else { DS.createContent({ ...data, createdBy: authorId }); toast('작품이 등록되었습니다.') }
+    else { DS.createContent({ ...data, createdBy: authorId, verified: true }); toast('작품이 등록되었습니다.') }
     onDone()
   }
 

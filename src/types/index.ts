@@ -49,6 +49,8 @@ export interface Content {
   reviewCount: number
   createdBy: string
   createdAt: string
+  /** 관리자 공식 인증 작품 (TMDB·관리자 등록은 자동 true, 사용자 수기등록은 false) */
+  verified?: boolean
 
   // ── OTT 캘린더 연동 (TMDB 자동 수집 · 전부 선택적: 수기 작품은 없음) ──
   tmdbId?: number | null
@@ -191,6 +193,8 @@ export interface Watched {
   userId: string
   contentId: string
   createdAt: string
+  /** 실제로 이 작품을 본 연도 (사용자 입력, 모르면 null) */
+  watchedYear: number | null
 }
 
 // ── Announcement ────────────────────────────────────────────

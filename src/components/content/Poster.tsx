@@ -6,6 +6,7 @@ export function Poster({ content, showScore = true }: { content: Content; showSc
   return (
     <div className="poster" style={content.posterUrl ? { backgroundImage: `url(${content.posterUrl}), linear-gradient(135deg, #3F3F46, #18181B)`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}>
       {!content.posterUrl && <div className="poster-fallback">{content.title}</div>}
+      {content.verified && <span className="verified-badge" title="관리자 공식 인증 작품">✓ 공식</span>}
       {showScore && content.reviewCount > 0 && (
         <span className="score-corner" style={{ background: scoreColor(content.avgRating) }}>
           {content.avgRating.toFixed(1)}

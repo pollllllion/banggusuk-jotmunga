@@ -477,6 +477,8 @@ export interface RegisterWatchedInput {
   synopsis?: string
   genres?: string[]
   creators?: string[]
+  /** 실제로 이 작품을 본 연도 (모르면 생략/null) */
+  watchedYear?: number | null
 }
 
 /**
@@ -494,6 +496,7 @@ export async function registerWatched(input: RegisterWatchedInput): Promise<Cont
     p_synopsis: input.synopsis ?? '',
     p_genres: input.genres ?? [],
     p_creators: input.creators ?? [],
+    p_watched_year: input.watchedYear ?? null,
   })
   if (error) { console.error('[register_watched]', error); throw error }
   const content = data as Content
@@ -503,7 +506,7 @@ export async function registerWatched(input: RegisterWatchedInput): Promise<Cont
   }
   const uid = currentUser()?.id
   if (uid && !cache.watched.some((w: any) => w.userId === uid && w.contentId === content.id)) {
-    cache.watched = [{ userId: uid, contentId: content.id, createdAt: new Date().toISOString() }, ...cache.watched]
+    cache.watched = [{ userId: uid, contentId: content.id, createdAt: new Date().toISOString(), watchedYear: input.watchedYear ?? null }, ...cache.watched]
   }
   return content
 }
@@ -513,6 +516,42 @@ export async function unregisterWatched(userId: string, contentId: string): Prom
   cache.watched = cache.watched.filter((w: any) => !(w.userId === userId && w.contentId === contentId))
   try { await supabase.from('watched').delete().eq('userId', userId).eq('contentId', contentId) }
   catch (e) { console.error('[unregisterWatched]', e) }
+}
+
+export interface UpdateMyContentInput {
+  contentId: string
+  title: string
+  posterUrl?: string | null
+  platform?: string | null
+  releaseYear?: number | null
+}
+
+/**
+ * 내가 등록한 작품 정보 수정 — 서버 RPC(update_my_content).
+ * createdBy = 본인인 작품만 수정됨(서버에서 검증). 수정된 content 반환.
+ */
+export async function updateMyContent(input: UpdateMyContentInput): Promise<Content> {
+  const { data, error } = await supabase.rpc('update_my_content', {
+    p_content_id: input.contentId,
+    p_title: input.title,
+    p_poster_url: input.posterUrl ?? null,
+    p_platform: input.platform ?? null,
+    p_release_year: input.releaseYear ?? null,
+  })
+  if (error) { console.error('[update_my_content]', error); throw error }
+  const content = data as Content
+  // 캐시 반영 (즉시 표시)
+  cache.contents = cache.contents.map((c: any) => c.id === content.id ? content : c)
+  return content
+}
+
+/** 시청 연도 수정 — 본인 watched 행만 UPDATE (RLS: watched_update_own) */
+export async function updateWatchedYear(userId: string, contentId: string, year: number | null): Promise<void> {
+  cache.watched = cache.watched.map((w: any) =>
+    w.userId === userId && w.contentId === contentId ? { ...w, watchedYear: year } : w
+  )
+  try { await supabase.from('watched').update({ watchedYear: year }).eq('userId', userId).eq('contentId', contentId) }
+  catch (e) { console.error('[updateWatchedYear]', e) }
 }
 
 // ── Blocks ──────────────────────────────────────────────────

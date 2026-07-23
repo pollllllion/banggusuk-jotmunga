@@ -413,6 +413,16 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .feed-summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--subtext); font-size: 13px; margin: 2px 0 14px; }
 .feed-summary b { color: var(--text); font-size: 15px; }
 .feed-quicklinks { display: flex; gap: 8px; margin-left: auto; }
+/* 묶는 기준 토글 (작품 연도별 / 본 연도별) */
+.feed-groupmode { display: inline-flex; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius-full); overflow: hidden; }
+.feed-groupmode button {
+  padding: 6px 14px; font-size: 13px; font-weight: 700; border: none; cursor: pointer;
+  background: var(--card); color: var(--subtext); transition: var(--duration) var(--ease);
+}
+.feed-groupmode button + button { border-left: 1px solid var(--border); }
+.feed-groupmode button:hover { color: var(--primary); }
+.feed-groupmode button.active { background: var(--primary); color: #fff; }
+
 .feed-typefilter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .feed-typefilter button {
   padding: 6px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 600;
@@ -428,6 +438,16 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .feed-year-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light); }
 .feed-year-label { font-size: 16px; font-weight: 800; color: var(--dark); }
 .feed-year-count { font-size: 13px; font-weight: 600; color: var(--primary); }
+.feed-year-sub { font-size: 12px; color: var(--subtext); }
+
+/* 카드 하단 시청 연도 태그 (클릭 시 수정) */
+.watched-year-tag {
+  margin-top: 4px; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg-soft, var(--card)); color: var(--subtext);
+  transition: var(--duration) var(--ease); align-self: flex-start;
+}
+.watched-year-tag:hover { border-color: var(--primary); color: var(--primary); }
 
 .watched-card { position: relative; }
 .watched-card .watched-remove {
@@ -438,6 +458,39 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .watched-card:hover .watched-remove { display: flex; }
 .watched-card .watched-remove:hover { background: #DC2626; }
+
+/* 내가 등록해 수정 가능한 카드 — 우상단 연필 배지 (클릭하면 정보 수정) */
+.watched-card .watched-editable {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 24px; height: 24px; border-radius: var(--radius-full);
+  background: rgba(0,0,0,.55); font-size: 12px; line-height: 24px; text-align: center;
+  display: none; pointer-events: none;
+}
+.watched-card:hover .watched-editable { display: block; }
+
+/* 작품 포스터 — 공식 인증 배지 */
+.poster { position: relative; }
+.verified-badge {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  padding: 2px 7px; border-radius: var(--radius-full);
+  background: var(--primary); color: #fff; font-size: 10px; font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+
+/* 관리자 작품목록 — 인증 상태 태그 */
+.admin-verified-tag { margin-left: 6px; padding: 0 7px; border-radius: var(--radius-full); font-size: 11px; font-weight: 700; border: 1px solid; }
+.admin-verified-tag.ok { color: var(--primary); border-color: var(--primary); }
+.admin-verified-tag.no { color: var(--danger); border-color: var(--danger); }
+
+/* 등록 모달 — "언제 봤어요?" 연도 선택 */
+.watched-year-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.watched-year-field > span { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.watched-year-field select { flex: 1; }
+
+/* 등록 모달 — 수기작품 중복 후보 (기존 작품에 연결) */
+.manual-suggest { border: 1px dashed var(--border); border-radius: var(--radius); padding: 8px 10px; background: var(--bg-soft, var(--card)); }
+.manual-suggest-head { font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+.manual-suggest-or { font-size: 11px; color: var(--subtext); text-align: center; margin-top: 6px; }
 
 /* 등록 모달 — TMDB 검색 결과 */
 .tmdb-results { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; margin-top: 12px; }
