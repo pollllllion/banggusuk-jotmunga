@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { CONTENT_TYPES, GENRES, TYPE_LABELS, WEBTOON_PLATFORMS } from '@/utils/constants'
-import { timeAgo } from '@/utils/helpers'
+import { timeAgo, normalizeTitle } from '@/utils/helpers'
 import { OTT_FILTERS } from '@/utils/ott'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
@@ -95,6 +95,7 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   const [editing, setEditing] = useState<Content | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showTmdb, setShowTmdb] = useState(false)
+  const [showDedup, setShowDedup] = useState(false)
   const [query, setQuery] = useState('')
   const [onlyUnverified, setOnlyUnverified] = useState(false)
 
@@ -140,11 +141,16 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
     rerender()
   }
 
+  const dupGroupCount = findDupGroups(DS.getContents()).length
+
   if (showForm) {
     return <ContentForm content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />
   }
   if (showTmdb) {
     return <TmdbRegisterPanel onRegistered={onTmdbRegistered} onCancel={() => setShowTmdb(false)} />
+  }
+  if (showDedup) {
+    return <DedupPanel onDone={() => { setShowDedup(false); rerender() }} />
   }
 
   return (
@@ -152,6 +158,9 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={startNew}>+ 새 작품 등록</button>
         {tmdbEnabled && <button className="btn btn-secondary" onClick={() => setShowTmdb(true)}>📥 TMDB 검색 등록</button>}
+        <button className="btn btn-secondary" onClick={() => setShowDedup(true)}>
+          🔁 중복 정리{dupGroupCount > 0 && <b style={{ color: 'var(--danger)', marginLeft: 4 }}>{dupGroupCount}</b>}
+        </button>
         <input
           className="form-input"
           style={{ flex: 1, minWidth: 180, maxWidth: 320, marginBottom: 0 }}
@@ -190,6 +199,83 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
         </div>
       ))}
     </>
+  )
+}
+
+// ── 중복 작품 감지 / 정리 ────────────────────────────────────
+// 같은 타입 + 정규화 제목이 같은 작품들을 한 그룹으로 본다("전지적 독자 시점" ↔ "전지적독자시점").
+function findDupGroups(contents: Content[]): Content[][] {
+  const map = new Map<string, Content[]>()
+  for (const c of contents) {
+    const norm = normalizeTitle(c.title)
+    if (!norm) continue
+    const key = `${c.type}|${norm}`
+    const arr = map.get(key)
+    if (arr) arr.push(c); else map.set(key, [c])
+  }
+  return [...map.values()].filter(g => g.length >= 2)
+}
+// 살아남을 작품(대표): 인증 > 리뷰 많은 것 > 먼저 만들어진 것
+function pickSurvivor(group: Content[]): Content {
+  return [...group].sort((a, b) =>
+    (Number(!!b.verified) - Number(!!a.verified)) ||
+    (b.reviewCount - a.reviewCount) ||
+    ((a.createdAt || '').localeCompare(b.createdAt || ''))
+  )[0]
+}
+
+function DedupPanel({ onDone }: { onDone: () => void }) {
+  const toast = useToastStore(s => s.show)
+  const [, setTick] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const groups = findDupGroups(DS.getContents())
+
+  const mergeGroup = async (group: Content[]) => {
+    const survivor = pickSurvivor(group)
+    const dups = group.filter(c => c.id !== survivor.id)
+    if (!confirm(`'${survivor.title}' 로 ${dups.length}개 중복을 합칩니다.\n(리뷰·수다방·본 작품 기록은 모두 대표 작품으로 이동)\n계속할까요?`)) return
+    setBusy(true)
+    try {
+      for (const d of dups) await DS.mergeContent(d.id, survivor.id)
+      toast(`'${survivor.title}' 로 ${dups.length}개를 병합했어요.`)
+      setTick(t => t + 1)
+    } catch (e: any) {
+      toast(e?.message || '병합에 실패했어요.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fade-in">
+      <button className="btn-text btn-small" onClick={onDone} style={{ marginBottom: 8 }}>‹ 작품 관리로</button>
+      <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>🔁 중복 작품 정리</h3>
+      <p style={{ color: 'var(--subtext)', fontSize: 13, marginBottom: 14 }}>
+        같은 작품이 여러 개로 등록된 그룹이에요. 병합하면 <b>대표 작품(★)</b>으로 합쳐지고 나머지는 삭제됩니다.
+      </p>
+
+      {groups.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>중복된 작품이 없어요. 👍</p>}
+
+      {groups.map((group, gi) => {
+        const survivor = pickSurvivor(group)
+        return (
+          <div key={gi} className="admin-card fade-in" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <b>{survivor.title} <span style={{ color: 'var(--subtext)', fontWeight: 500, fontSize: 12 }}>· {TYPE_LABELS[survivor.type]} · {group.length}개</span></b>
+              <button className="btn btn-primary btn-small" disabled={busy} onClick={() => mergeGroup(group)}>병합</button>
+            </div>
+            {group.map(c => (
+              <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: c.id === survivor.id ? 'var(--text)' : 'var(--subtext)' }}>
+                <span>{c.id === survivor.id ? '★ 대표' : '↳ 합쳐짐'}</span>
+                <span>{c.title}</span>
+                {c.verified && <span className="admin-verified-tag ok">✓</span>}
+                <span style={{ fontSize: 11 }}>리뷰 {c.reviewCount}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -320,6 +406,10 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
   const [episodes, setEpisodes] = useState(content?.numberOfEpisodes?.toString() || '')
   const isTmdb = content?.source === 'tmdb'
   const isBook = type === 'webtoon' || type === 'webnovel' // 웹툰/웹소설: 영상 전용 필드(출연·OTT·채널·러닝타임 등) 숨김
+  // 새 등록 시 같은 작품(타입+정규화 제목 일치)이 이미 있는지 — 중복 방지
+  const dupMatches = !content && title.trim()
+    ? DS.getContents().filter(c => c.type === type && normalizeTitle(c.title) === normalizeTitle(title))
+    : []
 
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
   const toggleOtt = (name: string) => setOtt(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name])
@@ -327,6 +417,9 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
 
   const submit = () => {
     if (!title.trim()) { toast('제목을 입력하세요.'); return }
+    if (!content && dupMatches.length && !confirm(
+      `이미 같은 작품이 있어요: "${dupMatches[0].title}"${dupMatches.length > 1 ? ` 외 ${dupMatches.length - 1}개` : ''}.\n중복으로 새로 등록하면 나중에 '중복 정리'에서 합쳐야 해요.\n그래도 새로 등록할까요?`
+    )) return
     // 출연진: "이름, 배역" 한 줄씩. 기존 프로필 사진(profilePath)은 이름이 같으면 유지.
     const prevCast = content?.castMembers || []
     const castMembers = cast.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
@@ -401,6 +494,11 @@ function ContentForm({ content, authorId, onDone, onCancel }: { content: Content
         </div>
       </div>
       <div className="form-group"><label>제목</label><input className="form-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="작품 제목" /></div>
+      {dupMatches.length > 0 && (
+        <div className="dup-warn">
+          ⚠️ 같은 작품이 이미 있어요: <b>{dupMatches.map(c => c.title).join(', ')}</b>. 중복 등록 대신 기존 작품을 수정하거나, 등록 후 '중복 정리'로 합치세요.
+        </div>
+      )}
       <div className="form-row" style={{ marginBottom: 10 }}>
         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}><label>플랫폼</label><input className="form-input" value={platform} onChange={e => setPlatform(e.target.value)} placeholder="넷플릭스 / 네이버웹툰 ..." /></div>
         <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>

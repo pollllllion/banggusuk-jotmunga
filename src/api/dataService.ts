@@ -224,6 +224,32 @@ export function updateContent(id: string, updates: Partial<Content>): Content | 
   return updated
 }
 
+/**
+ * 중복 작품 병합 — 서버 RPC(merge_content). fromId 를 intoId 로 합치고 fromId 삭제.
+ * watched·bookmarks·reviews·discussions 의 참조를 intoId 로 옮긴다. 관리자만.
+ */
+export async function mergeContent(fromId: string, intoId: string): Promise<void> {
+  const { error } = await supabase.rpc('merge_content', { p_from: fromId, p_into: intoId })
+  if (error) { console.error('[merge_content]', error); throw error }
+
+  // 캐시 반영 — watched/bookmarks 는 대상에 이미 있으면 원본 링크 제거 후 이전
+  const movePk = (rows: any[]) => {
+    const intoUsers = new Set(rows.filter(r => r.contentId === intoId).map(r => r.userId))
+    return rows
+      .filter(r => !(r.contentId === fromId && intoUsers.has(r.userId)))
+      .map(r => r.contentId === fromId ? { ...r, contentId: intoId } : r)
+  }
+  cache.watched = movePk(cache.watched)
+  cache.bookmarks = movePk(cache.bookmarks)
+  cache.reviews = cache.reviews.map((r: any) => r.contentId === fromId ? { ...r, contentId: intoId } : r)
+  cache.discussions = cache.discussions.map((d: any) => d.contentId === fromId ? { ...d, contentId: intoId } : d)
+  cache.contents = cache.contents.filter((c: any) => c.id !== fromId)
+  // 대상 평점/리뷰수 재집계
+  const revs = cache.reviews.filter((r: any) => r.contentId === intoId)
+  const avg = revs.length ? Math.round((revs.reduce((s: number, r: any) => s + (r.rating || 0), 0) / revs.length) * 10) / 10 : 0
+  cache.contents = cache.contents.map((c: any) => c.id === intoId ? { ...c, avgRating: avg, reviewCount: revs.length } : c)
+}
+
 export function deleteContent(id: string) {
   const removedReviews = getReviews().filter(r => r.contentId === id).map(r => r.id)
   saveContents(getContents().filter(c => c.id !== id))

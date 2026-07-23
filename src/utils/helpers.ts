@@ -3,6 +3,12 @@ export function uuid(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 11)
 }
 
+/** 제목 정규화 — 공백·문장부호 제거 + 소문자화 (중복 작품 매칭용).
+ *  "전지적 독자 시점" ↔ "전지적독자시점" 을 같게 취급한다. */
+export function normalizeTitle(s: string): string {
+  return (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()
+}
+
 /** SHA-256 hex (유동닉 글 비밀번호 해시용) */
 export async function sha256hex(str: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))

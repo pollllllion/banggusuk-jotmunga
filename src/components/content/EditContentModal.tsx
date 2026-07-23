@@ -1,18 +1,22 @@
 import { useState } from 'react'
+import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { PosterUploader } from '@/components/content/PosterUploader'
 import type { Content } from '@/types'
 
 /**
- * 내 피드에서 내가 등록한 작품 정보 수정 (포스터 잘못 올린 것 고치기 등).
- * 서버 RPC update_my_content 로 본인이 만든 작품만 수정된다.
+ * 내 피드에서 작품 정보 수정 (포스터 잘못 올린 것 고치기 등).
+ * - 관리자: 관리자 권한으로 어떤 작품이든 수정(DS.updateContent, is_admin RLS).
+ * - 일반 사용자: 서버 RPC update_my_content 로 본인이 만든 미인증 작품만 수정.
  */
 export function EditContentModal({ content, onClose, onSaved }: {
   content: Content
   onClose: () => void
   onSaved: (c: Content) => void
 }) {
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const toast = useToastStore(s => s.show)
   const [title, setTitle] = useState(content.title)
   const [platform, setPlatform] = useState(content.platform ?? '')
@@ -34,13 +38,22 @@ export function EditContentModal({ content, onClose, onSaved }: {
     }
     setSaving(true)
     try {
-      const updated = await DS.updateMyContent({
-        contentId: content.id,
+      const fields = {
         title: title.trim(),
         posterUrl: posterUrl.trim() || null,
         platform: platform.trim() || null,
         releaseYear: year,
-      })
+      }
+      let updated: Content
+      if (isAdmin) {
+        // 관리자: is_admin RLS 로 어떤 작품이든 수정 (인증/TMDB 제한 없음)
+        const res = DS.updateContent(content.id, fields)
+        if (!res) throw new Error('작품을 찾을 수 없어요.')
+        updated = res
+      } else {
+        // 일반 사용자: 본인이 만든 미인증 작품만 (서버 RPC 검증)
+        updated = await DS.updateMyContent({ contentId: content.id, ...fields })
+      }
       toast('작품 정보를 수정했어요.')
       onSaved(updated)
       onClose()

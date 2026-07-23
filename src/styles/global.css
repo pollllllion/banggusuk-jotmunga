@@ -482,6 +482,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .admin-verified-tag.ok { color: var(--primary); border-color: var(--primary); }
 .admin-verified-tag.no { color: var(--danger); border-color: var(--danger); }
 
+/* 관리자 등록폼 — 중복 작품 경고 */
+.dup-warn { margin: -4px 0 12px; padding: 8px 10px; border-radius: var(--radius); font-size: 12px; line-height: 1.5; color: var(--danger); border: 1px solid var(--danger); }
+
 /* 등록 모달 — "언제 봤어요?" 연도 선택 */
 .watched-year-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .watched-year-field > span { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
