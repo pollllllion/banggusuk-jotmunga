@@ -15,12 +15,32 @@
  * DB 접근이 실패해도 빌드를 막지 않는다. 정적 경로만 담은 sitemap 을 쓰고 넘어간다.
  */
 
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(__dirname, '../public/sitemap.xml')
+
+/**
+ * .env 를 직접 읽는다.
+ * node --env-file-if-exists 플래그는 Node 20.12+ 에서만 동작하는데,
+ * 빌드 플랫폼(Cloudflare/Netlify/CI)마다 Node 버전이 달라서 플래그를 모르면
+ * 스크립트가 아니라 프로세스가 통째로 죽는다. 그래서 플래그에 의존하지 않는다.
+ * (키는 전부 공개값 기본값이 있어 .env 가 없어도 동작한다)
+ */
+function loadEnvFile() {
+  const envPath = resolve(__dirname, '../.env')
+  if (!existsSync(envPath)) return
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*([\w.-]+)\s*=\s*(.*?)\s*$/.exec(line)
+    if (!m || line.trimStart().startsWith('#')) continue
+    const [, key, raw] = m
+    const val = /^(['"]).*\1$/.test(raw) ? raw.slice(1, -1) : raw
+    if (process.env[key] === undefined) process.env[key] = val
+  }
+}
+loadEnvFile()
 
 const SITE_URL = (process.env.SITE_URL || 'https://ottcal.com').replace(/\/$/, '')
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
