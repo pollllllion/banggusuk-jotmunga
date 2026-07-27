@@ -22,6 +22,11 @@
     { "pattern": "ottcal.com", "custom_domain": true },
     { "pattern": "www.ottcal.com", "custom_domain": true }
   ],
+
+  // routes 를 지정하면 workers.dev 주소가 자동으로 꺼진다.
+  // DNS 전파 대기 없이 배포 결과를 바로 확인할 수 있는 검증용 주소로 살려둔다.
+  // 중복 색인은 모든 페이지의 canonical 이 ottcal.com 을 가리켜 방지된다.
+  "workers_dev": true,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
