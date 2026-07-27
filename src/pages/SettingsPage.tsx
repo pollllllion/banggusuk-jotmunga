@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabaseClient'
 import { isPasswordValid, getPasswordRules } from '@/utils/helpers'
+import { Seo } from '@/components/seo/Seo'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -44,6 +45,7 @@ export function SettingsPage() {
 
   return (
     <>
+      <Seo title="계정 설정" noindex />
       <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--dark)', marginBottom: 16 }}>계정 설정</h2>
 
       {!isAccount && (

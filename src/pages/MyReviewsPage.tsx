@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { ReviewCard } from '@/components/review/ReviewCard'
+import { Seo } from '@/components/seo/Seo'
 
 export function MyReviewsPage() {
   const navigate = useNavigate()
@@ -13,6 +14,7 @@ export function MyReviewsPage() {
 
   return (
     <>
+      <Seo title="내 리뷰" noindex />
       <div className="feed-header">
         <h2 className="feed-title">내 리뷰 ({reviews.length})</h2>
       </div>

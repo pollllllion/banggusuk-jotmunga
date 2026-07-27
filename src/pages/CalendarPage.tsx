@@ -13,7 +13,23 @@ import {
   OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank,
 } from '@/utils/ott'
 import type { Content, ContentType, ContentProvider } from '@/types'
+import { Seo } from '@/components/seo/Seo'
+import { SITE_NAME, SITE_URL } from '@/utils/seo'
 import '@/styles/calendar.css'
+
+/** 홈(캘린더) 구조화 데이터 — 검색결과에 사이트명·검색창을 노출시키기 위한 것 */
+const WEBSITE_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: SITE_NAME,
+  url: SITE_URL,
+  inLanguage: 'ko-KR',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/browse?search={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
+}
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 const FILTERS: { code: ContentType | 'all'; label: string }[] = [
@@ -160,6 +176,7 @@ export function CalendarPage() {
 
   return (
     <div className="cal-wrap">
+      <Seo path="/" jsonLd={WEBSITE_JSONLD} />
       <div className="cal-hero">
         <h1>🗓️ 개봉·공개 캘린더</h1>
         <p>앞으로 나올 영화·드라마·예능·웹툰·웹소설의 출시일을 한눈에. 찜해두면 공개일에 알려드려요.</p>

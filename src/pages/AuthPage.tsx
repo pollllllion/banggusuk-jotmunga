@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabaseClient'
 import { isPasswordValid, getPasswordRules, isValidEmail } from '@/utils/helpers'
+import { Seo } from '@/components/seo/Seo'
 
 export function AuthPage() {
   const navigate = useNavigate()
@@ -80,6 +81,7 @@ export function AuthPage() {
 
   return (
     <div className="auth-page">
+      <Seo title="로그인" noindex />
       <div className="auth-card fade-in">
         <div className="auth-logo-area">
           <div className="auth-logo-big">&#9889;</div>

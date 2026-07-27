@@ -10,6 +10,8 @@ import { BackIcon, FlagIcon, ShareIcon, ThumbUpIcon, ThumbDownIcon } from '@/com
 import { GuestCred } from '@/components/ui/GuestCred'
 import { TYPE_LABELS } from '@/utils/constants'
 import { timeAgo, scoreLabel, sha256hex } from '@/utils/helpers'
+import { Seo } from '@/components/seo/Seo'
+import { SITE_URL } from '@/utils/seo'
 import type { Comment as CommentType } from '@/types'
 
 export function ReviewDetailPage() {
@@ -101,8 +103,35 @@ export function ReviewDetailPage() {
 
   const showBody = !review.spoiler || revealSpoiler || isOwner
 
+  // 스포일러 리뷰는 본문을 description 에 노출하지 않는다(검색결과에서 스포 유출 방지)
+  const seoDescription = review.spoiler
+    ? `${content ? `${content.title} ` : ''}리뷰 · ${review.rating}/10점. 스포일러가 포함된 리뷰입니다.`
+    : `${content ? `${content.title} 리뷰 · ` : ''}${review.rating}/10점. ${review.body}`
+  const reviewJsonLd: Record<string, unknown> | null = content ? {
+    '@context': 'https://schema.org',
+    '@type': 'Review',
+    url: `${SITE_URL}/review/${review.id}`,
+    name: review.title,
+    datePublished: review.createdAt,
+    author: { '@type': 'Person', name: authorLabel },
+    itemReviewed: {
+      '@type': content.type === 'movie' ? 'Movie' : (content.type === 'drama' || content.type === 'variety') ? 'TVSeries' : 'CreativeWork',
+      name: content.title,
+      ...(content.posterUrl ? { image: content.posterUrl } : {}),
+    },
+    reviewRating: { '@type': 'Rating', ratingValue: review.rating, bestRating: 10, worstRating: 1 },
+  } : null
+
   return (
     <>
+      <Seo
+        path={`/review/${review.id}`}
+        title={content ? `${review.title} - ${content.title} 리뷰` : review.title}
+        description={seoDescription}
+        image={content?.posterUrl}
+        type="article"
+        jsonLd={reviewJsonLd}
+      />
       <div className="back-btn" onClick={() => navigate(-1)}><BackIcon /> 뒤로</div>
       <div className="review-detail fade-in">
         {content && (

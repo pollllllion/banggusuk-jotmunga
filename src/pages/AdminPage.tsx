@@ -8,6 +8,7 @@ import { timeAgo, normalizeTitle } from '@/utils/helpers'
 import { OTT_FILTERS } from '@/utils/ott'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
+import { Seo } from '@/components/seo/Seo'
 import type { Content, ContentType } from '@/types'
 
 const REASON_LABELS: Record<string, string> = {
@@ -37,6 +38,7 @@ export function AdminPage() {
 
   return (
     <>
+      <Seo title="관리자 대시보드" noindex />
       <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--dark)', marginBottom: 20 }}>관리자 대시보드</h2>
       <div className="admin-stat">
         <div className="admin-stat-item"><div className="admin-stat-num">{contents.length}</div><div className="admin-stat-label">작품</div></div>

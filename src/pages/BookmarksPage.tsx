@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
+import { Seo } from '@/components/seo/Seo'
 
 export function BookmarksPage() {
   const navigate = useNavigate()
@@ -14,6 +15,7 @@ export function BookmarksPage() {
 
   return (
     <>
+      <Seo title="찜한 작품" noindex />
       <div className="feed-header">
         <h2 className="feed-title">찜한 작품 ({contents.length})</h2>
       </div>

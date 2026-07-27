@@ -1,0 +1,15 @@
+# 방구석좋문가 (ottcal.com)
+# 개인 페이지·글쓰기 화면은 색인 가치가 없고 중복만 만들므로 제외한다.
+
+User-agent: *
+Allow: /
+Disallow: /auth
+Disallow: /admin
+Disallow: /settings
+Disallow: /my-reviews
+Disallow: /feed
+Disallow: /bookmarks
+Disallow: /review/write
+Disallow: /review/edit
+
+Sitemap: https://ottcal.com/sitemap.xml

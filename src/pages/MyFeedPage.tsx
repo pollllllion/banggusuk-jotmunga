@@ -7,6 +7,7 @@ import { Poster } from '@/components/content/Poster'
 import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import { EditContentModal } from '@/components/content/EditContentModal'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
+import { Seo } from '@/components/seo/Seo'
 import type { Content, ContentType } from '@/types'
 
 type Filter = 'all' | ContentType
@@ -107,6 +108,7 @@ export function MyFeedPage() {
 
   return (
     <>
+      <Seo title="내 피드" noindex />
       <div className="feed-header">
         <h2 className="feed-title">내 피드</h2>
         <button className="btn btn-primary btn-small" onClick={openRegister}>+ 본 작품 등록</button>

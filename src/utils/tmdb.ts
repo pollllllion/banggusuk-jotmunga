@@ -1,11 +1,15 @@
 /**
  * TMDB 검색 (등록 모달용 — 영화/드라마/예능 제목 검색)
- * 키는 VITE_TMDB_API_KEY (없으면 검색 비활성, 수기 입력으로 유도).
- * TMDB v3 키는 클라이언트 사용을 전제로 한 읽기 전용 키.
+ *
+ * 키는 VITE_TMDB_API_KEY, 없으면 아래 기본값을 쓴다.
+ * TMDB v3 키는 클라이언트 사용을 전제로 한 읽기 전용 공개키라 번들에 들어가도 안전하다
+ * (supabaseClient.ts 의 publishable 키와 같은 성격).
+ * 호스팅을 옮길 때마다 환경변수를 다시 심지 않아도 검색이 살아있게 하려는 목적.
  */
 import type { ContentType } from '@/types'
 
-const TMDB_KEY = import.meta.env.VITE_TMDB_API_KEY as string | undefined
+const DEFAULT_TMDB_KEY = 'b3895231dd8a099e53e6ac823fae48b1'
+const TMDB_KEY = (import.meta.env.VITE_TMDB_API_KEY as string | undefined) || DEFAULT_TMDB_KEY
 const BASE = 'https://api.themoviedb.org/3'
 const IMG = 'https://image.tmdb.org/t/p/w500'
 

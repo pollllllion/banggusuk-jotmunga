@@ -3,6 +3,7 @@ import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
 import { ReviewBoard } from '@/components/review/ReviewBoard'
 import { CONTENT_TYPES, GENRES } from '@/utils/constants'
+import { Seo } from '@/components/seo/Seo'
 import type { ContentType } from '@/types'
 
 export function BrowsePage() {
@@ -44,8 +45,27 @@ export function BrowsePage() {
     else reviews = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   }
 
+  // 타입·장르는 색인 가치가 있는 조합이라 canonical 에 남기고,
+  // 정렬(sort)과 검색(search)은 같은 목록의 변형일 뿐이라 canonical 에서 뺀다.
+  const typeLabel = CONTENT_TYPES.find(t => t.code === type)?.label
+  const seoTitle = search ? `"${search}" 검색 결과`
+    : isBoard ? '영화 리뷰 게시판'
+    : typeLabel ? `${typeLabel}${genre ? ` · ${genre}` : ''} 전체보기`
+    : genre ? `${genre} 작품 모아보기`
+    : '작품 둘러보기'
+  const canonicalQuery = new URLSearchParams()
+  if (type) canonicalQuery.set('type', type)
+  if (genre) canonicalQuery.set('genre', genre)
+  const canonicalPath = `/browse${canonicalQuery.toString() ? `?${canonicalQuery}` : ''}`
+
   return (
     <>
+      <Seo
+        path={canonicalPath}
+        title={seoTitle}
+        description={`${seoTitle} — 공개일·평점·리뷰를 한 곳에서. 넷플릭스·디즈니+·티빙·웨이브 등 OTT 작품과 극장 개봉작, 웹툰·웹소설까지 ${contents.length}편을 모아봤습니다.`}
+        noindex={!!search}
+      />
       <div className="feed-header">
         <h2 className="feed-title">{search ? `"${search}" 검색 결과` : isBoard ? '🎬 영화 리뷰 게시판' : '작품 둘러보기'}</h2>
         <div className="feed-sort">

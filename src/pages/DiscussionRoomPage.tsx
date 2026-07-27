@@ -6,6 +6,7 @@ import * as DS from '@/api/dataService'
 import { WriteDiscussionModal } from '@/components/content/WriteDiscussionModal'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { TYPE_EMOJIS } from '@/utils/constants'
+import { Seo } from '@/components/seo/Seo'
 import '@/styles/discussion.css'
 
 /** 세부 탭 — 글의 작품 타입으로 필터 */
@@ -63,6 +64,11 @@ export function DiscussionRoomPage() {
 
   return (
     <>
+      <Seo
+        path="/talk"
+        title="방구석토론방"
+        description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방."
+      />
       <div className="feed-header">
         <h2 className="feed-title">{'\u{1F5E3}\u{FE0F}'} 방구석토론방</h2>
         <button className="btn btn-primary btn-small" onClick={openWrite}>✍️ 글쓰기</button>

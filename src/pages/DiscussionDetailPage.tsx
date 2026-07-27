@@ -7,6 +7,7 @@ import { GuestCred } from '@/components/ui/GuestCred'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { TYPE_EMOJIS } from '@/utils/constants'
 import { timeAgo, sha256hex } from '@/utils/helpers'
+import { Seo } from '@/components/seo/Seo'
 import '@/styles/discussion.css'
 
 /** 방구석토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
@@ -89,6 +90,13 @@ export function DiscussionDetailPage() {
 
   return (
     <div className="disc-page fade-in">
+      <Seo
+        path={`/talk/${post.id}`}
+        title={`${post.title || '(제목 없음)'} - ${content.title}`}
+        description={post.body}
+        image={content.posterUrl}
+        type="article"
+      />
       <div className="back-btn" onClick={() => navigate('/talk')}><BackIcon /> 목록으로</div>
 
       <h1 className="disc-detail-title">{post.title || '(제목 없음)'}</h1>

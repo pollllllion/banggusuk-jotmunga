@@ -9,9 +9,11 @@ import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { ReviewCard } from '@/components/review/ReviewCard'
 import { Stars } from '@/components/ui/Score'
+import { Seo } from '@/components/seo/Seo'
 import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
+import { SITE_URL } from '@/utils/seo'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -70,8 +72,68 @@ export function ContentDetailPage() {
     else navigate(`/review/write/${content.id}`)
   }
 
+  // ── SEO ──────────────────────────────────────────────────────
+  // 검색 의도가 공개 전("언제 나와?")과 공개 후("볼만해?")로 갈리므로 제목·설명도 나눈다.
+  const typeLabel = TYPE_LABELS[content.type] || '작품'
+  const dateKo = relDate ? relDate.replace(/-/g, '. ') : null
+  const seoTitle = isUpcoming
+    ? `${content.title} 공개일${dateKo ? ` ${dateKo}` : ''}`
+    : `${content.title} 리뷰·평점`
+  const seoDescription = isUpcoming
+    ? [
+        `${content.title}${content.platform ? ` (${content.platform})` : ''} ${typeLabel}`,
+        dateKo ? `${dateKo} 공개 예정.` : '공개일 미정.',
+        content.synopsis,
+      ].filter(Boolean).join(' ')
+    : [
+        `${content.title} ${typeLabel}`,
+        reviews.length > 0 ? `평점 ${content.avgRating.toFixed(1)}/10 · 리뷰 ${content.reviewCount}개.` : '아직 리뷰가 없습니다.',
+        content.synopsis,
+      ].filter(Boolean).join(' ')
+
+  const schemaType = content.type === 'movie' ? 'Movie'
+    : (content.type === 'drama' || content.type === 'variety') ? 'TVSeries'
+    : 'CreativeWork'
+  const jsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': schemaType,
+    name: content.title,
+    url: `${SITE_URL}/content/${content.id}`,
+    ...(content.originalTitle ? { alternateName: content.originalTitle } : {}),
+    ...(content.posterUrl ? { image: content.posterUrl } : {}),
+    ...(content.synopsis ? { description: content.synopsis } : {}),
+    ...(content.genres.length ? { genre: content.genres } : {}),
+    ...(relDate ? { datePublished: relDate } : {}),
+    ...(content.creators.length
+      ? { [schemaType === 'Movie' ? 'director' : 'creator']: content.creators.map(name => ({ '@type': 'Person', name })) }
+      : {}),
+    ...(content.castMembers?.length
+      ? { actor: content.castMembers.slice(0, 10).map(c => ({ '@type': 'Person', name: c.name })) }
+      : {}),
+    // 평점은 실제 리뷰가 있을 때만 — 0건인데 aggregateRating 을 넣으면 구글이 스팸으로 본다
+    ...(content.reviewCount > 0
+      ? {
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: content.avgRating.toFixed(1),
+            reviewCount: content.reviewCount,
+            bestRating: 10,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  }
+
   return (
     <>
+      <Seo
+        title={seoTitle}
+        description={seoDescription}
+        image={content.posterUrl}
+        path={`/content/${content.id}`}
+        type={content.type === 'movie' ? 'video.movie' : (content.type === 'drama' || content.type === 'variety') ? 'video.tv_show' : 'article'}
+        jsonLd={jsonLd}
+      />
       <div className="back-btn" onClick={() => navigate('/browse')}><BackIcon /> 목록으로</div>
 
       <div className="content-hero fade-in">

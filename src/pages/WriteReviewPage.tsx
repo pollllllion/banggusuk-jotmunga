@@ -7,6 +7,7 @@ import { REVIEW_TAGS, TYPE_LABELS } from '@/utils/constants'
 import { BackIcon } from '@/components/ui/Icons'
 import { GuestCred } from '@/components/ui/GuestCred'
 import { scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
+import { Seo } from '@/components/seo/Seo'
 
 export function WriteReviewPage() {
   const { contentId, id } = useParams<{ contentId?: string; id?: string }>()
@@ -82,6 +83,7 @@ export function WriteReviewPage() {
 
   return (
     <>
+      <Seo title={isEdit ? '리뷰 수정' : '리뷰 쓰기'} noindex />
       <div className="back-btn" onClick={() => navigate(backTarget)}><BackIcon /> 돌아가기</div>
       <div className="write-page fade-in">
         <h2>{isEdit ? '리뷰 수정' : '리뷰 쓰기'}</h2>
