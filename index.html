@@ -7,7 +7,9 @@
     <!--
       JS 실행 전(크롤러 1차 수집·카톡 공유 미리보기)에 읽히는 기본값.
       라우팅 후에는 src/components/seo/Seo.tsx 가 같은 태그를 페이지별 값으로 교체한다.
+      아래 seo:start~seo:end 구간은 빌드 후 scripts/prerender.mjs 가 페이지별 값으로 통째로 갈아끼운다.
     -->
+    <!--seo:start-->
     <title>방구석좋문가 - OTT 공개일·개봉일 캘린더</title>
     <meta name="description" content="넷플릭스·디즈니+·티빙·웨이브 등 OTT 공개일과 영화 개봉일을 달력 하나로. 공개 예정 작품의 D-day와 편성 정보, 기대평과 솔직 리뷰까지 한눈에 확인하세요." />
     <meta name="robots" content="index, follow" />
@@ -25,10 +27,19 @@
     <meta name="twitter:title" content="방구석좋문가 - OTT 공개일·개봉일 캘린더" />
     <meta name="twitter:description" content="넷플릭스·디즈니+·티빙·웨이브 등 OTT 공개일과 영화 개봉일을 달력 하나로. 공개 예정 작품의 D-day와 편성 정보, 기대평과 솔직 리뷰까지 한눈에 확인하세요." />
     <meta name="twitter:image" content="https://ottcal.com/logo.png" />
+    <!--seo:end-->
+
+    <!--
+      네이버 서치어드바이저 소유확인.
+      seo:start~end 구간 밖에 둬야 프리렌더된 하위 페이지에서도 살아남는다.
+      Seo.tsx 도 이 태그는 건드리지 않으므로 라우팅 후에도 유지된다.
+    -->
+    <meta name="naver-site-verification" content="aaded818520860e85feaac59cbf9aa942205f689" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>
+    <!--prerender:start--><!--prerender:end-->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

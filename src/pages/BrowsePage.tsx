@@ -20,7 +20,9 @@ export function BrowsePage() {
     setSearchParams(next)
   }
 
-  let contents = DS.getContents()
+  // 캘린더에서 숨긴 작품(TMDB 전체 동기화에서 밀려난 옛 행)은 목록에서도 뺀다.
+  // 캘린더는 이미 제외하고 있었는데 여기만 빠져 있어 숨긴 작품이 노출됐다. sitemap 기준과도 일치시킨다.
+  let contents = DS.getContents().filter(c => !c.hidden)
   if (search) {
     const q = search.toLowerCase()
     contents = contents.filter(c =>

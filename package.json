@@ -8,6 +8,8 @@
     "sitemap": "node scripts/generate-sitemap.mjs",
     "prebuild": "npm run sitemap",
     "build": "vite build",
+    "postbuild": "npm run prerender",
+    "prerender": "node scripts/prerender.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs",

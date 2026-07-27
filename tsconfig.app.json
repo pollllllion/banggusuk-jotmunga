@@ -12,6 +12,9 @@
     },
     "ignoreDeprecations": "6.0",
 
+    "allowJs": true,
+    "checkJs": false,
+
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
