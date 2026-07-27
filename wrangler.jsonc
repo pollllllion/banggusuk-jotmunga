@@ -1,0 +1,22 @@
+/**
+ * Cloudflare Workers (정적 자산) 배포 설정
+ *
+ * 이 앱은 서버 코드가 없는 정적 SPA다. Worker 스크립트 없이 dist/ 를 그대로 서빙한다.
+ * 정적 자산 요청은 Workers 요청 할당량에 포함되지 않는다(무료·무제한).
+ *
+ * not_found_handling: 'single-page-application'
+ *   → 매칭되는 파일이 없는 경로(/content/tmdb-mv-123 등)에 index.html 을 200 으로 반환.
+ *     Netlify 의 `/* → /index.html 200` 리다이렉트와 같은 역할.
+ *     (public/_redirects 는 Netlify 롤백용으로 남겨둠)
+ *
+ * 배포: 빌드 `npm run build` → 배포 `npx wrangler deploy`
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ottcal",
+  "compatibility_date": "2026-07-27",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
