@@ -6,7 +6,7 @@
  * → 페이지 코드는 기존 방식 그대로 두고 데이터 계층만 교체.
  */
 import { supabase } from '@/lib/supabaseClient'
-import { uuid } from '@/utils/helpers'
+import { uuid, normalizeTitle } from '@/utils/helpers'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import type {
   User, Content, ContentType, Review, Comment, Notification,
@@ -24,10 +24,15 @@ const cache: Record<Table, any[]> = {
   bookmarks: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [],
 }
 
+/** 테이블별 기본키 컬럼. watched·bookmarks·blocks 는 복합키라 id 컬럼이 아예 없다. */
+function pkCols(t: Table): string[] {
+  if (t === 'bookmarks' || t === 'watched') return ['userId', 'contentId']
+  if (t === 'blocks') return ['blockerId', 'blockedId']
+  return ['id']
+}
+
 function rowKey(t: Table, r: any): string {
-  if (t === 'bookmarks') return `${r.userId}|${r.contentId}`
-  if (t === 'blocks') return `${r.blockerId}|${r.blockedId}`
-  return r.id
+  return pkCols(t).map(c => r[c]).join('|')
 }
 
 function conflictCols(t: Table): string {
@@ -71,23 +76,58 @@ async function persist(t: Table, prev: any[], next: any[]) {
 }
 
 // ── Load all (앱 시작 시) ────────────────────────────────────
+/** 같은 행이 두 번 들어오지 않게 PK 기준으로 접는다 (중복 방어의 마지막 관문) */
+function dedupeRows(t: Table, rows: any[]): any[] {
+  const byKey = new Map<string, any>()
+  for (const r of rows) byKey.set(rowKey(t, r), r)
+  return [...byKey.values()]
+}
+
 /**
  * 한 테이블 전체를 페이지네이션으로 로드.
  * PostgREST는 한 번의 select에 기본 1000행만 반환하므로, .range()로 끝까지 긁는다.
  * (안 그러면 contents가 1000행을 넘는 순간 최근 행들이 캐시에 안 올라와
  *  그 content를 참조하는 watched/피드 항목이 화면에서 사라진다.)
+ *
+ * order 를 반드시 준다: ORDER BY 없는 LIMIT/OFFSET 은 순서를 보장하지 않아서,
+ * 페이지를 넘기는 사이에 행이 UPDATE/INSERT 되면 같은 행이 두 페이지에 걸쳐
+ * 두 번 들어오거나(→ 목록·검색에 같은 작품이 두 개) 어떤 행은 아예 빠진다.
+ * 1000행을 넘긴 contents 에서 실제로 문제가 되는 지점.
  */
+/**
+ * 상세 페이지에서만 쓰는 무거운 컬럼 — 시작 로드에서 뺀다.
+ * castMembers 는 contents 전체에서 가장 큰 항목(수백 KB)이고 backdropUrl 은 화면에서 안 쓴다.
+ * 작품 상세로 들어갈 때 loadContentDetail() 이 그 한 행만 채워 넣는다.
+ */
+const CONTENT_DETAIL_COLS = ['castMembers', 'backdropUrl'] as const
+
+/** contents 시작 로드 컬럼 = 전체 - 상세 전용. PostgREST 는 '제외'가 안 돼서 열거해야 한다. */
+const CONTENT_LIST_COLS = [
+  'id', 'type', 'title', 'posterUrl', 'synopsis', 'genres', 'creators', 'platform',
+  'releaseYear', 'releaseDate', 'status', 'popularity', 'avgRating', 'reviewCount',
+  'createdBy', 'createdAt', 'verified', 'tmdbId', 'mediaType', 'eventType', 'seasonNumber',
+  'originalTitle', 'manualReleaseDate', 'manualOverride', 'releaseDateSource', 'providers',
+  'voteAverage', 'voteCount', 'tmdbUrl', 'source', 'region', 'hidden', 'syncedAt',
+  'releasePattern', 'networks', 'runtime', 'numberOfSeasons', 'numberOfEpisodes',
+].join(',')
+
+function selectCols(t: Table): string {
+  return t === 'contents' ? CONTENT_LIST_COLS : '*'
+}
+
 async function selectAllRows(t: Table): Promise<any[] | null> {
   const PAGE = 1000
   const all: any[] = []
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase.from(t).select('*').range(from, from + PAGE - 1)
+    let q = supabase.from(t).select(selectCols(t))
+    for (const col of pkCols(t)) q = q.order(col, { ascending: true })
+    const { data, error } = await q.range(from, from + PAGE - 1)
     if (error) { console.error('[supabase load]', t, error.message); return null }
     if (!data || data.length === 0) break
     all.push(...data)
     if (data.length < PAGE) break
   }
-  return all
+  return dedupeRows(t, all)
 }
 
 export async function loadAll() {
@@ -202,6 +242,75 @@ export function deleteUser(id: string) {
 export function getContents(): Content[] { return load('contents') }
 export function saveContents(contents: Content[]) { store('contents', contents) }
 export function getContentById(id: string) { return getContents().find(c => c.id === id) }
+
+// 상세 컬럼을 이미 받아온 작품 (같은 작품을 다시 열어도 재요청하지 않게)
+const detailLoaded = new Set<string>()
+
+/**
+ * 작품 상세 전용 컬럼(출연진·배경이미지)만 뒤늦게 채운다.
+ * 시작 로드에서는 이 컬럼들을 빼기 때문에(CONTENT_DETAIL_COLS) 상세 화면·관리자 편집처럼
+ * 실제로 필요한 곳에서 이걸 부른 뒤 화면을 갱신해야 한다.
+ * @returns 캐시가 바뀌었으면 true (호출한 쪽에서 리렌더)
+ */
+export async function loadContentDetail(id: string): Promise<boolean> {
+  if (!id || detailLoaded.has(id)) return false
+  const { data, error } = await supabase
+    .from('contents')
+    .select(['id', ...CONTENT_DETAIL_COLS].join(','))
+    .eq('id', id)
+    .maybeSingle()
+  if (error) { console.error('[loadContentDetail]', error.message); return false }
+  detailLoaded.add(id)
+  if (!data) return false
+  const idx = cache.contents.findIndex((c: any) => c.id === id)
+  if (idx < 0) return false
+  cache.contents[idx] = { ...cache.contents[idx], ...(data as any) }
+  return true
+}
+
+/**
+ * 이 TMDB 작품이 이미 DB에 있나 — 통합검색의 TMDB 폴백에서 중복 노출을 막는 용도.
+ * tmdbId 컬럼이 비어 있는 옛 행과 시즌별 행(tmdb-dr-123-s2)도 잡도록 행 id 로도 확인한다.
+ */
+export function hasTmdbContent(kind: 'movie' | 'tv', tmdbId: number): boolean {
+  const prefix = kind === 'movie' ? `tmdb-mv-${tmdbId}` : `tmdb-dr-${tmdbId}`
+  return getContents().some(c =>
+    (c.tmdbId === tmdbId && (c.mediaType ?? kind) === kind) ||
+    c.id === prefix || c.id.startsWith(`${prefix}-`))
+}
+
+/**
+ * 통합 작품 검색 — 공백·문장부호를 무시(normalizeTitle)하고 매칭한다.
+ * "유퀴즈" → "유 퀴즈 온 더 블럭", "전지적독자시점" → "전지적 독자 시점" 처럼
+ * 띄어쓰기를 다르게 쳐도 찾아진다. (기존엔 원문 substring 이라 한 칸만 달라도 0건이었다)
+ *
+ * 점수: 제목 완전일치 > 제목 앞부분 > 제목 포함 > 원제 > 감독·작가 > 장르.
+ * 동점이면 화제도(popularity) → 리뷰수 순. 숨긴 작품은 제외.
+ */
+export function searchContents(query: string, limit = 8): Content[] {
+  const q = normalizeTitle(query)
+  if (!q) return []
+  const hits: { c: Content; score: number }[] = []
+  for (const c of getContents()) {
+    if (c.hidden) continue
+    const title = normalizeTitle(c.title)
+    const original = normalizeTitle(c.originalTitle || '')
+    let score = 0
+    if (title === q) score = 100
+    else if (title.startsWith(q)) score = 80
+    else if (title.includes(q)) score = 60
+    else if (original && original.startsWith(q)) score = 50
+    else if (original && original.includes(q)) score = 40
+    else if ((c.creators || []).some(cr => normalizeTitle(cr).includes(q))) score = 30
+    else if ((c.genres || []).some(g => normalizeTitle(g).includes(q))) score = 20
+    if (score) hits.push({ c, score })
+  }
+  hits.sort((a, b) =>
+    b.score - a.score ||
+    (b.c.popularity ?? 0) - (a.c.popularity ?? 0) ||
+    (b.c.reviewCount ?? 0) - (a.c.reviewCount ?? 0))
+  return hits.slice(0, limit).map(h => h.c)
+}
 
 export function createContent(data: Partial<Content>): Content {
   const content: Content = {
@@ -533,6 +642,47 @@ export async function registerWatched(input: RegisterWatchedInput): Promise<Cont
   const uid = currentUser()?.id
   if (uid && !cache.watched.some((w: any) => w.userId === uid && w.contentId === content.id)) {
     cache.watched = [{ userId: uid, contentId: content.id, createdAt: new Date().toISOString(), watchedYear: input.watchedYear ?? null }, ...cache.watched]
+  }
+  return content
+}
+
+export interface EnsureContentInput {
+  contentId: string
+  type: ContentType
+  title: string
+  posterUrl?: string | null
+  releaseYear?: number | null
+  synopsis?: string
+  platform?: string | null
+}
+
+/**
+ * 통합검색 TMDB 폴백용 — 작품이 DB에 없으면 그 자리에서 만들어 준다(RPC ensure_content).
+ * 이미 있으면 서버가 기존 행을 그대로 돌려주므로 중복이 생기지 않는다.
+ * 시청 기록(watched)은 만들지 않는다 — 검색해서 눌러본 것뿐이므로.
+ */
+export async function ensureContent(input: EnsureContentInput): Promise<Content> {
+  const cached = getContentById(input.contentId)
+  if (cached) return cached
+  const { data, error } = await supabase.rpc('ensure_content', {
+    p_content_id: input.contentId,
+    p_type: input.type,
+    p_title: input.title,
+    p_poster_url: input.posterUrl ?? null,
+    p_release_year: input.releaseYear ?? null,
+    p_synopsis: input.synopsis ?? '',
+    p_platform: input.platform ?? null,
+  })
+  if (error) {
+    console.error('[ensure_content]', error)
+    // 마이그레이션(supabase/migration_ensure_content.sql)이 아직 SQL Editor에 적용 안 된 경우
+    if (error.code === 'PGRST202') throw new Error('작품 등록 기능이 아직 서버에 반영되지 않았어요.')
+    throw error
+  }
+  const content = data as Content
+  // 캐시 반영 (store 를 쓰면 클라이언트가 contents 를 upsert 하려다 RLS에 막힌다)
+  if (content && !cache.contents.some((c: any) => c.id === content.id)) {
+    cache.contents = [content, ...cache.contents]
   }
   return content
 }

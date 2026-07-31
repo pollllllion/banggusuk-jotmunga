@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -30,6 +30,9 @@ export function ContentDetailPage() {
   const [searchParams] = useSearchParams()
   // 출시된 작품: 리뷰 / 수다방 탭 (내 피드에서 클릭 시 ?tab=talk 로 수다방 바로 열기)
   const [tab, setTab] = useState<'reviews' | 'talk'>(searchParams.get('tab') === 'talk' ? 'talk' : 'reviews')
+
+  // 출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다
+  useEffect(() => { if (id) DS.loadContentDetail(id).then(changed => { if (changed) rerender() }) }, [id])
 
   const content = DS.getContentById(id!)
   if (!content) { navigate('/browse'); return null }

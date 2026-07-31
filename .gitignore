@@ -8,3 +8,6 @@ dist-ssr
 
 # 빌드 때 DB에서 자동 생성 (scripts/generate-sitemap.mjs)
 public/sitemap.xml
+
+# 작품 병합 백업 (유저 리뷰 원문 포함 — public repo 에 올리지 않는다)
+scripts/merge-backup-*.json

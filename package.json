@@ -14,6 +14,8 @@
     "preview": "vite preview",
     "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs",
     "sync:ott": "node --env-file-if-exists=.env scripts/sync-tmdb-ott.mjs",
+    "dedupe": "node --env-file-if-exists=.env scripts/merge-dups.mjs",
+    "enrich": "node --env-file-if-exists=.env scripts/enrich-tmdb.mjs",
     "test": "vitest run"
   },
   "dependencies": {

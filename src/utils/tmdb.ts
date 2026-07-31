@@ -25,6 +25,15 @@ export function tmdbContentId(type: ContentType, tmdbId: number): string {
   return type === 'movie' ? `tmdb-mv-${tmdbId}` : `tmdb-dr-${tmdbId}`
 }
 
+/**
+ * TMDB 장르 id로 드라마/예능 구분 (10764=리얼리티, 10767=토크쇼).
+ * ⚠️ 동기화 스크립트(scripts/tmdb-lib.mjs:tvContentType)와 같은 규칙이어야
+ *    같은 작품이 한쪽은 drama, 한쪽은 variety 로 갈리지 않는다.
+ */
+export function tmdbTvType(genreIds: number[]): ContentType {
+  return genreIds?.includes(10764) || genreIds?.includes(10767) ? 'variety' : 'drama'
+}
+
 export interface TmdbResult {
   tmdbId: number
   title: string

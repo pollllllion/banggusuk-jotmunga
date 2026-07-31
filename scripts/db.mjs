@@ -37,11 +37,15 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY
 
 const PAGE = 1000 // Supabase REST 기본 상한
 
-/** 테이블 전체를 range 페이징으로 가져온다 */
+/**
+ * 테이블 전체를 range 페이징으로 가져온다.
+ * order=id 필수 — ORDER BY 없는 LIMIT/OFFSET 은 순서 보장이 없어서 페이지를 넘기는
+ * 사이에 행이 바뀌면 같은 행이 두 번 들어오거나 어떤 행이 통째로 빠진다.
+ */
 export async function fetchAll(table, select, extraQuery = '') {
   const rows = []
   for (let from = 0; ; from += PAGE) {
-    const url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}${extraQuery}`
+    const url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&order=id${extraQuery}`
     const res = await fetch(url, {
       headers: {
         apikey: SUPABASE_KEY,

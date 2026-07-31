@@ -10,32 +10,30 @@ export function BrowsePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const type = searchParams.get('type') || ''
   const genre = searchParams.get('genre') || ''
-  const sort = searchParams.get('sort') || 'latest'
   const search = searchParams.get('search') || ''
+  // 검색 중엔 사용자가 정렬을 직접 고르기 전까지 관련도 순(searchContents 결과 순서)을 유지한다.
+  const sort = searchParams.get('sort') || (search ? 'relevance' : 'latest')
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value); else next.delete(key)
-    next.delete('search')
+    // 타입·장르를 바꾸면 검색을 벗어나지만, 정렬은 검색 결과 안에서의 조작이라 검색어를 유지한다.
+    if (key !== 'sort') next.delete('search')
     setSearchParams(next)
   }
 
   // 캘린더에서 숨긴 작품(TMDB 전체 동기화에서 밀려난 옛 행)은 목록에서도 뺀다.
   // 캘린더는 이미 제외하고 있었는데 여기만 빠져 있어 숨긴 작품이 노출됐다. sitemap 기준과도 일치시킨다.
-  let contents = DS.getContents().filter(c => !c.hidden)
-  if (search) {
-    const q = search.toLowerCase()
-    contents = contents.filter(c =>
-      c.title.toLowerCase().includes(q) ||
-      c.creators.some(cr => cr.toLowerCase().includes(q)) ||
-      c.genres.some(g => g.toLowerCase().includes(q)))
-  }
+  // 검색은 헤더 통합검색과 같은 규칙(공백·문장부호 무시)을 쓴다 — searchContents 하나로 통일.
+  let contents = search
+    ? DS.searchContents(search, Infinity)
+    : DS.getContents().filter(c => !c.hidden)
   if (type) contents = contents.filter(c => c.type === (type as ContentType))
   if (genre) contents = contents.filter(c => c.genres.includes(genre))
 
   if (sort === 'top') contents = [...contents].sort((a, b) => b.avgRating - a.avgRating)
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
-  else contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  else if (sort !== 'relevance') contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   // 영화탭은 포스터 그리드 대신 자유게시판(리뷰글 목록) 형식
   const isBoard = type === 'movie'

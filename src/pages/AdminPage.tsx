@@ -146,7 +146,7 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   const dupGroupCount = findDupGroups(DS.getContents()).length
 
   if (showForm) {
-    return <ContentForm content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />
+    return <ContentFormGate content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />
   }
   if (showTmdb) {
     return <TmdbRegisterPanel onRegistered={onTmdbRegistered} onCancel={() => setShowTmdb(false)} />
@@ -382,7 +382,27 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
   )
 }
 
-function ContentForm({ content, authorId, onDone, onCancel }: { content: Content | null; authorId: string; onDone: () => void; onCancel: () => void }) {
+type ContentFormProps = { content: Content | null; authorId: string; onDone: () => void; onCancel: () => void }
+
+/**
+ * 편집 폼은 출연진을 폼 입력값으로 통째 덮어쓴다. 그런데 castMembers 는 앱 시작 로드에서
+ * 빠져 있어(용량 절감) 캐시에 없을 수 있고, 그 상태로 저장하면 출연진이 지워진다.
+ * 그래서 기존 작품을 고칠 때는 상세 컬럼을 받아온 뒤에 폼을 띄운다. 새 등록은 받을 게 없어 바로 통과.
+ */
+function ContentFormGate(props: ContentFormProps) {
+  const id = props.content?.id
+  const [ready, setReady] = useState(!id)
+  useEffect(() => {
+    if (!id) { setReady(true); return }
+    let alive = true
+    DS.loadContentDetail(id).finally(() => { if (alive) setReady(true) })
+    return () => { alive = false }
+  }, [id])
+  if (!ready) return <div className="empty-state fade-in"><p>작품 정보를 불러오는 중…</p></div>
+  return <ContentForm {...props} content={id ? DS.getContentById(id) ?? props.content : null} />
+}
+
+function ContentForm({ content, authorId, onDone, onCancel }: ContentFormProps) {
   const toast = useToastStore(s => s.show)
   const [type, setType] = useState<ContentType>(content?.type || 'movie')
   const [title, setTitle] = useState(content?.title || '')
