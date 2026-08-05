@@ -3,7 +3,6 @@
  * ------------------------------------------------------------
  * dist/index.html 을 템플릿 삼아 페이지별 정적 HTML 을 찍어낸다.
  *   dist/content/{id}/index.html
- *   dist/review/{id}/index.html
  *   dist/talk/{id}/index.html
  *   dist/browse/index.html, dist/talk/index.html
  *
@@ -101,7 +100,7 @@ function contentBody(c, today) {
     c.creators?.length ? `<p>연출·제작: ${esc(c.creators.join(', '))}</p>` : '',
     cast.length ? `<p>출연: ${esc(cast.join(', '))}</p>` : '',
     c.synopsis ? `<p>${esc(c.synopsis)}</p>` : '',
-    c.reviewCount > 0 ? `<p>평점 ${esc(Number(c.avgRating).toFixed(1))}/10 (리뷰 ${esc(c.reviewCount)}개)</p>` : '',
+    c.reviewCount > 0 ? `<p>평점 ${esc(Number(c.avgRating).toFixed(1))}/10 (별점 ${esc(c.reviewCount)}개)</p>` : '',
     `</article>`,
     NAV,
   ].filter(Boolean).join('\n      ')
@@ -134,12 +133,10 @@ async function main() {
 
   const today = todayKey()
   let contents = []
-  let reviews = []
   let discussions = []
   try {
     contents = await fetchAll('contents', '*', VISIBLE_CONTENTS)
-    reviews = await fetchAll('reviews', 'id,contentId,title,body,rating,spoiler,createdAt')
-    discussions = await fetchAll('discussions', 'id,contentId,title,body,createdAt')
+    discussions = await fetchAll('discussions', 'id,contentId,title,body,rating,spoiler,createdAt')
   } catch (e) {
     console.warn(`[prerender] DB 조회 실패, 프리렌더를 건너뜁니다: ${e.message}`)
     return
@@ -164,59 +161,39 @@ async function main() {
     n++
   }
 
-  // ── 리뷰 상세 ──────────────────────────────────────────────
-  for (const r of reviews) {
-    if (!SAFE_ID.test(r.id)) { skipped.push(`review:${r.id}`); continue }
-    const c = byId.get(r.contentId)
-    // 스포일러 글은 본문을 검색결과에 노출하지 않는다
-    const desc = r.spoiler
-      ? `${c ? `${c.title} ` : ''}리뷰 · ${r.rating}/10점. 스포일러가 포함된 리뷰입니다.`
-      : `${c ? `${c.title} 리뷰 · ` : ''}${r.rating}/10점. ${r.body || ''}`
-    const head = headBlock({
-      title: c ? `${r.title} - ${c.title} 리뷰` : r.title,
-      description: desc,
-      canonicalPath: `/review/${r.id}`,
-      ogType: 'article',
-      image: c?.posterUrl,
-      jsonLd: c ? {
-        '@context': 'https://schema.org',
-        '@type': 'Review',
-        url: `${SITE_URL}/review/${r.id}`,
-        name: r.title,
-        datePublished: r.createdAt,
-        itemReviewed: { '@type': 'CreativeWork', name: c.title },
-        reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 10, worstRating: 1 },
-      } : null,
-    })
-    const body = [
-      `<article>`,
-      `<h1>${esc(r.title)}</h1>`,
-      c ? `<p>작품: <a href="/content/${esc(c.id)}">${esc(c.title)}</a></p>` : '',
-      `<p>평점 ${esc(r.rating)}/10</p>`,
-      r.spoiler ? `<p>스포일러가 포함된 리뷰입니다.</p>` : `<p>${esc(r.body)}</p>`,
-      `</article>`, NAV,
-    ].filter(Boolean).join('\n      ')
-    writePage(`review/${r.id}`, render(template, head, body))
-    n++
-  }
-
-  // ── 토론글 상세 ────────────────────────────────────────────
+  // ── 토론글 상세 (별점 있으면 Review 스키마로) ─────────────────
+  // 리뷰는 토론글로 통합됨 — /review/{id} 프리렌더는 더 이상 만들지 않는다.
   for (const d of discussions) {
     if (!SAFE_ID.test(d.id)) { skipped.push(`talk:${d.id}`); continue }
     const c = byId.get(d.contentId)
     const title = d.title || '(제목 없음)'
+    const hasRating = d.rating != null
+    // 스포일러 글은 본문을 검색결과에 노출하지 않는다
+    const desc = d.spoiler
+      ? `${c ? `${c.title} · ` : ''}${hasRating ? `${d.rating}/10점. ` : ''}스포일러가 포함된 글입니다.`
+      : `${c ? `${c.title} · ` : ''}${hasRating ? `${d.rating}/10점. ` : ''}${d.body || ''}`
     const head = headBlock({
       title: c ? `${title} - ${c.title}` : title,
-      description: d.body,
+      description: desc,
       canonicalPath: `/talk/${d.id}`,
       ogType: 'article',
       image: c?.posterUrl,
+      jsonLd: (c && hasRating) ? {
+        '@context': 'https://schema.org',
+        '@type': 'Review',
+        url: `${SITE_URL}/talk/${d.id}`,
+        name: title,
+        datePublished: d.createdAt,
+        itemReviewed: { '@type': 'CreativeWork', name: c.title },
+        reviewRating: { '@type': 'Rating', ratingValue: d.rating, bestRating: 10, worstRating: 1 },
+      } : null,
     })
     const body = [
       `<article>`,
       `<h1>${esc(title)}</h1>`,
       c ? `<p>작품: <a href="/content/${esc(c.id)}">${esc(c.title)}</a></p>` : '',
-      `<p>${esc(d.body)}</p>`,
+      hasRating ? `<p>별점 ${esc(d.rating)}/10</p>` : '',
+      d.spoiler ? `<p>스포일러가 포함된 글입니다.</p>` : `<p>${esc(d.body)}</p>`,
       `</article>`, NAV,
     ].filter(Boolean).join('\n      ')
     writePage(`talk/${d.id}`, render(template, head, body))
@@ -252,7 +229,7 @@ async function main() {
   n++
 
   console.log(`[prerender] ${n}개 정적 페이지 생성`)
-  console.log(`[prerender]   작품 ${contents.length} · 리뷰 ${reviews.length} · 토론글 ${discussions.length} · 목록 2`)
+  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 목록 2`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다
   if (skipped.length) {
     console.warn(`[prerender] id 형식 문제로 건너뛴 ${skipped.length}건: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? ' …' : ''}`)

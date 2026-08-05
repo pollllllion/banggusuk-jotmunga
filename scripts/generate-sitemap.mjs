@@ -1,7 +1,7 @@
 /**
  * sitemap.xml 생성기 (빌드 타임)
  * ------------------------------------------------------------
- * Supabase 에서 공개 URL 목록(작품·리뷰·토론글)을 읽어
+ * Supabase 에서 공개 URL 목록(작품·토론글)을 읽어
  * public/sitemap.xml 을 만든다. npm run build 시 prebuild 로 자동 실행.
  *
  * 실행:
@@ -46,7 +46,7 @@ async function main() {
     urlEntry('/browse', today),
   ]
 
-  const counts = { contents: 0, reviews: 0, discussions: 0 }
+  const counts = { contents: 0, discussions: 0 }
 
   try {
     const contents = await fetchAll('contents', 'id,createdAt,syncedAt,hidden', VISIBLE_CONTENTS)
@@ -55,12 +55,7 @@ async function main() {
     }
     counts.contents = contents.length
 
-    const reviews = await fetchAll('reviews', 'id,createdAt,updatedAt')
-    for (const r of reviews) {
-      entries.push(urlEntry(`/review/${encodeURIComponent(r.id)}`, toLastmod(r.updatedAt, r.createdAt)))
-    }
-    counts.reviews = reviews.length
-
+    // 리뷰는 토론글로 통합됨 — /review URL 은 sitemap 에 넣지 않는다.
     const discussions = await fetchAll('discussions', 'id,createdAt')
     for (const d of discussions) {
       entries.push(urlEntry(`/talk/${encodeURIComponent(d.id)}`, toLastmod(d.createdAt)))
@@ -80,7 +75,7 @@ async function main() {
   writeFileSync(OUT, xml, 'utf8')
 
   console.log(`[sitemap] ${entries.length}개 URL → public/sitemap.xml`)
-  console.log(`[sitemap]   작품 ${counts.contents} · 리뷰 ${counts.reviews} · 토론글 ${counts.discussions} · 정적 3`)
+  console.log(`[sitemap]   작품 ${counts.contents} · 토론글 ${counts.discussions} · 정적 3`)
 }
 
 main().catch(e => {
