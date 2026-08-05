@@ -150,8 +150,8 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
         value={watchedYear ?? ''}
         onChange={e => setWatchedYear(e.target.value ? Number(e.target.value) : null)}
       >
+        <option value="">선택 안 함 (기억 안 남)</option>
         {YEARS.map(y => <option key={y} value={y}>{y}년</option>)}
-        <option value="">기억 안 남</option>
       </select>
     </label>
   )
