@@ -10,7 +10,7 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
     const s = computeStats(user.id, user.createdAt)
     return { level: computeLevel(computeXp(s)), stats: s, experts: resolveExperts(user, s) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.id, user.createdAt, user.banned, user.role, user.nickname, tick])
+  }, [user.id, user.createdAt, user.banned, user.role, user.nickname, user.streak, user.visitDays, tick])
 
   return (
     <div className="level-card fade-in">
@@ -20,6 +20,7 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
           <div className="level-tier-row">
             <span className="level-tier-name">{level.tier.name}</span>
             <span className="level-lv">Lv.{level.tierIndex + 1}</span>
+            {stats.streak > 0 && <span className="level-streak" title={`누적 방문 ${stats.visitDays}일`}>🔥 {stats.streak}일 연속</span>}
           </div>
           <div className="level-xp-sub">
             {level.next

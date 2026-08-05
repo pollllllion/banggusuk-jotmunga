@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { WriteDiscussionModal } from '@/components/content/WriteDiscussionModal'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { TYPE_EMOJIS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
@@ -27,10 +26,7 @@ export function DiscussionRoomPage() {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const sub = searchParams.get('sub') || 'all'
-  const [showWrite, setShowWrite] = useState(false)
   const [q, setQ] = useState('')
-  const [, setTick] = useState(0)
-  const rerender = () => setTick(t => t + 1)
 
   const setSub = (key: string) => {
     const next = new URLSearchParams(searchParams)
@@ -59,7 +55,7 @@ export function DiscussionRoomPage() {
 
   const openWrite = () => {
     if (!user) { toast('로그인 후 이용해주세요.'); return }
-    setShowWrite(true)
+    navigate('/talk/write')
   }
 
   return (
@@ -99,8 +95,6 @@ export function DiscussionRoomPage() {
           ))}
         </div>
       )}
-
-      {showWrite && <WriteDiscussionModal onClose={() => setShowWrite(false)} onPosted={() => rerender()} />}
     </>
   )
 }

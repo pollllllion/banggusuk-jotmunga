@@ -31,6 +31,7 @@ const XP_RULE = {
   watchedEach: 1, watchedCap: 40,        // 시청 등록 (활동성)
   commentEach: 1, commentMin: 10, commentCap: 40,  // 유효 댓글(10자 이상)
   discussionEach: 2, discussionCap: 40,  // 토론/게시판 글
+  attendanceEach: 2, attendanceCap: 60,  // 누적 방문일(출석) — 비중 낮게, 상한 有
 }
 
 /** 받은 순추천 수 → 품질 XP. 증가폭이 점점 줄어드는 체감 곡선(조작 효율 ↓). */
@@ -86,6 +87,8 @@ export interface UserStats {
   totalLikes: number
   totalDislikes: number
   accountAgeDays: number
+  visitDays: number    // 누적 방문일 (출석 · 마이그레이션 전이면 0)
+  streak: number       // 현재 연속 출석 일수
   byDomain: Record<ContentType, DomainStat>
 }
 
@@ -130,8 +133,11 @@ export function computeStats(userId: string, createdAt: string): UserStats {
   const comments = DS.getComments().filter(c => c.authorId === userId && (c.content || '').length >= XP_RULE.commentMin).length
   const discussions = DS.getDiscussions().filter(d => d.authorId === userId).length
   const accountAgeDays = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000))
+  const u = DS.getUserById(userId)
+  const visitDays = u?.visitDays ?? 0
+  const streak = u?.streak ?? 0
 
-  return { reviews, longReviews, watched, comments, discussions, receivedNetLikes, totalLikes, totalDislikes, accountAgeDays, byDomain }
+  return { reviews, longReviews, watched, comments, discussions, receivedNetLikes, totalLikes, totalDislikes, accountAgeDays, visitDays, streak, byDomain }
 }
 
 // ── 활동 레벨 ───────────────────────────────────────────────
@@ -155,6 +161,7 @@ export function computeXp(s: UserStats): number {
   xp += Math.min(s.watched * XP_RULE.watchedEach, XP_RULE.watchedCap)
   xp += Math.min(s.comments * XP_RULE.commentEach, XP_RULE.commentCap)
   xp += Math.min(s.discussions * XP_RULE.discussionEach, XP_RULE.discussionCap)
+  xp += Math.min(s.visitDays * XP_RULE.attendanceEach, XP_RULE.attendanceCap)
   return Math.round(xp)
 }
 

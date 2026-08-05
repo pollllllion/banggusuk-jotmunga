@@ -166,3 +166,7 @@
   margin-top: 14px; background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius-md); padding: 10px;
 }
+
+/* 방구석토론방 글쓰기 페이지 (팝업 대체) */
+.disc-write-page { max-width: 640px; }
+.disc-write-page .tmdb-results { margin-top: 8px; }

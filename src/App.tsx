@@ -10,6 +10,7 @@ import { AuthPage } from '@/pages/AuthPage'
 import { CalendarPage } from '@/pages/CalendarPage'
 import { BrowsePage } from '@/pages/BrowsePage'
 import { DiscussionRoomPage } from '@/pages/DiscussionRoomPage'
+import { WriteDiscussionPage } from '@/pages/WriteDiscussionPage'
 import { DiscussionDetailPage } from '@/pages/DiscussionDetailPage'
 import { BoardPage } from '@/pages/BoardPage'
 import { ContentDetailPage } from '@/pages/ContentDetailPage'
@@ -63,6 +64,7 @@ export default function App() {
             <Route element={<AuthGuard><AppLayout /></AuthGuard>}>
               <Route path="/" element={<CalendarPage />} />
               <Route path="/talk" element={<DiscussionRoomPage />} />
+              <Route path="/talk/write" element={<WriteDiscussionPage />} />
               <Route path="/talk/:id" element={<DiscussionDetailPage />} />
               <Route path="/browse" element={<BrowsePage />} />
               <Route path="/board/:slug" element={<BoardPage />} />

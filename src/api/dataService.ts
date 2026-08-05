@@ -188,7 +188,11 @@ export function findUserByEmail(email: string) { return getUsers().find(u => u.e
 export async function ensureProfile(authUser: { id: string; email?: string | null }, nickname?: string): Promise<User> {
   const existing = cache.profiles.find((p: any) => p.id === authUser.id)
   if (existing) {
-    return { id: existing.id, nickname: existing.nickname, email: authUser.email || '', role: existing.role, banned: existing.banned, createdAt: existing.createdAt }
+    return {
+      id: existing.id, nickname: existing.nickname, email: authUser.email || '',
+      role: existing.role, banned: existing.banned, createdAt: existing.createdAt,
+      lastVisit: existing.lastVisit ?? null, streak: existing.streak ?? 0, visitDays: existing.visitDays ?? 0,
+    }
   }
   const row = {
     id: authUser.id,
@@ -213,6 +217,43 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }
   try { await supabase.from('profiles').update(patch).eq('id', id) }
   catch (e) { console.error('[profile update]', e) }
+}
+
+// ── 출석 streak ─────────────────────────────────────────────
+/** 로컬 기준 'YYYY-MM-DD' */
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+// profiles 에 streak 컬럼이 없으면(마이그레이션 미적용) 첫 실패 후 조용히 꺼둔다.
+let attendanceDisabled = false
+
+/** 하루 최초 접속 시 연속 출석/방문일을 갱신한다. 계정(고정닉) 전용.
+ *  컬럼이 없으면 no-op → 마이그레이션 적용 전까지 기능이 꺼진 상태로 안전하게 유지. */
+export async function touchAttendance(userId: string): Promise<{ streak: number; visitDays: number } | null> {
+  if (attendanceDisabled) return null
+  const idx = cache.profiles.findIndex((p: any) => p.id === userId)
+  if (idx < 0) return null
+  const row: any = cache.profiles[idx]
+
+  const now = new Date()
+  const today = dateKey(now)
+  if (row.lastVisit === today) return { streak: row.streak ?? 0, visitDays: row.visitDays ?? 0 }
+
+  const yesterday = dateKey(new Date(now.getTime() - 86400000))
+  const streak = row.lastVisit === yesterday ? (row.streak ?? 0) + 1 : 1
+  const visitDays = (row.visitDays ?? 0) + 1
+  const patch = { lastVisit: today, streak, visitDays }
+
+  // DB 반영이 성공한 뒤에만 캐시를 갱신한다 — 컬럼이 없으면(마이그레이션 전)
+  // 캐시도 안 건드려 완전한 no-op 을 보장한다.
+  try {
+    const { error } = await supabase.from('profiles').update(patch).eq('id', userId)
+    if (error) { attendanceDisabled = true; console.warn('[attendance] 비활성(profiles 마이그레이션 미적용?):', error.message); return null }
+  } catch (e) {
+    attendanceDisabled = true; console.warn('[attendance] 비활성:', e); return null
+  }
+  cache.profiles[idx] = { ...row, ...patch }
+  return { streak, visitDays }
 }
 
 export function createUser(data: Partial<User>): User {

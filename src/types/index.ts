@@ -7,6 +7,10 @@ export interface User {
   role: 'admin' | 'user'
   banned: boolean
   createdAt: string
+  // ── 출석 streak (profiles 마이그레이션 후 채워짐 · 미적용 시 undefined) ──
+  lastVisit?: string | null   // 마지막 집계일 'YYYY-MM-DD'
+  streak?: number             // 현재 연속 출석 일수
+  visitDays?: number          // 누적 방문일 수 (출석 XP 산정)
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────

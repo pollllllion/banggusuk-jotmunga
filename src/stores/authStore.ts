@@ -31,6 +31,13 @@ function ensureGuest(): User {
   return user
 }
 
+/** 계정 로그인 시 출석 streak 을 집계하고, 갱신된 값을 유저에 반영한다.
+ *  (profiles 마이그레이션 미적용 시 touchAttendance 가 null → 원본 그대로) */
+async function withAttendance(account: User): Promise<User> {
+  const att = await DS.touchAttendance(account.id)
+  return att ? { ...account, streak: att.streak, visitDays: att.visitDays } : account
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   initialized: false,
@@ -46,7 +53,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         DS.setSession(account)
         // RLS 유저별 테이블(watched/bookmarks/…)을 인증 상태로 다시 로드
         await DS.reloadUserScoped()
-        set({ user: account, isAccount: true, initialized: true })
+        const user = await withAttendance(account)
+        set({ user, isAccount: true, initialized: true })
         return
       }
       // 비로그인 = 게스트(유동닉)
@@ -67,7 +75,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (account.banned) { await supabase.auth.signOut(); return { ok: false, error: '정지된 계정입니다. 관리자에게 문의하세요.' } }
     DS.setSession(account)
     await DS.reloadUserScoped()
-    set({ user: account, isAccount: true })
+    const fresh = await withAttendance(account)
+    set({ user: fresh, isAccount: true })
     return { ok: true }
   },
 
