@@ -11,6 +11,11 @@ export interface User {
   lastVisit?: string | null   // 마지막 집계일 'YYYY-MM-DD'
   streak?: number             // 현재 연속 출석 일수
   visitDays?: number          // 누적 방문일 수 (출석 XP 산정)
+  // ── 공개 취향 프로필 (다른 유저에게 공개 · 마이그레이션 후) ──
+  tasteBio?: string | null        // 취향 한 줄 소개
+  favoriteWorks?: string[]        // 인생작품 (content id 목록)
+  favoriteGenres?: string[]       // 선호 장르
+  favoriteDirectors?: string[]    // 좋아하는 감독/작가
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────
@@ -138,6 +143,10 @@ export interface Discussion {
   title?: string | null      // 게시판 글 제목 (구 글은 없을 수 있음)
   body: string
   likes: string[]
+  /** 별점 1~10 (선택). 있으면 작품 평점 집계에 반영. 1작품 1별점(작성자당). */
+  rating?: number | null
+  /** 스포일러 포함 여부 (선택) */
+  spoiler?: boolean
   createdAt: string
 }
 

@@ -1,4 +1,5 @@
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useAuthStore } from '@/stores/authStore'
 import { BOARDS } from '@/utils/constants'
 
 // 이 게시판 항목 뒤에 구분선을 넣는다
@@ -8,6 +9,8 @@ export function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
+  const user = useAuthStore(s => s.user)
+  const isAdmin = user?.role === 'admin'
 
   const isActive = (path: string) => {
     if (path.startsWith('/browse')) {
@@ -33,18 +36,20 @@ export function Sidebar() {
         </div>
       ))}
 
-      <div className="sidebar-divider" />
-      <div
-        className={`sidebar-item ${isActive('/ranking') ? 'active' : ''}`}
-        onClick={() => navigate('/ranking')}>
-        <span className="e">{'\u{1F3C6}'}</span> 이달의 랭킹
-      </div>
+      {/* 방구석 레벨 — 유저 충분히 모이면 오픈. 그 전엔 관리자만 노출 */}
+      {isAdmin && (
+        <>
+          <div className="sidebar-divider" />
+          <div
+            className={`sidebar-item ${isActive('/ranking') ? 'active' : ''}`}
+            onClick={() => navigate('/ranking')}>
+            <span className="e">{'\u{1F3C5}'}</span> 방구석 레벨
+          </div>
+        </>
+      )}
 
       <div className="sidebar-divider" />
       <div className="sidebar-title">내 활동</div>
-      <div className="sidebar-item" onClick={() => navigate('/my-reviews')}>
-        <span className="e">{'\u{1F464}'}</span> 내 프로필
-      </div>
       <div className="sidebar-item" onClick={() => navigate('/feed')}>
         <span className="e">{'\u{1F4F0}'}</span> 내 피드
       </div>

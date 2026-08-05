@@ -170,3 +170,19 @@
 /* 방구석토론방 글쓰기 페이지 (팝업 대체) */
 .disc-write-page { max-width: 640px; }
 .disc-write-page .tmdb-results { margin-top: 8px; }
+.disc-write-page label .req { color: var(--danger); font-weight: 700; }
+.disc-write-page label .opt { color: var(--subtext); font-weight: 500; font-size: 12px; }
+.tmdb-result.picked { background: var(--bg); border-radius: var(--radius-md); }
+
+/* 토론글 별점/스포일러 표시 */
+.disc-rating-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 12px; font-weight: 800; color: #fff; padding: 1px 7px; border-radius: var(--radius-full);
+}
+.disc-spoiler-tag {
+  font-size: 11px; font-weight: 700; color: var(--danger);
+  background: var(--danger-light); border-radius: var(--radius-xs); padding: 1px 6px;
+}
+.disc-detail-titlerow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.disc-detail-titlerow .disc-detail-title { margin: 0; }
+.disc-detail-titlerow .disc-rating-pill { font-size: 14px; padding: 2px 9px; }

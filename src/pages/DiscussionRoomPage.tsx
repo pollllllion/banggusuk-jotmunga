@@ -67,7 +67,7 @@ export function DiscussionRoomPage() {
       />
       <div className="feed-header">
         <h2 className="feed-title">{'\u{1F5E3}\u{FE0F}'} 방구석토론방</h2>
-        <button className="btn btn-primary btn-small" onClick={openWrite}>✍️ 글쓰기</button>
+        <button className="btn btn-primary btn-small" onClick={openWrite}>✍️ 토론하기</button>
       </div>
 
       <div className="feed-typefilter">
@@ -86,7 +86,7 @@ export function DiscussionRoomPage() {
       {!rows.length ? (
         <div className="empty-state fade-in">
           <p>{query ? '검색 결과가 없어요.' : '아직 글이 없어요. 첫 글을 남겨보세요!'}</p>
-          {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>✍️ 글쓰기</button>}
+          {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>✍️ 토론하기</button>}
         </div>
       ) : (
         <div className="disc-board fade-in">

@@ -14,11 +14,10 @@ import { WriteDiscussionPage } from '@/pages/WriteDiscussionPage'
 import { DiscussionDetailPage } from '@/pages/DiscussionDetailPage'
 import { BoardPage } from '@/pages/BoardPage'
 import { ContentDetailPage } from '@/pages/ContentDetailPage'
-import { WriteReviewPage } from '@/pages/WriteReviewPage'
-import { ReviewDetailPage } from '@/pages/ReviewDetailPage'
 import { MyReviewsPage } from '@/pages/MyReviewsPage'
 import { MyFeedPage } from '@/pages/MyFeedPage'
 import { RankingPage } from '@/pages/RankingPage'
+import { UserProfilePage } from '@/pages/UserProfilePage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
@@ -69,13 +68,14 @@ export default function App() {
               <Route path="/browse" element={<BrowsePage />} />
               <Route path="/board/:slug" element={<BoardPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />
-              <Route path="/review/write" element={<WriteReviewPage />} />
-              <Route path="/review/write/:contentId" element={<WriteReviewPage />} />
-              <Route path="/review/edit/:id" element={<WriteReviewPage />} />
-              <Route path="/review/:id" element={<ReviewDetailPage />} />
+              {/* 리뷰는 토론글로 통합됨 — 옛 링크는 방구석토론방으로 보낸다 */}
+              <Route path="/review/write" element={<Navigate to="/talk/write" replace />} />
+              <Route path="/review/write/:contentId" element={<Navigate to="/talk/write" replace />} />
+              <Route path="/review/*" element={<Navigate to="/talk" replace />} />
               <Route path="/my-reviews" element={<MyReviewsPage />} />
               <Route path="/feed" element={<MyFeedPage />} />
-              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/ranking" element={<AdminGuard><RankingPage /></AdminGuard>} />
+              <Route path="/u/:id" element={<UserProfilePage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />

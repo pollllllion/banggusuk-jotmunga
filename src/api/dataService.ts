@@ -178,8 +178,20 @@ export function getUserById(id: string): User | undefined {
   const u = getUsers().find(u => u.id === id)
   if (u) return u
   const p = cache.profiles.find((p: any) => p.id === id)
-  if (p) return { id: p.id, nickname: p.nickname, email: '', role: p.role, banned: p.banned, createdAt: p.createdAt }
+  if (p) return profileToUser(p, '')
   return undefined
+}
+
+/** profiles 행 → User (공개 취향·streak 필드 포함). */
+function profileToUser(p: any, email: string): User {
+  return {
+    id: p.id, nickname: p.nickname, email, role: p.role, banned: p.banned, createdAt: p.createdAt,
+    lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
+    tasteBio: p.tasteBio ?? null,
+    favoriteWorks: p.favoriteWorks ?? [],
+    favoriteGenres: p.favoriteGenres ?? [],
+    favoriteDirectors: p.favoriteDirectors ?? [],
+  }
 }
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
 
@@ -187,13 +199,7 @@ export function findUserByEmail(email: string) { return getUsers().find(u => u.e
 /** auth 사용자에 대응하는 profiles 행 확보(없으면 생성) → User 형태로 반환 */
 export async function ensureProfile(authUser: { id: string; email?: string | null }, nickname?: string): Promise<User> {
   const existing = cache.profiles.find((p: any) => p.id === authUser.id)
-  if (existing) {
-    return {
-      id: existing.id, nickname: existing.nickname, email: authUser.email || '',
-      role: existing.role, banned: existing.banned, createdAt: existing.createdAt,
-      lastVisit: existing.lastVisit ?? null, streak: existing.streak ?? 0, visitDays: existing.visitDays ?? 0,
-    }
-  }
+  if (existing) return profileToUser(existing, authUser.email || '')
   const row = {
     id: authUser.id,
     nickname: nickname || ('회원' + Math.floor(1000 + Math.random() * 9000)),
@@ -213,6 +219,11 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.nickname !== undefined) patch.nickname = updates.nickname
   if (updates.role !== undefined) patch.role = updates.role
   if (updates.banned !== undefined) patch.banned = updates.banned
+  // 공개 취향 프로필
+  if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
+  if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks
+  if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres
+  if (updates.favoriteDirectors !== undefined) patch.favoriteDirectors = updates.favoriteDirectors
   const idx = cache.profiles.findIndex((p: any) => p.id === id)
   if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }
   try { await supabase.from('profiles').update(patch).eq('id', id) }
@@ -407,11 +418,12 @@ export function deleteContent(id: string) {
   saveComments(getComments().filter(c => !removedReviews.includes(c.reviewId)))
 }
 
-/** 평점 재집계 — 캐시만 갱신(즉시 표시용). DB는 reviews 트리거가 처리 */
+/** 평점 재집계 — 이제 토론글(별점 단 글)에서 집계한다. 캐시만 갱신(즉시 표시용).
+ *  avgRating = 별점 평균, reviewCount = 별점 단 글 수. */
 export function recomputeContentRating(contentId: string) {
-  const reviews = getReviews().filter(r => r.contentId === contentId)
-  const count = reviews.length
-  const avg = count ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / count) * 10) / 10 : 0
+  const rated = getDiscussions().filter(d => d.contentId === contentId && d.rating != null)
+  const count = rated.length
+  const avg = count ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / count) * 10) / 10 : 0
   const contents = getContents()
   const idx = contents.findIndex(c => c.id === contentId)
   if (idx >= 0) {
@@ -505,9 +517,19 @@ export function getDiscussionsByContent(contentId: string): Discussion[] {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
+export function getDiscussionsByAuthor(authorId: string): Discussion[] {
+  return getDiscussions().filter(d => d.authorId === authorId)
+}
+
+/** 이 작성자가 이 작품에 이미 별점을 매겼는지 — 1작품 1별점 중복 방지용. */
+export function getUserRatingForContent(userId: string, contentId: string): Discussion | undefined {
+  return getDiscussions().find(d => d.authorId === userId && d.contentId === contentId && d.rating != null)
+}
+
 export function createDiscussion(data: Partial<Discussion>): Discussion {
   const d: Discussion = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as Discussion
   saveDiscussions([d, ...getDiscussions()])
+  if (d.rating != null) recomputeContentRating(d.contentId)
   return d
 }
 
@@ -558,9 +580,23 @@ export async function toggleCommentLike(id: string, userId: string): Promise<voi
 }
 
 export function deleteDiscussion(id: string): void {
+  const post = getDiscussions().find(d => d.id === id)
   saveDiscussions(getDiscussions().filter(d => d.id !== id))
   // 딸린 댓글도 캐시에서 제거(서버는 FK on delete cascade)
   cache.discussion_comments = cache.discussion_comments.filter((c: any) => c.discussionId !== id)
+  if (post && post.rating != null) recomputeContentRating(post.contentId)
+}
+
+/** 토론글 수정 (본문·제목·별점·스포일러). 별점 바뀌면 작품 평점 재집계. */
+export function updateDiscussion(id: string, updates: Partial<Discussion>): Discussion | null {
+  const ds = getDiscussions()
+  const idx = ds.findIndex(d => d.id === id)
+  if (idx < 0) return null
+  const updated = { ...ds[idx], ...updates }
+  const next = [...ds]; next[idx] = updated
+  saveDiscussions(next)
+  recomputeContentRating(updated.contentId)
+  return updated
 }
 
 // ── Discussion Comments (게시글 댓글) ───────────────────────

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -7,7 +7,6 @@ import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { ContentInfo } from '@/components/content/ContentInfo'
-import { ReviewCard } from '@/components/review/ReviewCard'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
 import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
@@ -27,10 +26,6 @@ export function ContentDetailPage() {
   const toast = useToastStore(s => s.show)
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
-  const [sort, setSort] = useState<'popular' | 'latest' | 'high' | 'low'>('popular')
-  const [searchParams] = useSearchParams()
-  // 출시된 작품: 리뷰 / 수다방 탭 (내 피드에서 클릭 시 ?tab=talk 로 수다방 바로 열기)
-  const [tab, setTab] = useState<'reviews' | 'talk'>(searchParams.get('tab') === 'talk' ? 'talk' : 'reviews')
 
   // 출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다
   useEffect(() => { if (id) DS.loadContentDetail(id).then(changed => { if (changed) rerender() }) }, [id])
@@ -39,36 +34,27 @@ export function ContentDetailPage() {
   if (!content) { navigate('/browse'); return null }
 
   // 공개 여부는 캘린더와 동일하게 '공개일' 기준으로 판단한다.
-  // (TMDB 동기화는 status를 전부 'upcoming'으로 저장하므로 status만 보면 이미 개봉한 작품도 '공개예정'이 됨)
   const relDate = content.manualOverride && content.manualReleaseDate ? content.manualReleaseDate : content.releaseDate
   const now = new Date()
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const isUpcoming = relDate ? relDate > todayKey : content.status === 'upcoming'
-  // 공개일이 있는(=캘린더/TMDB) 작품은 날짜로 판정, 없으면 큐레이션 status(연재중/완결) 사용
   const statusLabel = isUpcoming ? '공개예정'
     : relDate ? null
     : content.status === 'ongoing' ? '연재중'
     : content.status === 'completed' ? '완결' : null
 
-  const blockedIds = user ? DS.getBlockedIds(user.id) : []
-  let reviews = DS.getReviewsByContent(content.id).filter(r => !blockedIds.includes(r.authorId || ''))
-  if (sort === 'latest') reviews = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  else if (sort === 'high') reviews = [...reviews].sort((a, b) => b.rating - a.rating)
-  else if (sort === 'low') reviews = [...reviews].sort((a, b) => a.rating - b.rating)
-  else reviews = [...reviews].sort((a, b) => (b.likes.length - b.dislikes.length) - (a.likes.length - a.dislikes.length))
-
-  const myReview = user ? DS.getUserReviewForContent(user.id, content.id) : undefined
-  const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
-
-  // 점수 분포 (1~10)
+  // 별점 = 토론글 중 별점 단 글에서 집계
+  const rated = DS.getDiscussionsByContent(content.id).filter(d => d.rating != null)
+  const ratingCount = rated.length
+  const avgRating = ratingCount ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / ratingCount) * 10) / 10 : 0
   const dist = Array.from({ length: 10 }, (_, i) => {
     const score = 10 - i
-    return { score, count: reviews.filter(r => r.rating === score).length }
+    return { score, count: rated.filter(d => d.rating === score).length }
   })
   const maxCount = Math.max(1, ...dist.map(d => d.count))
+  const expertRating = expertRatingFor(rated, content.type)
 
-  // 좋문가 평점 — 이 분야 좋문가들의 평균만 별도 집계 (전체 평점과 분리)
-  const expertRating = expertRatingFor(reviews, content.type)
+  const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
 
   const handleBookmark = () => {
     if (!user) return
@@ -77,14 +63,9 @@ export function ContentDetailPage() {
     toast(added ? '작품을 찜했습니다.' : '찜을 취소했습니다.'); rerender()
   }
 
-  const goWrite = () => {
-    if (myReview) navigate(`/review/edit/${myReview.id}`)
-    else navigate(`/review/write/${content.id}`)
-  }
+  const goWrite = () => navigate(`/talk/write?contentId=${content.id}`)
 
   // ── SEO ──────────────────────────────────────────────────────
-  // 문구 생성은 shared/contentSeo.mjs 에 있다. 프리렌더 스크립트가 같은 함수를 써야
-  // 크롤러가 받는 HTML 과 여기서 그리는 메타가 어긋나지 않는다.
   const seoTitle = buildContentTitle(content, todayKey)
   const seoDescription = buildContentDescription(content, todayKey)
   const jsonLd = buildContentJsonLd(content, SITE_URL)
@@ -97,7 +78,6 @@ export function ContentDetailPage() {
         image={content.posterUrl}
         path={`/content/${content.id}`}
         type={ogTypeOf(content) as 'video.movie' | 'video.tv_show' | 'article'}
-        // 캘린더에서 숨긴 작품(동기화에서 밀려난 옛 행)은 색인 대상이 아니다. sitemap 에서도 빠져 있다.
         noindex={content.hidden === true}
         jsonLd={jsonLd}
       />
@@ -119,9 +99,7 @@ export function ContentDetailPage() {
 
           <div className="review-detail-actions" style={{ marginTop: 14, marginBottom: 0 }}>
             {!isUpcoming && (
-              <button className="btn btn-primary" onClick={goWrite}>
-                {myReview ? '내 리뷰 수정' : '✍️ 리뷰 쓰기'}
-              </button>
+              <button className="btn btn-primary" onClick={goWrite}>✍️ 토론하기</button>
             )}
             <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
               <BookmarkIcon filled={bookmarked} /> {isUpcoming ? '찜 · 공개알림' : '찜'}
@@ -135,70 +113,41 @@ export function ContentDetailPage() {
 
       <ContentInfo content={content} />
 
-      {isUpcoming ? (
-        <DiscussionBoard contentId={content.id} />
-      ) : (
-      <>
-      {/* 리뷰 / 수다방 탭 */}
-      <div className="feed-sort" style={{ marginTop: 16, marginBottom: 4 }}>
-        <button className={tab === 'reviews' ? 'active' : ''} onClick={() => setTab('reviews')}>⭐ 리뷰</button>
-        <button className={tab === 'talk' ? 'active' : ''} onClick={() => setTab('talk')}>💬 작품방</button>
-      </div>
-
-      {tab === 'talk' ? (
-        <DiscussionBoard contentId={content.id} />
-      ) : (
-      <>
-      {/* 점수 요약 + 분포 */}
-      <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
-        <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
-          <div className="score-box-label">전체 평점</div>
-          <div className="big" style={{ color: scoreColor(content.avgRating) }}>
-            {content.reviewCount ? content.avgRating.toFixed(1) : '-'}
-          </div>
-          <Stars score={content.avgRating} size={16} />
-          <div className="cnt">{content.reviewCount ? `${scoreLabel(content.avgRating)} · 리뷰 ${content.reviewCount}개` : '아직 평가 없음'}</div>
-          {expertRating.count > 0 && (
-            <div className="score-expert" title={`이 분야 좋문가 ${expertRating.count}명의 평균 평점`}>
-              <span className="score-expert-label">🛋️ 좋문가 평점</span>
-              <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
-              <span className="score-expert-cnt">· {expertRating.count}명</span>
+      {/* 별점 요약 + 분포 (출시된 작품만) */}
+      {!isUpcoming && (
+        <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
+          <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
+            <div className="score-box-label">전체 평점</div>
+            <div className="big" style={{ color: scoreColor(avgRating) }}>
+              {ratingCount ? avgRating.toFixed(1) : '-'}
             </div>
-          )}
-        </div>
-        <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
-          {dist.map(d => (
-            <div key={d.score} className="dist-row">
-              <span className="lbl">{d.score}점</span>
-              <div className="dist-bar-bg">
-                <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
+            <Stars score={avgRating} size={16} />
+            <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
+            {expertRating.count > 0 && (
+              <div className="score-expert" title={`이 분야 좋문가 ${expertRating.count}명의 평균 별점`}>
+                <span className="score-expert-label">🛋️ 좋문가 평점</span>
+                <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
+                <span className="score-expert-cnt">· {expertRating.count}명</span>
               </div>
-              <span className="val">{d.count}</span>
-            </div>
-          ))}
+            )}
+          </div>
+          <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
+            {dist.map(d => (
+              <div key={d.score} className="dist-row">
+                <span className="lbl">{d.score}점</span>
+                <div className="dist-bar-bg">
+                  <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
+                </div>
+                <span className="val">{d.count}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 리뷰 목록 */}
-      <div className="feed-header" style={{ marginTop: 20 }}>
-        <h2 className="feed-title">리뷰 {reviews.length}</h2>
-        <div className="feed-sort">
-          <button className={sort === 'popular' ? 'active' : ''} onClick={() => setSort('popular')}>공감순</button>
-          <button className={sort === 'latest' ? 'active' : ''} onClick={() => setSort('latest')}>최신</button>
-          <button className={sort === 'high' ? 'active' : ''} onClick={() => setSort('high')}>고평점</button>
-          <button className={sort === 'low' ? 'active' : ''} onClick={() => setSort('low')}>저평점</button>
-        </div>
-      </div>
+      {/* 토론글(=글) 목록 + 작성 */}
+      <DiscussionBoard contentId={content.id} />
 
-      {!reviews.length ? (
-        <div className="empty-state fade-in"><p>첫 리뷰의 주인공이 되어보세요!</p></div>
-      ) : (
-        reviews.map(r => <ReviewCard key={r.id} review={r} showContent={false} />)
-      )}
-      </>
-      )}
-      </>
-      )}
       {content.source === 'tmdb' && (
         <p style={{ fontSize: 11, color: 'var(--subtext)', textAlign: 'center', marginTop: 20, lineHeight: 1.7 }}>
           작품 정보 제공: <a href={content.tmdbUrl || 'https://www.themoviedb.org/'} target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>TMDB</a>

@@ -10,7 +10,7 @@ export function ExpertTag({ authorId, type }: { authorId: string | null | undefi
   return (
     <span
       className={`expert-tag rank-${badge.rank}`}
-      title={`${TYPE_LABELS[type]} 평가 ${badge.stat.rated}편 · 장문리뷰 ${badge.stat.longReviews}개${badge.stat.approval !== null ? ` · 인정률 ${Math.round(badge.stat.approval * 100)}%` : ''}`}
+      title={`${TYPE_LABELS[type]} 평가 ${badge.stat.rated}편 · 장문글 ${badge.stat.longPosts}개 · 추천 ${badge.stat.netLikes}`}
     >
       {badge.emoji} {badge.label}
     </span>

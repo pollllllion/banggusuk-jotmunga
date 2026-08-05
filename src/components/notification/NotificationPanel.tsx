@@ -27,7 +27,7 @@ export function NotificationPanel() {
     DS.markRead(notifId)
     setOpen(false)
     setTick(t => t + 1)
-    if (reviewId) navigate(`/review/${reviewId}`)
+    if (reviewId) navigate(`/talk/${reviewId}`)
   }
 
   const handleMarkAll = () => {

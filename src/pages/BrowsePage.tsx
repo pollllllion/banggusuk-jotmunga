@@ -1,7 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
-import { ReviewBoard } from '@/components/review/ReviewBoard'
 import { CONTENT_TYPES, GENRES } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import type { ContentType } from '@/types'
@@ -17,14 +16,10 @@ export function BrowsePage() {
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams)
     if (value) next.set(key, value); else next.delete(key)
-    // 타입·장르를 바꾸면 검색을 벗어나지만, 정렬은 검색 결과 안에서의 조작이라 검색어를 유지한다.
     if (key !== 'sort') next.delete('search')
     setSearchParams(next)
   }
 
-  // 캘린더에서 숨긴 작품(TMDB 전체 동기화에서 밀려난 옛 행)은 목록에서도 뺀다.
-  // 캘린더는 이미 제외하고 있었는데 여기만 빠져 있어 숨긴 작품이 노출됐다. sitemap 기준과도 일치시킨다.
-  // 검색은 헤더 통합검색과 같은 규칙(공백·문장부호 무시)을 쓴다 — searchContents 하나로 통일.
   let contents = search
     ? DS.searchContents(search, Infinity)
     : DS.getContents().filter(c => !c.hidden)
@@ -35,21 +30,8 @@ export function BrowsePage() {
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
   else if (sort !== 'relevance') contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
-  // 영화탭은 포스터 그리드 대신 자유게시판(리뷰글 목록) 형식
-  const isBoard = type === 'movie'
-  const contentIds = new Set(contents.map(c => c.id))
-  let reviews = isBoard ? DS.getReviews().filter(r => contentIds.has(r.contentId)) : []
-  if (isBoard) {
-    if (sort === 'top') reviews = [...reviews].sort((a, b) => b.rating - a.rating)
-    else if (sort === 'reviews') reviews = [...reviews].sort((a, b) => (b.likes.length - b.dislikes.length) - (a.likes.length - a.dislikes.length))
-    else reviews = [...reviews].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  }
-
-  // 타입·장르는 색인 가치가 있는 조합이라 canonical 에 남기고,
-  // 정렬(sort)과 검색(search)은 같은 목록의 변형일 뿐이라 canonical 에서 뺀다.
   const typeLabel = CONTENT_TYPES.find(t => t.code === type)?.label
   const seoTitle = search ? `"${search}" 검색 결과`
-    : isBoard ? '영화 리뷰 게시판'
     : typeLabel ? `${typeLabel}${genre ? ` · ${genre}` : ''} 전체보기`
     : genre ? `${genre} 작품 모아보기`
     : '작품 둘러보기'
@@ -63,15 +45,15 @@ export function BrowsePage() {
       <Seo
         path={canonicalPath}
         title={seoTitle}
-        description={`${seoTitle} — 공개일·평점·리뷰를 한 곳에서. 넷플릭스·디즈니+·티빙·웨이브 등 OTT 작품과 극장 개봉작, 웹툰·웹소설까지 ${contents.length}편을 모아봤습니다.`}
+        description={`${seoTitle} — 공개일·평점·별점을 한 곳에서. 넷플릭스·디즈니+·티빙·웨이브 등 OTT 작품과 극장 개봉작, 웹툰·웹소설까지 ${contents.length}편을 모아봤습니다.`}
         noindex={!!search}
       />
       <div className="feed-header">
-        <h2 className="feed-title">{search ? `"${search}" 검색 결과` : isBoard ? '🎬 영화 리뷰 게시판' : '작품 둘러보기'}</h2>
+        <h2 className="feed-title">{search ? `"${search}" 검색 결과` : '작품 둘러보기'}</h2>
         <div className="feed-sort">
           <button className={sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'latest')}>최신</button>
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setParam('sort', 'top')}>평점순</button>
-          <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>{isBoard ? '추천순' : '리뷰순'}</button>
+          <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>별점순</button>
         </div>
       </div>
 
@@ -93,13 +75,7 @@ export function BrowsePage() {
         ))}
       </div>
 
-      {isBoard ? (
-        !reviews.length ? (
-          <div className="empty-state fade-in"><p>아직 등록된 영화 리뷰가 없습니다. 첫 리뷰를 남겨보세요!</p></div>
-        ) : (
-          <ReviewBoard reviews={reviews} />
-        )
-      ) : !contents.length ? (
+      {!contents.length ? (
         <div className="empty-state fade-in"><p>조건에 맞는 작품이 없습니다.</p></div>
       ) : (
         <div className="content-grid">
