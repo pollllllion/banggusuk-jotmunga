@@ -53,6 +53,54 @@ export function qualityXp(netLikes: number): number {
   return 0
 }
 
+/** 상호추천(품앗이)·부계정 몰아주기 방지: 받은 추천을 가중한다.
+ *  - 인당 영향력 상한: 한 사람이 내 글을 아무리 많이 추천해도 기여가 상한에 수렴.
+ *  - 상호추천 감쇠: 서로 반복해서 추천을 주고받는 관계의 추천은 크게 깎는다. */
+export const ANTIABUSE = {
+  perLikerCap: 4,         // 한 추천자가 줄 수 있는 최대 인정 추천량
+  mutualMin: 2,           // 서로 N회 이상 주고받으면 품앗이로 간주
+  reciprocalWeight: 0.4,  // 상호추천 관계의 추천 반영률
+}
+/** 한 추천자가 내 글 nB개를 추천했을 때 인정되는 총 추천량(체감·상한). */
+function perLikerCredit(nB: number): number {
+  if (nB <= 3) return nB
+  return Math.min(ANTIABUSE.perLikerCap, 3 + (nB - 3) * 0.25)
+}
+
+/** 특정 작성자가 받은 추천에 대해 '추천자별 추천 1건'의 가중치 맵을 만든다.
+ *  (인당 영향력 상한 + 상호추천 감쇠). 작성자의 전체 이력 기준으로 판정한다. */
+function buildLikeWeighting(userId: string): Map<string, number> {
+  // 내가 '남에게' 준 추천 — 상대 작성자별 횟수 (상호추천 판정용). 전체 1회 스캔.
+  const givenTo = new Map<string, number>()
+  for (const r of DS.getReviews()) {
+    if (r.authorId && r.authorId !== userId && r.likes.includes(userId)) {
+      givenTo.set(r.authorId, (givenTo.get(r.authorId) || 0) + 1)
+    }
+  }
+  // 내가 '받은' 추천 — 추천자별 횟수.
+  const receivedFrom = new Map<string, number>()
+  for (const r of DS.getReviewsByAuthor(userId)) {
+    for (const uid of r.likes) {
+      if (uid === userId) continue
+      receivedFrom.set(uid, (receivedFrom.get(uid) || 0) + 1)
+    }
+  }
+  const weight = new Map<string, number>()
+  for (const [liker, nB] of receivedFrom) {
+    const nGiven = givenTo.get(liker) || 0
+    const reciprocal = nB >= ANTIABUSE.mutualMin && nGiven >= ANTIABUSE.mutualMin
+    weight.set(liker, (perLikerCredit(nB) / nB) * (reciprocal ? ANTIABUSE.reciprocalWeight : 1))
+  }
+  return weight
+}
+
+/** 리뷰 1건의 가중 순추천 = Σ(추천자 가중치) − 비공감. */
+function weightedNetOfReview(r: { likes: string[]; dislikes: string[] }, weight: Map<string, number>, userId: string): number {
+  let w = 0
+  for (const uid of r.likes) { if (uid === userId) continue; w += weight.get(uid) || 0 }
+  return Math.max(0, w - r.dislikes.length)
+}
+
 /** 좋문가(전문 자격) 진입/승급 기준. */
 export const EXPERT_RULE = {
   minAgeDays: 30,       // 가입 후 최소 기간
@@ -103,11 +151,15 @@ export function computeStats(userId: string, createdAt: string): UserStats {
 
   let reviews = 0, longReviews = 0, totalLikes = 0, totalDislikes = 0, receivedNetLikes = 0
 
-  for (const r of DS.getReviewsByAuthor(userId)) {
+  const myReviews = DS.getReviewsByAuthor(userId)
+  const likeWeight = buildLikeWeighting(userId)
+
+  for (const r of myReviews) {
     reviews++
     const likes = r.likes.length
     const dislikes = r.dislikes.length
-    const net = Math.max(0, likes - dislikes)
+    // 원추천 대신 가중 추천으로 순추천 계산 (품앗이·부계정 몰아주기 억제)
+    const net = weightedNetOfReview(r, likeWeight, userId)
     totalLikes += likes
     totalDislikes += dislikes
     receivedNetLikes += net
@@ -124,8 +176,10 @@ export function computeStats(userId: string, createdAt: string): UserStats {
       if (bodyLen >= EXPERT_RULE.expertLongMin) d.longReviews++
     }
   }
+  receivedNetLikes = Math.round(receivedNetLikes)
   for (const t of CONTENT_TYPES) {
     const d = byDomain[t.code]
+    d.netLikes = Math.round(d.netLikes)
     d.approval = d.reactions >= EXPERT_RULE.minReactionSample ? d.likes / d.reactions : null
   }
 
@@ -337,10 +391,18 @@ export function computeSeasonRanking(limit = 30): { entries: SeasonEntry[]; days
     score.set(uid, (score.get(uid) || 0) + pts)
   }
 
+  // 작성자별 가중치 맵은 재사용 (전체 이력 기준이므로 리뷰마다 다시 안 만든다)
+  const weightCache = new Map<string, Map<string, number>>()
+  const weightFor = (uid: string) => {
+    let m = weightCache.get(uid)
+    if (!m) { m = buildLikeWeighting(uid); weightCache.set(uid, m) }
+    return m
+  }
   for (const r of DS.getReviews()) {
-    if (!inWindow(r.createdAt)) continue
+    if (!inWindow(r.createdAt) || !r.authorId || r.authorId === 'deleted') continue
     const base = (r.body || '').length >= EXPERT_RULE.expertLongMin ? XP_RULE.reviewLong : XP_RULE.reviewShort
-    const net = Math.max(0, r.likes.length - r.dislikes.length)
+    // 시즌에도 상호추천 감쇠·인당 상한을 적용 (품앗이 랭킹 farming 차단)
+    const net = weightedNetOfReview(r, weightFor(r.authorId), r.authorId)
     add(r.authorId, base + qualityXp(net))
   }
   for (const d of DS.getDiscussions()) {
