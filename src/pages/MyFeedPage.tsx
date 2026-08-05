@@ -121,7 +121,7 @@ export function MyFeedPage() {
         <span><b>{items.length}</b>편 봤어요</span>
         <div className="feed-quicklinks">
           <button className="btn-text btn-small" onClick={() => navigate('/ranking')}>🏆 랭킹 ›</button>
-          <button className="btn-text btn-small" onClick={() => navigate('/my-reviews')}>내 리뷰 ›</button>
+          <button className="btn-text btn-small" onClick={() => navigate('/my-reviews')}>내 토론글 ›</button>
           <button className="btn-text btn-small" onClick={() => navigate('/bookmarks')}>찜 ›</button>
         </div>
       </div>

@@ -36,8 +36,8 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
       </div>
 
       <div className="level-stats">
-        <span><b>{stats.reviews}</b> 평가</span>
-        <span><b>{stats.longReviews}</b> 장문리뷰</span>
+        <span><b>{stats.ratedPosts}</b> 평가</span>
+        <span><b>{stats.longPosts}</b> 장문글</span>
         <span><b>{stats.receivedNetLikes}</b> 받은추천</span>
         <span><b>{stats.watched}</b> 시청</span>
       </div>
@@ -47,7 +47,7 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
         {experts.badges.length > 0 ? (
           <div className="expert-badges">
             {experts.badges.map(b => (
-              <span key={b.type} className={`expert-badge rank-${b.rank}`} title={`${TYPE_LABELS[b.type]} 평가 ${b.stat.rated}편 · 장문리뷰 ${b.stat.longReviews}개${b.stat.approval !== null ? ` · 인정률 ${Math.round(b.stat.approval * 100)}%` : ''}`}>
+              <span key={b.type} className={`expert-badge rank-${b.rank}`} title={`${TYPE_LABELS[b.type]} 평가 ${b.stat.rated}편 · 장문글 ${b.stat.longPosts}개 · 추천 ${b.stat.netLikes}`}>
                 {b.emoji} {b.label}
               </span>
             ))}

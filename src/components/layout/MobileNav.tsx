@@ -13,8 +13,8 @@ export function MobileNav() {
       <div className={`mobile-nav-item ${pathname === '/browse' ? 'active' : ''}`} onClick={() => navigate('/browse')}>
         <GridIcon />작품
       </div>
-      <div className="mobile-nav-item" onClick={() => navigate('/review/write')} style={{ color: 'var(--primary)' }}>
-        <PlusIcon size={20} />리뷰
+      <div className="mobile-nav-item" onClick={() => navigate('/talk/write')} style={{ color: 'var(--primary)' }}>
+        <PlusIcon size={20} />토론
       </div>
       <div className={`mobile-nav-item ${pathname === '/feed' ? 'active' : ''}`} onClick={() => navigate('/feed')}>
         <UserIcon />내 피드

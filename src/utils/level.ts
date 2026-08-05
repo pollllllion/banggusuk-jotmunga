@@ -4,9 +4,11 @@
 //   2) 점수는 "현재 상태에서 파생"한다 — 별도 XP 원장을 두지 않는다.
 //      → 글/추천이 삭제되면 다음 계산에서 자동으로 빠지므로 "XP 회수"가 공짜로 된다.
 //   3) 받은 추천은 체감 곡선(증가폭 감소)으로 환산 → 추천 조작 효율을 낮춘다.
-//   4) 순추천(likes - dislikes)만 인정 → 도배성 상호추천 가치를 떨어뜨린다.
+//   4) 추천은 상호추천 감쇠·인당 상한으로 가중 → 품앗이·부계정 몰아주기 억제.
 //   5) 좋문가는 XP 만으로 승급 불가 — 여러 조건을 동시에 충족해야 하는 별도 자격.
 //   6) 게스트(유동닉)에게는 레벨을 주지 않는다 — 고정닉 계정 활동만 집계.
+//
+// ※ 글의 단위는 '토론글(discussions)' 이다. 별점을 단 토론글 = '평가'.
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS, CONTENT_TYPES } from '@/utils/constants'
 import type { ContentType, User } from '@/types'
@@ -25,16 +27,14 @@ export const LEVEL_TIERS = [
 export type Tier = (typeof LEVEL_TIERS)[number]
 
 const XP_RULE = {
-  reviewLong: 4,        // 장문(>= longReviewMin 자) 리뷰 작성
-  reviewShort: 2,       // 단문 리뷰 작성
-  longReviewMin: 100,   // 장문 기준 글자수
+  postLong: 4,          // 장문(>= expertLongMin 자) 토론글 작성
+  postShort: 2,         // 단문 토론글 작성
   watchedEach: 1, watchedCap: 40,        // 시청 등록 (활동성)
   commentEach: 1, commentMin: 10, commentCap: 40,  // 유효 댓글(10자 이상)
-  discussionEach: 2, discussionCap: 40,  // 토론/게시판 글
   attendanceEach: 2, attendanceCap: 60,  // 누적 방문일(출석) — 비중 낮게, 상한 有
 }
 
-/** 받은 순추천 수 → 품질 XP. 증가폭이 점점 줄어드는 체감 곡선(조작 효율 ↓). */
+/** 받은 추천 수 → 품질 XP. 증가폭이 점점 줄어드는 체감 곡선(조작 효율 ↓). */
 const QUALITY_CURVE: [number, number][] = [
   [0, 0], [1, 3], [3, 7], [5, 10], [10, 16], [20, 23], [50, 32], [100, 40],
 ]
@@ -72,15 +72,15 @@ function perLikerCredit(nB: number): number {
 function buildLikeWeighting(userId: string): Map<string, number> {
   // 내가 '남에게' 준 추천 — 상대 작성자별 횟수 (상호추천 판정용). 전체 1회 스캔.
   const givenTo = new Map<string, number>()
-  for (const r of DS.getReviews()) {
-    if (r.authorId && r.authorId !== userId && r.likes.includes(userId)) {
-      givenTo.set(r.authorId, (givenTo.get(r.authorId) || 0) + 1)
+  for (const p of DS.getDiscussions()) {
+    if (p.authorId && p.authorId !== userId && p.likes.includes(userId)) {
+      givenTo.set(p.authorId, (givenTo.get(p.authorId) || 0) + 1)
     }
   }
   // 내가 '받은' 추천 — 추천자별 횟수.
   const receivedFrom = new Map<string, number>()
-  for (const r of DS.getReviewsByAuthor(userId)) {
-    for (const uid of r.likes) {
+  for (const p of DS.getDiscussionsByAuthor(userId)) {
+    for (const uid of p.likes) {
       if (uid === userId) continue
       receivedFrom.set(uid, (receivedFrom.get(uid) || 0) + 1)
     }
@@ -94,21 +94,19 @@ function buildLikeWeighting(userId: string): Map<string, number> {
   return weight
 }
 
-/** 리뷰 1건의 가중 순추천 = Σ(추천자 가중치) − 비공감. */
-function weightedNetOfReview(r: { likes: string[]; dislikes: string[] }, weight: Map<string, number>, userId: string): number {
+/** 토론글 1건의 가중 추천 = Σ(추천자 가중치). (토론글엔 비공감이 없다) */
+function weightedLikesOfPost(p: { likes: string[] }, weight: Map<string, number>, userId: string): number {
   let w = 0
-  for (const uid of r.likes) { if (uid === userId) continue; w += weight.get(uid) || 0 }
-  return Math.max(0, w - r.dislikes.length)
+  for (const uid of p.likes) { if (uid === userId) continue; w += weight.get(uid) || 0 }
+  return w
 }
 
 /** 좋문가(전문 자격) 진입/승급 기준. */
 export const EXPERT_RULE = {
   minAgeDays: 30,       // 가입 후 최소 기간
-  minRated: 20,         // 해당 분야 평가(리뷰) 수
-  minLong: 5,           // 해당 분야 장문 리뷰(>= expertLongMin 자) 수
-  minNetLikes: 40,      // 해당 분야에서 받은 순추천 합
-  minApproval: 0.6,     // 인정률 likes/(likes+dislikes)
-  minReactionSample: 10,// 인정률을 신뢰하기 위한 최소 반응 표본
+  minRated: 20,         // 해당 분야 평가(별점 단 글) 수
+  minLong: 5,           // 해당 분야 장문 글(>= expertLongMin 자) 수
+  minNetLikes: 40,      // 해당 분야에서 받은 가중 추천 합
   expertLongMin: 200,   // 좋문가용 장문 기준(활동 XP 장문보다 엄격)
   // 수석(2배급) 기준
   seniorRated: 40, seniorLong: 12, seniorNetLikes: 100,
@@ -117,23 +115,18 @@ export const EXPERT_RULE = {
 // ── 통계 집계 ───────────────────────────────────────────────
 export interface DomainStat {
   type: ContentType
-  rated: number        // 해당 분야 리뷰 수
-  longReviews: number  // 장문(>=200자) 리뷰 수
-  netLikes: number     // 받은 순추천 합
-  likes: number        // 받은 추천 합 (인정률 분자)
-  reactions: number    // likes + dislikes (인정률 분모/표본)
-  approval: number | null // 인정률 likes/(likes+dislikes) (표본 부족 시 null)
+  rated: number      // 이 분야 평가(별점 단 글) 수
+  longPosts: number  // 이 분야 장문 글(>=200자) 수
+  netLikes: number   // 이 분야에서 받은 가중 추천 합
 }
 
 export interface UserStats {
-  reviews: number
-  longReviews: number
+  posts: number         // 내가 쓴 토론글 수
+  ratedPosts: number    // 그중 별점 단 글 (평가)
+  longPosts: number     // 장문 글(>= expertLongMin)
   watched: number
   comments: number
-  discussions: number
   receivedNetLikes: number
-  totalLikes: number
-  totalDislikes: number
   accountAgeDays: number
   visitDays: number    // 누적 방문일 (출석 · 마이그레이션 전이면 0)
   streak: number       // 현재 연속 출석 일수
@@ -141,7 +134,7 @@ export interface UserStats {
 }
 
 function emptyDomain(type: ContentType): DomainStat {
-  return { type, rated: 0, longReviews: 0, netLikes: 0, likes: 0, reactions: 0, approval: null }
+  return { type, rated: 0, longPosts: 0, netLikes: 0 }
 }
 
 /** 유저의 현재 활동 상태를 집계한다 (전부 파생 — 저장값 없음). */
@@ -149,49 +142,40 @@ export function computeStats(userId: string, createdAt: string): UserStats {
   const byDomain = {} as Record<ContentType, DomainStat>
   for (const t of CONTENT_TYPES) byDomain[t.code] = emptyDomain(t.code)
 
-  let reviews = 0, longReviews = 0, totalLikes = 0, totalDislikes = 0, receivedNetLikes = 0
+  let posts = 0, ratedPosts = 0, longPosts = 0, receivedNetLikes = 0
 
-  const myReviews = DS.getReviewsByAuthor(userId)
+  const myPosts = DS.getDiscussionsByAuthor(userId)
   const likeWeight = buildLikeWeighting(userId)
 
-  for (const r of myReviews) {
-    reviews++
-    const likes = r.likes.length
-    const dislikes = r.dislikes.length
-    // 원추천 대신 가중 추천으로 순추천 계산 (품앗이·부계정 몰아주기 억제)
-    const net = weightedNetOfReview(r, likeWeight, userId)
-    totalLikes += likes
-    totalDislikes += dislikes
+  for (const p of myPosts) {
+    posts++
+    const rated = p.rating != null
+    if (rated) ratedPosts++
+    const long = (p.body || '').length >= EXPERT_RULE.expertLongMin
+    if (long) longPosts++
+    // 원추천 대신 가중 추천으로 계산 (품앗이·부계정 몰아주기 억제)
+    const net = weightedLikesOfPost(p, likeWeight, userId)
     receivedNetLikes += net
-    const bodyLen = (r.body || '').length
-    if (bodyLen >= EXPERT_RULE.expertLongMin) longReviews++
 
-    const c = DS.getContentById(r.contentId)
+    const c = DS.getContentById(p.contentId)
     if (c && byDomain[c.type]) {
       const d = byDomain[c.type]
-      d.rated++
+      if (rated) d.rated++
+      if (long) d.longPosts++
       d.netLikes += net
-      d.likes += likes
-      d.reactions += likes + dislikes
-      if (bodyLen >= EXPERT_RULE.expertLongMin) d.longReviews++
     }
   }
   receivedNetLikes = Math.round(receivedNetLikes)
-  for (const t of CONTENT_TYPES) {
-    const d = byDomain[t.code]
-    d.netLikes = Math.round(d.netLikes)
-    d.approval = d.reactions >= EXPERT_RULE.minReactionSample ? d.likes / d.reactions : null
-  }
+  for (const t of CONTENT_TYPES) byDomain[t.code].netLikes = Math.round(byDomain[t.code].netLikes)
 
   const watched = DS.getUserWatched(userId).length
   const comments = DS.getComments().filter(c => c.authorId === userId && (c.content || '').length >= XP_RULE.commentMin).length
-  const discussions = DS.getDiscussions().filter(d => d.authorId === userId).length
   const accountAgeDays = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000))
   const u = DS.getUserById(userId)
   const visitDays = u?.visitDays ?? 0
   const streak = u?.streak ?? 0
 
-  return { reviews, longReviews, watched, comments, discussions, receivedNetLikes, totalLikes, totalDislikes, accountAgeDays, visitDays, streak, byDomain }
+  return { posts, ratedPosts, longPosts, watched, comments, receivedNetLikes, accountAgeDays, visitDays, streak, byDomain }
 }
 
 // ── 활동 레벨 ───────────────────────────────────────────────
@@ -208,13 +192,12 @@ export interface LevelInfo {
 /** 집계 통계 → 총 활동 XP. */
 export function computeXp(s: UserStats): number {
   let xp = 0
-  // 리뷰 작성 기본: 장문 × long, 단문 × short
-  xp += s.longReviews * XP_RULE.reviewLong
-  xp += Math.max(0, s.reviews - s.longReviews) * XP_RULE.reviewShort
+  // 토론글 작성 기본: 장문 × long, 단문 × short
+  xp += s.longPosts * XP_RULE.postLong
+  xp += Math.max(0, s.posts - s.longPosts) * XP_RULE.postShort
   xp += qualityXp(s.receivedNetLikes)
   xp += Math.min(s.watched * XP_RULE.watchedEach, XP_RULE.watchedCap)
   xp += Math.min(s.comments * XP_RULE.commentEach, XP_RULE.commentCap)
-  xp += Math.min(s.discussions * XP_RULE.discussionEach, XP_RULE.discussionCap)
   xp += Math.min(s.visitDays * XP_RULE.attendanceEach, XP_RULE.attendanceCap)
   return Math.round(xp)
 }
@@ -250,15 +233,14 @@ function meetsBase(d: DomainStat, ageDays: number): boolean {
   return (
     ageDays >= EXPERT_RULE.minAgeDays &&
     d.rated >= EXPERT_RULE.minRated &&
-    d.longReviews >= EXPERT_RULE.minLong &&
-    d.netLikes >= EXPERT_RULE.minNetLikes &&
-    d.approval !== null && d.approval >= EXPERT_RULE.minApproval
+    d.longPosts >= EXPERT_RULE.minLong &&
+    d.netLikes >= EXPERT_RULE.minNetLikes
   )
 }
 function meetsSenior(d: DomainStat): boolean {
   return (
     d.rated >= EXPERT_RULE.seniorRated &&
-    d.longReviews >= EXPERT_RULE.seniorLong &&
+    d.longPosts >= EXPERT_RULE.seniorLong &&
     d.netLikes >= EXPERT_RULE.seniorNetLikes
   )
 }
@@ -288,10 +270,9 @@ export function computeExperts(s: UserStats, banned: boolean): ExpertResult {
     let best = -1
     for (const t of CONTENT_TYPES) {
       const d = s.byDomain[t.code]
-      // 4개 핵심 조건의 충족 비율로 근접도 산정
       const ratios = [
         Math.min(1, d.rated / EXPERT_RULE.minRated),
-        Math.min(1, d.longReviews / EXPERT_RULE.minLong),
+        Math.min(1, d.longPosts / EXPERT_RULE.minLong),
         Math.min(1, d.netLikes / EXPERT_RULE.minNetLikes),
         Math.min(1, s.accountAgeDays / EXPERT_RULE.minAgeDays),
       ]
@@ -300,7 +281,7 @@ export function computeExperts(s: UserStats, banned: boolean): ExpertResult {
         best = p
         const missing: string[] = []
         if (d.rated < EXPERT_RULE.minRated) missing.push(`평가 ${EXPERT_RULE.minRated - d.rated}개`)
-        if (d.longReviews < EXPERT_RULE.minLong) missing.push(`장문리뷰 ${EXPERT_RULE.minLong - d.longReviews}개`)
+        if (d.longPosts < EXPERT_RULE.minLong) missing.push(`장문글 ${EXPERT_RULE.minLong - d.longPosts}개`)
         if (d.netLikes < EXPERT_RULE.minNetLikes) missing.push(`추천 ${EXPERT_RULE.minNetLikes - d.netLikes}`)
         if (s.accountAgeDays < EXPERT_RULE.minAgeDays) missing.push(`가입 ${EXPERT_RULE.minAgeDays - s.accountAgeDays}일`)
         closest = { type: t.code, label: `${TYPE_LABELS[t.code]} 좋문가`, progress: p, missing }
@@ -310,7 +291,7 @@ export function computeExperts(s: UserStats, banned: boolean): ExpertResult {
   return { badges, closest }
 }
 
-// ── 작성자별 좋문가 배지 조회 (리뷰/평점 표시용) ────────────
+// ── 작성자별 좋문가 배지 조회 (글/평점 표시용) ──────────────
 // computeStats 는 유저당 전체 활동을 순회하므로, 목록에서 같은 작성자가
 // 여러 번 등장할 때를 위해 세션 캐시를 둔다. 배지는 임계값을 넘나드는
 // 순간에만 바뀌므로(자주 안 변함) 이 정도 신선도면 충분하다.
@@ -360,19 +341,19 @@ export function expertBadgeFor(authorId: string | null | undefined, type: Conten
   return res.badges.find(b => b.type === type) ?? null
 }
 
-/** 리뷰 목록에서 좋문가들의 평균 평점을 별도 집계 (전체 평점과 분리 표시용). */
-export function expertRatingFor(reviews: { authorId: string | null; rating: number }[], type: ContentType): { avg: number; count: number } {
-  const picked = reviews.filter(r => expertBadgeFor(r.authorId, type))
+/** 별점 단 글 목록에서 좋문가들의 평균 평점을 별도 집계 (전체 평점과 분리 표시용). */
+export function expertRatingFor(rated: { authorId: string | null; rating?: number | null }[], type: ContentType): { avg: number; count: number } {
+  const picked = rated.filter(r => r.rating != null && expertBadgeFor(r.authorId, type))
   if (!picked.length) return { avg: 0, count: 0 }
-  const avg = Math.round((picked.reduce((s, r) => s + r.rating, 0) / picked.length) * 10) / 10
+  const avg = Math.round((picked.reduce((s, r) => s + (r.rating || 0), 0) / picked.length) * 10) / 10
   return { avg, count: picked.length }
 }
 
 // ── 월간 시즌 랭킹 ──────────────────────────────────────────
 // 영구 레벨과 분리된 "최근 30일" 활동 점수. 오래 활동한 사람의 상위권 독점을
 // 막고 신규 회원에게도 경쟁 기회를 준다. (초안 원칙 1·9)
-// 점수는 "최근 30일에 작성된 글"에서만 파생 — 추천은 타임스탬프가 없어
-// 최근 글의 현재 순추천을 최근 반응의 근사값으로 사용한다.
+// 점수는 "최근 30일에 작성된 글"에서 파생 — 추천은 타임스탬프가 없어
+// 최근 글의 현재 추천을 최근 반응의 근사값으로 사용한다.
 export const SEASON_DAYS = 30
 export interface SeasonEntry {
   userId: string
@@ -391,22 +372,19 @@ export function computeSeasonRanking(limit = 30): { entries: SeasonEntry[]; days
     score.set(uid, (score.get(uid) || 0) + pts)
   }
 
-  // 작성자별 가중치 맵은 재사용 (전체 이력 기준이므로 리뷰마다 다시 안 만든다)
+  // 작성자별 가중치 맵은 재사용 (전체 이력 기준이므로 글마다 다시 안 만든다)
   const weightCache = new Map<string, Map<string, number>>()
   const weightFor = (uid: string) => {
     let m = weightCache.get(uid)
     if (!m) { m = buildLikeWeighting(uid); weightCache.set(uid, m) }
     return m
   }
-  for (const r of DS.getReviews()) {
-    if (!inWindow(r.createdAt) || !r.authorId || r.authorId === 'deleted') continue
-    const base = (r.body || '').length >= EXPERT_RULE.expertLongMin ? XP_RULE.reviewLong : XP_RULE.reviewShort
+  for (const p of DS.getDiscussions()) {
+    if (!inWindow(p.createdAt) || !p.authorId || p.authorId === 'deleted') continue
+    const base = (p.body || '').length >= EXPERT_RULE.expertLongMin ? XP_RULE.postLong : XP_RULE.postShort
     // 시즌에도 상호추천 감쇠·인당 상한을 적용 (품앗이 랭킹 farming 차단)
-    const net = weightedNetOfReview(r, weightFor(r.authorId), r.authorId)
-    add(r.authorId, base + qualityXp(net))
-  }
-  for (const d of DS.getDiscussions()) {
-    if (inWindow(d.createdAt)) add(d.authorId, XP_RULE.discussionEach)
+    const net = weightedLikesOfPost(p, weightFor(p.authorId), p.authorId)
+    add(p.authorId, base + qualityXp(net))
   }
   for (const c of DS.getComments()) {
     if (inWindow(c.createdAt) && (c.content || '').length >= XP_RULE.commentMin) add(c.authorId, XP_RULE.commentEach)

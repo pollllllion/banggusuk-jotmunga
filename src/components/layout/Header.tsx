@@ -234,8 +234,8 @@ export function Header() {
       </div>
       <div className="header-right">
         <NotificationPanel />
-        <button className="btn btn-primary btn-small" onClick={() => navigate('/review/write')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <PlusIcon /> 리뷰쓰기
+        <button className="btn btn-primary btn-small" onClick={() => navigate('/talk/write')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <PlusIcon /> 토론하기
         </button>
         <div className="user-menu" ref={menuRef}>
           <div className="user-avatar" onClick={toggleUserMenu}>{user.nickname[0]}</div>
@@ -245,7 +245,7 @@ export function Header() {
               <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
             </div>
             <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/my-reviews') }}>
-              <DocumentIcon /> 내 리뷰
+              <DocumentIcon /> 내 토론글
             </div>
             <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/bookmarks') }}>
               <BookmarkIcon /> 찜한 작품

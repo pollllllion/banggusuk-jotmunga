@@ -4,9 +4,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { GuestCred } from '@/components/ui/GuestCred'
+import { ExpertTag } from '@/components/profile/ExpertTag'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { TYPE_EMOJIS } from '@/utils/constants'
-import { timeAgo, sha256hex } from '@/utils/helpers'
+import { timeAgo, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
 import '@/styles/discussion.css'
 
@@ -22,6 +23,7 @@ export function DiscussionDetailPage() {
   const [cbody, setCbody] = useState('')
   const [guestName, setGuestName] = useState('')
   const [guestPw, setGuestPw] = useState('')
+  const [revealSpoiler, setRevealSpoiler] = useState(false)
 
   const post = DS.getDiscussions().find(d => d.id === id)
   const content = post ? DS.getContentById(post.contentId) : undefined
@@ -99,14 +101,27 @@ export function DiscussionDetailPage() {
       />
       <div className="back-btn" onClick={() => navigate('/talk')}><BackIcon /> 목록으로</div>
 
-      <h1 className="disc-detail-title">{post.title || '(제목 없음)'}</h1>
+      <div className="disc-detail-titlerow">
+        {post.rating != null && (
+          <span className="disc-rating-pill" style={{ background: scoreColor(post.rating) }} title={scoreLabel(post.rating)}>★ {post.rating}</span>
+        )}
+        <h1 className="disc-detail-title">{post.title || '(제목 없음)'}</h1>
+        {post.spoiler && <span className="disc-spoiler-tag">스포일러</span>}
+      </div>
       <div className="disc-detail-meta">
         <span className="disc-author">{author}</span>
+        <ExpertTag authorId={post.authorId} type={content.type} />
         <span className="disc-time">{timeAgo(post.createdAt)}</span>
         {(canDeleteAccount || isGuest) && <button className="disc-del" onClick={removePost}>삭제</button>}
       </div>
 
-      <p className="disc-detail-body">{post.body}</p>
+      {post.spoiler && !revealSpoiler && !canDeleteAccount ? (
+        <div className="spoiler-cover" onClick={() => setRevealSpoiler(true)}>
+          ⚠️ 스포일러가 포함된 글입니다<small>클릭하면 내용을 표시합니다</small>
+        </div>
+      ) : (
+        <p className="disc-detail-body">{post.body}</p>
+      )}
 
       <div className="disc-detail-foot">
         <button className={`disc-like ${liked ? 'on' : ''}`} onClick={likePost}>
