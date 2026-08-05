@@ -792,3 +792,100 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .review-card { padding: 12px 14px; }
   .content-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── 레벨 카드 (내 피드 상단) ─────────────────────────────── */
+.level-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.level-card-head { display: flex; align-items: center; gap: 12px; }
+.level-emoji { font-size: 34px; line-height: 1; flex: 0 0 auto; }
+.level-head-text { flex: 1 1 auto; min-width: 0; }
+.level-tier-row { display: flex; align-items: baseline; gap: 8px; }
+.level-tier-name { font-size: 17px; font-weight: 800; color: var(--text); }
+.level-lv {
+  font-size: 11px; font-weight: 700; color: var(--text-secondary);
+  background: var(--primary-50); border-radius: var(--radius-full); padding: 2px 8px;
+}
+.level-xp-sub { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+.level-xp-sub b { color: var(--text-secondary); font-weight: 700; }
+.level-xp-num { font-size: 20px; font-weight: 800; color: var(--primary); flex: 0 0 auto; }
+.level-xp-num small { font-size: 11px; font-weight: 700; color: var(--subtext); margin-left: 2px; }
+
+.level-bar {
+  height: 8px; background: var(--border-light); border-radius: var(--radius-full);
+  overflow: hidden; margin: 12px 0 10px;
+}
+.level-bar-fill {
+  height: 100%; border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  transition: width 0.4s var(--ease);
+}
+
+.level-stats { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--subtext); }
+.level-stats b { font-size: 14px; font-weight: 800; color: var(--text); margin-right: 3px; }
+
+.level-expert { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.expert-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.expert-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full);
+  background: var(--success-light); color: var(--success); border: 1px solid transparent;
+}
+.expert-badge.rank-senior {
+  background: linear-gradient(90deg, var(--accent-light), #FDE68A);
+  color: #92400E; border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-light);
+}
+.expert-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.expert-prospect { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.expert-missing { font-size: 12px; color: var(--subtext); }
+.expert-missing b { color: var(--text-secondary); font-weight: 700; }
+
+/* ── 좋문가 인라인 배지 (리뷰/평점 옆) ────────────────────── */
+.expert-tag {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  padding: 3px 8px; border-radius: var(--radius-full);
+  background: var(--success-light); color: var(--success);
+  vertical-align: middle; white-space: nowrap;
+}
+.expert-tag.rank-senior {
+  background: linear-gradient(90deg, var(--accent-light), #FDE68A);
+  color: #92400E;
+}
+
+/* ── 작품 상세: 좋문가 평점 분리 표시 ─────────────────────── */
+.score-box-label { font-size: 11px; font-weight: 700; color: var(--subtext); margin-bottom: 2px; }
+.score-expert {
+  display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
+  margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.score-expert-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); }
+.score-expert-val { font-size: 16px; font-weight: 800; }
+.score-expert-cnt { font-size: 11px; color: var(--subtext); }
+
+/* ── 이달의 랭킹 ──────────────────────────────────────────── */
+.ranking-sub { font-size: 13px; color: var(--subtext); line-height: 1.6; margin: 2px 0 16px; }
+.ranking-list { display: flex; flex-direction: column; gap: 8px; }
+.ranking-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 14px;
+}
+.ranking-row.top { border-color: var(--accent); background: linear-gradient(90deg, var(--accent-light) 0%, var(--card) 60%); }
+.ranking-row.me { box-shadow: 0 0 0 2px var(--primary-50); }
+.ranking-rank {
+  flex: 0 0 32px; text-align: center;
+  font-size: 18px; font-weight: 800; color: var(--text-secondary);
+}
+.ranking-main { flex: 1 1 auto; min-width: 0; }
+.ranking-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ranking-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.ranking-tier { display: block; font-size: 12px; color: var(--subtext); margin-top: 2px; }
+.ranking-score { flex: 0 0 auto; font-size: 12px; color: var(--subtext); }
+.ranking-score b { font-size: 18px; font-weight: 800; color: var(--primary); margin-right: 2px; }

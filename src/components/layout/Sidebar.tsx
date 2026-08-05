@@ -34,6 +34,13 @@ export function Sidebar() {
       ))}
 
       <div className="sidebar-divider" />
+      <div
+        className={`sidebar-item ${isActive('/ranking') ? 'active' : ''}`}
+        onClick={() => navigate('/ranking')}>
+        <span className="e">{'\u{1F3C6}'}</span> 이달의 랭킹
+      </div>
+
+      <div className="sidebar-divider" />
       <div className="sidebar-title">내 활동</div>
       <div className="sidebar-item" onClick={() => navigate('/my-reviews')}>
         <span className="e">{'\u{1F464}'}</span> 내 프로필

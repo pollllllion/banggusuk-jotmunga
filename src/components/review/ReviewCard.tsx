@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { ScorePill } from '@/components/ui/Score'
 import { ThumbUpIcon, ThumbDownIcon, CommentIcon, EyeIcon } from '@/components/ui/Icons'
+import { ExpertTag } from '@/components/profile/ExpertTag'
 import { TYPE_LABELS } from '@/utils/constants'
 import { timeAgo } from '@/utils/helpers'
 import * as DS from '@/api/dataService'
@@ -10,6 +11,8 @@ import type { Review } from '@/types'
 export function ReviewCard({ review, showContent = true }: { review: Review; showContent?: boolean }) {
   const navigate = useNavigate()
   const content = showContent ? DS.getContentById(review.contentId) : null
+  // 좋문가 배지는 이 리뷰가 다룬 작품의 분야(type) 기준으로 판단한다.
+  const reviewContent = content ?? DS.getContentById(review.contentId)
   const commentCount = DS.getComments().filter(c => c.reviewId === review.id).length
 
   return (
@@ -23,6 +26,7 @@ export function ReviewCard({ review, showContent = true }: { review: Review; sho
       <div className="review-card-title">
         <ScorePill score={review.rating} />
         <span>{review.title}</span>
+        {reviewContent && <ExpertTag authorId={review.authorId} type={reviewContent.type} />}
         {review.spoiler && <span className="spoiler-tag">스포일러</span>}
       </div>
       {review.tags.length > 0 && (

@@ -13,6 +13,7 @@ import { Seo } from '@/components/seo/Seo'
 import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
+import { expertRatingFor } from '@/utils/level'
 import { SITE_URL } from '@/utils/seo'
 import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
@@ -65,6 +66,9 @@ export function ContentDetailPage() {
     return { score, count: reviews.filter(r => r.rating === score).length }
   })
   const maxCount = Math.max(1, ...dist.map(d => d.count))
+
+  // 좋문가 평점 — 이 분야 좋문가들의 평균만 별도 집계 (전체 평점과 분리)
+  const expertRating = expertRatingFor(reviews, content.type)
 
   const handleBookmark = () => {
     if (!user) return
@@ -148,11 +152,19 @@ export function ContentDetailPage() {
       {/* 점수 요약 + 분포 */}
       <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
         <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
+          <div className="score-box-label">전체 평점</div>
           <div className="big" style={{ color: scoreColor(content.avgRating) }}>
             {content.reviewCount ? content.avgRating.toFixed(1) : '-'}
           </div>
           <Stars score={content.avgRating} size={16} />
           <div className="cnt">{content.reviewCount ? `${scoreLabel(content.avgRating)} · 리뷰 ${content.reviewCount}개` : '아직 평가 없음'}</div>
+          {expertRating.count > 0 && (
+            <div className="score-expert" title={`이 분야 좋문가 ${expertRating.count}명의 평균 평점`}>
+              <span className="score-expert-label">🛋️ 좋문가 평점</span>
+              <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
+              <span className="score-expert-cnt">· {expertRating.count}명</span>
+            </div>
+          )}
         </div>
         <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
           {dist.map(d => (

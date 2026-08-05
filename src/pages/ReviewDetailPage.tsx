@@ -8,6 +8,7 @@ import { Poster } from '@/components/content/Poster'
 import { ScoreBadge, Stars } from '@/components/ui/Score'
 import { BackIcon, FlagIcon, ShareIcon, ThumbUpIcon, ThumbDownIcon } from '@/components/ui/Icons'
 import { GuestCred } from '@/components/ui/GuestCred'
+import { ExpertTag } from '@/components/profile/ExpertTag'
 import { TYPE_LABELS } from '@/utils/constants'
 import { timeAgo, scoreLabel, sha256hex } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
@@ -156,6 +157,7 @@ export function ReviewDetailPage() {
         <h1 className="review-detail-title">{review.title}</h1>
         <div className="review-detail-meta">
           <span className="author">{authorLabel}</span>
+          {content && <ExpertTag authorId={review.authorId} type={content.type} />}
           <span>·</span><span>{timeAgo(review.createdAt)}</span>
           <span>·</span><span>조회 {review.views}</span>
           {review.updatedAt && <span>· 수정됨</span>}
