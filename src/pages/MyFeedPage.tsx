@@ -7,6 +7,7 @@ import { Poster } from '@/components/content/Poster'
 import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import { EditContentModal } from '@/components/content/EditContentModal'
 import { LevelCard } from '@/components/profile/LevelCard'
+import { TasteProfile } from '@/components/profile/TasteProfile'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import type { Content, ContentType } from '@/types'
@@ -116,6 +117,7 @@ export function MyFeedPage() {
       </div>
 
       {isAccount && <LevelCard user={user} tick={tick} />}
+      {isAccount && <TasteProfile user={user} editable />}
 
       <div className="feed-summary">
         <span><b>{items.length}</b>편 봤어요</span>

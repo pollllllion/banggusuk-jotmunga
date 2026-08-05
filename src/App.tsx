@@ -17,6 +17,7 @@ import { ContentDetailPage } from '@/pages/ContentDetailPage'
 import { MyReviewsPage } from '@/pages/MyReviewsPage'
 import { MyFeedPage } from '@/pages/MyFeedPage'
 import { RankingPage } from '@/pages/RankingPage'
+import { UserProfilePage } from '@/pages/UserProfilePage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
@@ -74,6 +75,7 @@ export default function App() {
               <Route path="/my-reviews" element={<MyReviewsPage />} />
               <Route path="/feed" element={<MyFeedPage />} />
               <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/u/:id" element={<UserProfilePage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />

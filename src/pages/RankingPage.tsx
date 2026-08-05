@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { computeSeasonRanking } from '@/utils/level'
 import { Seo } from '@/components/seo/Seo'
@@ -6,6 +7,7 @@ import { Seo } from '@/components/seo/Seo'
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export function RankingPage() {
+  const navigate = useNavigate()
   const { user } = useAuthStore()
   const { entries, days } = useMemo(() => computeSeasonRanking(30), [])
 
@@ -24,7 +26,7 @@ export function RankingPage() {
       ) : (
         <div className="ranking-list fade-in">
           {entries.map((e, i) => (
-            <div key={e.userId} className={`ranking-row ${i < 3 ? 'top' : ''} ${user?.id === e.userId ? 'me' : ''}`}>
+            <div key={e.userId} className={`ranking-row linkable ${i < 3 ? 'top' : ''} ${user?.id === e.userId ? 'me' : ''}`} onClick={() => navigate(`/u/${e.userId}`)}>
               <span className="ranking-rank">{i < 3 ? MEDALS[i] : i + 1}</span>
               <div className="ranking-main">
                 <div className="ranking-name-row">

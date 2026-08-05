@@ -109,7 +109,10 @@ export function DiscussionDetailPage() {
         {post.spoiler && <span className="disc-spoiler-tag">스포일러</span>}
       </div>
       <div className="disc-detail-meta">
-        <span className="disc-author">{author}</span>
+        <span
+          className={`disc-author ${!isGuest && post.authorId && post.authorId !== 'deleted' ? 'linkable' : ''}`}
+          onClick={() => { if (!isGuest && post.authorId && post.authorId !== 'deleted') navigate(`/u/${post.authorId}`) }}
+        >{author}</span>
         <ExpertTag authorId={post.authorId} type={content.type} />
         <span className="disc-time">{timeAgo(post.createdAt)}</span>
         {(canDeleteAccount || isGuest) && <button className="disc-del" onClick={removePost}>삭제</button>}

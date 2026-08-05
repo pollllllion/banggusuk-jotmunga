@@ -178,8 +178,20 @@ export function getUserById(id: string): User | undefined {
   const u = getUsers().find(u => u.id === id)
   if (u) return u
   const p = cache.profiles.find((p: any) => p.id === id)
-  if (p) return { id: p.id, nickname: p.nickname, email: '', role: p.role, banned: p.banned, createdAt: p.createdAt }
+  if (p) return profileToUser(p, '')
   return undefined
+}
+
+/** profiles 행 → User (공개 취향·streak 필드 포함). */
+function profileToUser(p: any, email: string): User {
+  return {
+    id: p.id, nickname: p.nickname, email, role: p.role, banned: p.banned, createdAt: p.createdAt,
+    lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
+    tasteBio: p.tasteBio ?? null,
+    favoriteWorks: p.favoriteWorks ?? [],
+    favoriteGenres: p.favoriteGenres ?? [],
+    favoriteDirectors: p.favoriteDirectors ?? [],
+  }
 }
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
 
@@ -187,13 +199,7 @@ export function findUserByEmail(email: string) { return getUsers().find(u => u.e
 /** auth 사용자에 대응하는 profiles 행 확보(없으면 생성) → User 형태로 반환 */
 export async function ensureProfile(authUser: { id: string; email?: string | null }, nickname?: string): Promise<User> {
   const existing = cache.profiles.find((p: any) => p.id === authUser.id)
-  if (existing) {
-    return {
-      id: existing.id, nickname: existing.nickname, email: authUser.email || '',
-      role: existing.role, banned: existing.banned, createdAt: existing.createdAt,
-      lastVisit: existing.lastVisit ?? null, streak: existing.streak ?? 0, visitDays: existing.visitDays ?? 0,
-    }
-  }
+  if (existing) return profileToUser(existing, authUser.email || '')
   const row = {
     id: authUser.id,
     nickname: nickname || ('회원' + Math.floor(1000 + Math.random() * 9000)),
@@ -213,6 +219,11 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.nickname !== undefined) patch.nickname = updates.nickname
   if (updates.role !== undefined) patch.role = updates.role
   if (updates.banned !== undefined) patch.banned = updates.banned
+  // 공개 취향 프로필
+  if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
+  if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks
+  if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres
+  if (updates.favoriteDirectors !== undefined) patch.favoriteDirectors = updates.favoriteDirectors
   const idx = cache.profiles.findIndex((p: any) => p.id === id)
   if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }
   try { await supabase.from('profiles').update(patch).eq('id', id) }

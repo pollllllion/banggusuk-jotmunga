@@ -11,6 +11,11 @@ export interface User {
   lastVisit?: string | null   // 마지막 집계일 'YYYY-MM-DD'
   streak?: number             // 현재 연속 출석 일수
   visitDays?: number          // 누적 방문일 수 (출석 XP 산정)
+  // ── 공개 취향 프로필 (다른 유저에게 공개 · 마이그레이션 후) ──
+  tasteBio?: string | null        // 취향 한 줄 소개
+  favoriteWorks?: string[]        // 인생작품 (content id 목록)
+  favoriteGenres?: string[]       // 선호 장르
+  favoriteDirectors?: string[]    // 좋아하는 감독/작가
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────

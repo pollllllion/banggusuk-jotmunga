@@ -19,6 +19,8 @@ export function DiscussionRow({ post, content, showContent, onOpen }: {
   const commentCount = DS.countDiscussionComments(post.id)
 
   const goWork = (e: React.MouseEvent) => { e.stopPropagation(); navigate(`/content/${content.id}?tab=talk`) }
+  const canProfile = !isGuest && !!post.authorId && post.authorId !== 'deleted'
+  const goProfile = (e: React.MouseEvent) => { e.stopPropagation(); if (canProfile) navigate(`/u/${post.authorId}`) }
 
   return (
     <div className="disc-row" onClick={onOpen}>
@@ -40,7 +42,7 @@ export function DiscussionRow({ post, content, showContent, onOpen }: {
         {showContent && (
           <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
         )}
-        <span className="disc-author">{author}</span>
+        <span className={`disc-author ${canProfile ? 'linkable' : ''}`} onClick={goProfile}>{author}</span>
         <span className="disc-time">{timeAgo(post.createdAt)}</span>
       </span>
     </div>
