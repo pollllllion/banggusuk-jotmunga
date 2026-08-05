@@ -42,16 +42,17 @@ export function WriteDiscussionPage() {
 
   const submit = async () => {
     if (!picked) { toast('작품을 먼저 선택하세요.'); return }
+    const head = title.trim()
+    if (!head) { toast('제목을 입력하세요.'); return }
+    if (head.length > 80) { toast('제목은 80자 이내로 입력해주세요.'); return }
     const text = body.trim()
     if (!text) { toast('내용을 입력하세요.'); return }
     if (text.length > 5000) { toast('내용은 5000자 이내로 입력해주세요.'); return }
-    const head = title.trim()
-    if (head.length > 80) { toast('제목은 80자 이내로 입력해주세요.'); return }
     const useRating = !alreadyRated && rating > 0 ? rating : null
 
     setSaving(true)
     try {
-      const base = { contentId: picked.id, title: head || null, body: text, rating: useRating, spoiler }
+      const base = { contentId: picked.id, title: head, body: text, rating: useRating, spoiler }
       let created
       if (isAccount && user) {
         created = DS.createDiscussion({ ...base, authorId: user.id })
@@ -120,10 +121,10 @@ export function WriteDiscussionPage() {
           </div>
         )}
 
-        {/* 제목 (선택) */}
+        {/* 제목 (필수) */}
         <div className="form-group">
-          <label>제목 <span className="opt">선택</span></label>
-          <input className="form-input" placeholder="제목 (비워도 됨)" maxLength={80} value={title} onChange={e => setTitle(e.target.value)} />
+          <label>제목 <span className="req">*</span></label>
+          <input className="form-input" placeholder="제목" maxLength={80} value={title} onChange={e => setTitle(e.target.value)} />
         </div>
 
         {/* 본문 (필수) */}
@@ -169,7 +170,7 @@ export function WriteDiscussionPage() {
 
         <div className="write-actions">
           <button className="btn btn-secondary" onClick={() => navigate('/talk')}>취소</button>
-          <button className="btn btn-primary" onClick={submit} disabled={saving || !picked || !body.trim()}>
+          <button className="btn btn-primary" onClick={submit} disabled={saving || !picked || !title.trim() || !body.trim()}>
             {saving ? '올리는 중…' : '글 올리기'}
           </button>
         </div>

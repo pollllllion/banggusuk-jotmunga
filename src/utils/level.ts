@@ -26,7 +26,7 @@ export const LEVEL_TIERS = [
 ] as const
 export type Tier = (typeof LEVEL_TIERS)[number]
 
-const XP_RULE = {
+export const XP_RULE = {
   postLong: 4,          // 장문(>= expertLongMin 자) 토론글 작성
   postShort: 2,         // 단문 토론글 작성
   watchedEach: 1, watchedCap: 40,        // 시청 등록 (활동성)
@@ -35,7 +35,7 @@ const XP_RULE = {
 }
 
 /** 받은 추천 수 → 품질 XP. 증가폭이 점점 줄어드는 체감 곡선(조작 효율 ↓). */
-const QUALITY_CURVE: [number, number][] = [
+export const QUALITY_CURVE: [number, number][] = [
   [0, 0], [1, 3], [3, 7], [5, 10], [10, 16], [20, 23], [50, 32], [100, 40],
 ]
 export function qualityXp(netLikes: number): number {
@@ -409,4 +409,24 @@ export function computeSeasonRanking(limit = 30): { entries: SeasonEntry[]; days
   }
   entries.sort((a, b) => b.score - a.score)
   return { entries: entries.slice(0, limit), days: SEASON_DAYS }
+}
+
+/** 전체(누적) 랭킹 — 총 활동 XP 기준. 영구 레벨 순위. */
+export function computeOverallRanking(limit = 30): { entries: SeasonEntry[] } {
+  const ids = new Set<string>()
+  for (const d of DS.getDiscussions()) if (d.authorId && d.authorId !== 'deleted') ids.add(d.authorId)
+  for (const w of DS.getWatched()) ids.add(w.userId)
+  for (const c of DS.getComments()) if (c.authorId && c.authorId !== 'deleted') ids.add(c.authorId)
+
+  const entries: SeasonEntry[] = []
+  for (const userId of ids) {
+    const u = DS.getUserById(userId)
+    if (!u || u.banned) continue
+    const stats = computeStats(userId, u.createdAt)
+    const experts = resolveExperts(u, stats)
+    const level = computeLevel(computeXp(stats))
+    entries.push({ userId, nickname: u.nickname, score: level.xp, level, topBadge: experts.badges[0] ?? null })
+  }
+  entries.sort((a, b) => b.score - a.score)
+  return { entries: entries.slice(0, limit) }
 }
