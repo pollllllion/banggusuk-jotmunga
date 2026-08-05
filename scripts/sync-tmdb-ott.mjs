@@ -25,7 +25,7 @@ import {
   TARGET_PROVIDER_NAMES, IMG_POSTER, IMG_BACKDROP,
   matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate, withinRange,
   buildContentId, mergeProviders, tmdbUrl, imgUrl, fetchWithRetry, pMap, normName,
-  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
+  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks, tmdbAlive,
 } from './tmdb-lib.mjs'
 
 // watch-provider 카탈로그(정규명 → {providerId, logoPath}) — networks 폴백 로고 통일용. main에서 채움.
@@ -40,6 +40,10 @@ const REGION = process.env.TMDB_REGION || 'KR'
 const MODE = (process.env.MODE || 'full').toLowerCase()
 const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '4', 10))
 const MAX_PAGES = Math.max(1, parseInt(process.env.MAX_PAGES || '15', 10))
+// 한 번의 full 실행에서 '아직 TMDB 에 있나'를 확인할 정리 후보 상한.
+// 종목당 호출 1회 + 90ms 스로틀이라 400건이면 약 36초. 잘린 나머지는 syncedAt 이
+// 더 오래된 쪽부터 다음 실행에서 이어서 훑는다(급할 것 없는 무결성 점검이다).
+const PRUNE_MAX = Math.max(0, parseInt(process.env.PRUNE_MAX || '400', 10))
 // 노이즈 컷: 해외(비한국어) 작품은 인기도 임계값 이상만. 한국어 작품은 기본 전량 포함.
 const FOREIGN_MIN_POP = parseFloat(process.env.FOREIGN_MIN_POP || '10')
 const KOREAN_MIN_POP = parseFloat(process.env.KOREAN_MIN_POP || '0')
@@ -89,6 +93,21 @@ async function tmdb(path, params = {}) {
   else url.searchParams.set('api_key', API_KEY)
   const res = await fetchWithRetry(() => fetch(url, { headers }), { retries: 3, baseDelay: 700, sleep })
   return res.json()
+}
+
+/**
+ * 상태코드만 필요한 조회(작품 실존 확인용). 404 를 오류로 던지지 않는 것이 핵심이라
+ * fetchWithRetry 를 쓰지 않는다 — 그쪽은 !ok 를 재시도·예외로 처리해서 404 가 묻힌다.
+ */
+async function tmdbStatus(path) {
+  await throttle()
+  const url = new URL(TMDB_BASE + path)
+  url.searchParams.set('language', LANG)
+  const headers = { accept: 'application/json' }
+  if (ACCESS_TOKEN) headers.Authorization = `Bearer ${ACCESS_TOKEN}`
+  else url.searchParams.set('api_key', API_KEY)
+  const res = await fetch(url, { headers })
+  return res.status
 }
 
 // ── 통계/에러 수집 ──────────────────────────────────────────
@@ -363,6 +382,11 @@ async function sbFetch(pathAndQuery, init = {}) {
   return res
 }
 
+/** sbFetch + JSON 파싱 (조회용) */
+async function sbJson(pathAndQuery, init = {}) {
+  return (await sbFetch(pathAndQuery, init)).json()
+}
+
 /** 기존 행의 manualOverride 상태 조회 (id → bool) */
 async function loadManualFlags(ids) {
   const inList = ids.map(id => `"${id}"`).join(',')
@@ -506,24 +530,44 @@ async function main() {
   //  manualOverride 행은 관리자 큐레이션이므로 건드리지 않음. incremental 모드는 일부 범위만
   //  다루므로 정리하지 않는다.)
   //
-  // ★ 미개봉작은 절대 숨기지 않는다 (2026-08-05) ★
-  //   이 스크립트는 OTT 구독작 + 한국어 영화만 수집한다. 외화 극장 개봉작은 애초에
-  //   수집 대상이 아닌데, 정리 조건이 source=tmdb 전체라 **매 full 실행마다 통째로
-  //   숨겨졌다.** 놀란 '오디세이'(개봉 8/5, 화제도 1위)를 포함해 미개봉 28건이
-  //   이렇게 사라졌고, 사이트에 남은 극장 개봉 예정작이 4건뿐이었다.
-  //   아직 개봉도 안 한 작품이 TMDB에서 사라졌을 리 없으니 정리 대상이 아니다.
-  //   개봉일이 지난 뒤에도 진짜 노이즈면 그때 정리된다(자가치유는 그대로 유지).
+  // ★ '갱신 안 됨'을 '사라짐'으로 읽지 않는다 (2026-08-05) ★
+  //   전에는 이번 실행에서 갱신 안 된 tmdb 행을 그대로 hidden=true 로 만들었다.
+  //   그런데 이 스크립트는 OTT 구독작 + 한국어 영화만 수집한다. 외화 극장 개봉작은
+  //   애초에 수집 대상이 아닌데 정리 대상에는 들어갔고, 그래서 **매 full 실행마다
+  //   극장 라인업이 통째로 숨겨졌다.** 놀란 '오디세이', '스파이더맨: 브랜드 뉴 데이'를
+  //   포함해 최근 3개월 개봉작 213건이 이렇게 사라졌고 리뷰가 달린 작품까지 묻혔다.
+  //   수집 범위와 정리 범위가 다른 것이 원인이므로, 추측하지 말고 TMDB 에 직접 묻는다.
+  //   404(진짜 삭제된 작품)만 숨긴다. 판단 불가(null)는 절대 숨기지 않는다.
+  //
+  //   미개봉작은 조회조차 하지 않는다 — 아직 개봉도 안 한 작품이 사라졌을 리 없고,
+  //   후보 수를 줄이면 그만큼 호출이 준다.
   if (MODE === 'full') {
     try {
       const notUpcoming = `or=(releaseDate.lt.${today},releaseDate.is.null)`
-      const res = await sbFetch(
-        `contents?source=eq.tmdb&manualOverride=eq.false&hidden=eq.false`
-        + `&syncedAt=lt.${encodeURIComponent(RUN_START)}&${notUpcoming}`,
-        { method: 'PATCH', headers: { Prefer: 'return=minimal,count=exact' }, body: JSON.stringify({ hidden: true }) },
+      const cands = await sbJson(
+        `contents?select=id,title,tmdbId,mediaType,syncedAt&source=eq.tmdb&manualOverride=eq.false`
+        + `&hidden=eq.false&syncedAt=lt.${encodeURIComponent(RUN_START)}&${notUpcoming}`
+        // 가장 오래 방치된 것부터. 상한에 걸려 잘려도 다음 실행에서 이어서 훑는다.
+        + `&order=syncedAt.asc&limit=${PRUNE_MAX}`,
       )
-      const range = res.headers.get('content-range') || ''
-      stats.hiddenStale = Number(range.split('/')[1]) || 0
-      console.log(`🧹 정리: 갱신 안 된 옛 tmdb 행 ${stats.hiddenStale}건 숨김 처리 (미개봉작 제외)`)
+      if (cands.length >= PRUNE_MAX) {
+        console.log(`  ※ 정리 후보가 상한(${PRUNE_MAX})에 걸렸다 — 나머지는 다음 실행에서 확인한다`)
+      }
+      const verdicts = await pMap(cands, c => tmdbAlive(tmdbStatus, c.mediaType, c.tmdbId), CONCURRENCY)
+      const gone = cands.filter((_, i) => verdicts[i] === false)
+      const unknown = verdicts.filter(v => v === null).length
+      if (gone.length) {
+        for (let i = 0; i < gone.length; i += BATCH) {
+          const ids = gone.slice(i, i + BATCH).map(c => `"${c.id}"`).join(',')
+          await sbFetch(`contents?id=in.(${ids})`, {
+            method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ hidden: true }),
+          })
+        }
+      }
+      stats.hiddenStale = gone.length
+      console.log(`🧹 정리: 후보 ${cands.length}건 중 TMDB 에서 사라진 ${gone.length}건만 숨김`
+        + ` (살아있음 ${cands.length - gone.length - unknown}, 판단불가 ${unknown})`)
+      for (const g of gone.slice(0, 20)) console.log(`     - ${g.title} (${g.id})`)
     } catch (e) { logErr(`정리(숨김) 실패: ${e.message}`) }
   }
 

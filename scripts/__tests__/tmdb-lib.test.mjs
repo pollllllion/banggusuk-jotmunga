@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   normName, matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate,
   withinRange, buildContentId, mergeProviders, fetchWithRetry,
-  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
+  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks, tmdbAlive,
 } from '../tmdb-lib.mjs'
 
 describe('normName / provider 이름 매칭', () => {
@@ -225,5 +225,38 @@ describe('fetchWithRetry (429/오류 재시도)', () => {
     const out = await fetchWithRetry(doFetch, { retries: 3, baseDelay: 1, sleep: async () => {} })
     expect(out.status).toBe(200)
     expect(calls).toBe(3)
+  })
+})
+
+describe('tmdbAlive (작품이 TMDB 에 아직 있나)', () => {
+  it('200 이면 존재', async () => {
+    expect(await tmdbAlive(async () => 200, 'movie', 1368337)).toBe(true)
+  })
+
+  it('404 면 삭제됨', async () => {
+    expect(await tmdbAlive(async () => 404, 'movie', 999999999)).toBe(false)
+  })
+
+  // ★ 이게 이 함수의 존재 이유다 ★ 일시적 장애를 '사라짐'으로 읽어서 멀쩡한 작품을
+  // 숨긴 것이 2026-08-05 버그의 본질이었다. 확실하지 않으면 아무것도 하지 않는다.
+  it('429·5xx·예외는 판단 불가(null) — 숨기면 안 된다', async () => {
+    expect(await tmdbAlive(async () => 429, 'movie', 1)).toBeNull()
+    expect(await tmdbAlive(async () => 503, 'movie', 1)).toBeNull()
+    expect(await tmdbAlive(async () => { throw new Error('network') }, 'movie', 1)).toBeNull()
+  })
+
+  it('tmdbId 가 없으면 조회하지 않고 판단 불가', async () => {
+    let called = false
+    expect(await tmdbAlive(async () => { called = true; return 404 }, 'movie', null)).toBeNull()
+    expect(called).toBe(false)
+  })
+
+  it('mediaType 에 따라 movie/tv 경로를 고른다 (drama 도 tv)', async () => {
+    const seen = []
+    const spy = async p => { seen.push(p); return 200 }
+    await tmdbAlive(spy, 'movie', 11)
+    await tmdbAlive(spy, 'tv', 22)
+    await tmdbAlive(spy, 'drama', 33)
+    expect(seen).toEqual(['/movie/11', '/tv/22', '/tv/33'])
   })
 })

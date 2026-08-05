@@ -247,6 +247,37 @@ export function imgUrl(base, path) {
   return path ? base + path : null
 }
 
+/**
+ * 이 작품이 TMDB 에 아직 존재하나 — '사라진 작품' 판정의 유일한 근거.
+ *
+ * ★ 왜 필요한가 (2026-08-05) ★
+ * 전에는 "이번 동기화 쿼리에 안 걸림"을 곧 "사라진 작품"으로 보고 숨겼다. 그런데
+ * sync 는 OTT 구독작과 한국어 영화만 수집한다 — 외화 극장 개봉작은 처음부터
+ * 수집 대상이 아닌데 정리 대상에는 들어갔다. 그 결과 최근 3개월 극장 개봉작이
+ * 사이트에서 통째로 사라졌고(스파이더맨: 브랜드 뉴 데이 등 213건), 리뷰가 달린
+ * 작품까지 접근 불가가 됐다. 수집 범위와 정리 범위가 다른 것이 원인이므로,
+ * 추측하지 말고 TMDB 에 직접 물어본다.
+ *
+ * @param {(path: string) => Promise<number>} getStatus 경로를 받아 HTTP 상태코드만 돌려주는 함수
+ * @param {string} mediaType 'movie' | 'tv'(또는 'drama')
+ * @param {number|string} tmdbId
+ * @returns {Promise<boolean|null>} true=존재, false=삭제됨(404),
+ *   **null=판단 불가**(네트워크·레이트리밋·기타 오류). null 은 절대 숨기면 안 된다 —
+ *   일시적 장애로 멀쩡한 작품을 지우는 것이 이 버그의 본질이었다.
+ */
+export async function tmdbAlive(getStatus, mediaType, tmdbId) {
+  if (!tmdbId) return null
+  const kind = mediaType === 'tv' || mediaType === 'drama' ? 'tv' : 'movie'
+  try {
+    const status = await getStatus(`/${kind}/${tmdbId}`)
+    if (status === 404) return false
+    if (status >= 200 && status < 300) return true
+    return null
+  } catch {
+    return null
+  }
+}
+
 const defaultSleep = ms => new Promise(r => setTimeout(r, ms))
 
 /**
