@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
+import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import { GENRES, TYPE_LABELS } from '@/utils/constants'
-import type { Content, User } from '@/types'
+import type { Content, ContentType, User } from '@/types'
 
 /** 공개 취향 프로필 — 인생작품 / 선호 장르 / 좋아하는 감독 + 자동 파생(많이 본 장르).
  *  다른 유저에게 공개되어 "취향이 비슷한 사람"의 추천 신뢰도를 높이는 목적. */
@@ -111,13 +112,61 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
   const [dirInput, setDirInput] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // 로컬 DB 매칭 (이미 등록된 작품)
   const matches = useMemo(() => {
     const query = q.trim().toLowerCase()
     if (!query) return []
-    return DS.getContents().filter(c => c.title.toLowerCase().includes(query) && !works.includes(c.id)).slice(0, 8)
+    return DS.getContents().filter(c => c.title.toLowerCase().includes(query) && !works.includes(c.id)).slice(0, 6)
+  }, [q, works])
+
+  // TMDB 통합 검색 (DB에 없는 작품도 찾기) — 본 작품 등록과 동일 소스
+  const [tmdbCands, setTmdbCands] = useState<{ contentId: string; type: ContentType; r: TmdbResult }[]>([])
+  const [tmdbLoading, setTmdbLoading] = useState(false)
+  useEffect(() => {
+    const query = q.trim()
+    if (!tmdbEnabled || query.length < 2) { setTmdbCands([]); setTmdbLoading(false); return }
+    let alive = true
+    setTmdbLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const [mv, tv] = await Promise.all([smartSearchTmdb('movie', query), smartSearchTmdb('tv', query)])
+        if (!alive) return
+        const seen = new Set<string>([...works, ...matches.map(c => c.id)])
+        const cands: { contentId: string; type: ContentType; r: TmdbResult }[] = []
+        for (const r of mv) {
+          const id = tmdbContentId('movie', r.tmdbId)
+          if (!seen.has(id)) { seen.add(id); cands.push({ contentId: id, type: 'movie', r }) }
+        }
+        for (const r of tv) {
+          const id = tmdbContentId('drama', r.tmdbId)
+          if (!seen.has(id)) { seen.add(id); cands.push({ contentId: id, type: tmdbTvType(r.genreIds), r }) }
+        }
+        setTmdbCands(cands.slice(0, 12))
+      } catch {
+        if (alive) setTmdbCands([])
+      } finally {
+        if (alive) setTmdbLoading(false)
+      }
+    }, 350)
+    return () => { alive = false; clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, works])
 
   const addWork = (id: string) => { if (works.length < MAX_WORKS) setWorks([...works, id]); setQ('') }
+  // TMDB 결과는 DB에 없을 수 있으니 ensureContent 로 확보 후 id 저장
+  const addTmdb = async (c: { contentId: string; type: ContentType; r: TmdbResult }) => {
+    if (works.length >= MAX_WORKS) return
+    try {
+      const content = await DS.ensureContent({
+        contentId: c.contentId, type: c.type, title: c.r.title,
+        posterUrl: c.r.posterUrl, releaseYear: c.r.year, synopsis: c.r.overview,
+      })
+      setWorks(w => w.includes(content.id) ? w : [...w, content.id])
+      setQ(''); setTmdbCands([])
+    } catch (e: any) {
+      toast(e?.message || '작품 추가에 실패했어요.')
+    }
+  }
   const removeWork = (id: string) => setWorks(works.filter(w => w !== id))
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
   const addDirector = () => {
@@ -176,8 +225,8 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
           )}
           {works.length < MAX_WORKS && (
             <>
-              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="작품 제목 검색해서 추가" />
-              {matches.length > 0 && (
+              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="작품 제목 검색해서 추가 (영화·드라마·예능은 전체 검색)" />
+              {(matches.length > 0 || tmdbCands.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (
                     <div key={c.id} className="tmdb-result" onClick={() => addWork(c.id)}>
@@ -185,7 +234,17 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
                       <div><div className="t">{c.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.releaseYear ? ` · ${c.releaseYear}` : ''}</div></div>
                     </div>
                   ))}
+                  {tmdbCands.map(c => (
+                    <div key={c.contentId} className="tmdb-result" onClick={() => addTmdb(c)}>
+                      {c.r.posterUrl ? <img src={c.r.posterUrl} alt={c.r.title} /> : <div className="noimg">No Image</div>}
+                      <div><div className="t">{c.r.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.r.year ? ` · ${c.r.year}` : ''}</div></div>
+                    </div>
+                  ))}
                 </div>
+              )}
+              {tmdbLoading && <p style={{ fontSize: 12, color: 'var(--subtext)', marginTop: 6 }}>검색 중…</p>}
+              {!tmdbLoading && q.trim().length >= 2 && !matches.length && !tmdbCands.length && (
+                <p style={{ fontSize: 12, color: 'var(--subtext)', marginTop: 6 }}>검색 결과가 없어요. (웹툰·웹소설은 본 작품 등록에서 먼저 추가해주세요)</p>
               )}
             </>
           )}
