@@ -79,6 +79,16 @@ function toRow(type, m, dateField, genreMap, platform) {
     reviewCount: 0,
     createdBy: 'tmdb',
     createdAt: new Date().toISOString(),
+    // ★ hidden·syncedAt 을 반드시 같이 쓸 것 (2026-08-05) ★
+    //   upsert 는 merge-duplicates 라 여기 없는 칸은 기존 값이 그대로 남는다.
+    //   전에는 이 두 칸이 없어서, sync-tmdb-ott 의 정리에 한 번 숨겨진 작품을
+    //   여기서 다시 수집해도 hidden=true 인 채로 남아 캘린더에 영영 안 떴다
+    //   (놀란 '오디세이'가 이렇게 묻혔다. createdAt 만 갱신되고 hidden 은 그대로라
+    //    createdAt > syncedAt 이라는 이상한 지문이 남는다).
+    //   syncedAt 도 지금 시각으로 찍는다 — 방금 TMDB 에서 확인한 행이라는 뜻이고,
+    //   그래야 다음 full sync 가 이 행을 '갱신 안 된 옛 행'으로 오해하지 않는다.
+    hidden: false,
+    syncedAt: new Date().toISOString(),
   }
 }
 

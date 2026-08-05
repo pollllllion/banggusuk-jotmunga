@@ -505,15 +505,25 @@ async function main() {
   // (이전 동기화의 노이즈/사라진 작품 제거. 삭제 대신 hidden=true → FK 안전·자가치유.
   //  manualOverride 행은 관리자 큐레이션이므로 건드리지 않음. incremental 모드는 일부 범위만
   //  다루므로 정리하지 않는다.)
+  //
+  // ★ 미개봉작은 절대 숨기지 않는다 (2026-08-05) ★
+  //   이 스크립트는 OTT 구독작 + 한국어 영화만 수집한다. 외화 극장 개봉작은 애초에
+  //   수집 대상이 아닌데, 정리 조건이 source=tmdb 전체라 **매 full 실행마다 통째로
+  //   숨겨졌다.** 놀란 '오디세이'(개봉 8/5, 화제도 1위)를 포함해 미개봉 28건이
+  //   이렇게 사라졌고, 사이트에 남은 극장 개봉 예정작이 4건뿐이었다.
+  //   아직 개봉도 안 한 작품이 TMDB에서 사라졌을 리 없으니 정리 대상이 아니다.
+  //   개봉일이 지난 뒤에도 진짜 노이즈면 그때 정리된다(자가치유는 그대로 유지).
   if (MODE === 'full') {
     try {
+      const notUpcoming = `or=(releaseDate.lt.${today},releaseDate.is.null)`
       const res = await sbFetch(
-        `contents?source=eq.tmdb&manualOverride=eq.false&hidden=eq.false&syncedAt=lt.${encodeURIComponent(RUN_START)}`,
+        `contents?source=eq.tmdb&manualOverride=eq.false&hidden=eq.false`
+        + `&syncedAt=lt.${encodeURIComponent(RUN_START)}&${notUpcoming}`,
         { method: 'PATCH', headers: { Prefer: 'return=minimal,count=exact' }, body: JSON.stringify({ hidden: true }) },
       )
       const range = res.headers.get('content-range') || ''
       stats.hiddenStale = Number(range.split('/')[1]) || 0
-      console.log(`🧹 정리: 갱신 안 된 옛 tmdb 행 ${stats.hiddenStale}건 숨김 처리`)
+      console.log(`🧹 정리: 갱신 안 된 옛 tmdb 행 ${stats.hiddenStale}건 숨김 처리 (미개봉작 제외)`)
     } catch (e) { logErr(`정리(숨김) 실패: ${e.message}`) }
   }
 
