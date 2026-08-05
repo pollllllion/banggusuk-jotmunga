@@ -26,7 +26,6 @@ export const BOARDS: { slug: string; label: string; emoji: string; path: string 
   { slug: 'calendar', label: '개봉·공개 캘린더', emoji: '\u{1F5D3}\u{FE0F}', path: '/' },
   { slug: 'talk',     label: '방구석토론방',     emoji: '\u{1F5E3}\u{FE0F}', path: '/talk' },
   { slug: 'relay',    label: '릴레이제작소',     emoji: '\u{270D}\u{FE0F}', path: '/board/relay' },
-  { slug: 'free',     label: '건의 및 문의', emoji: '\u{1F4EE}', path: '/board/free' },
 ]
 
 // ── 장르 ────────────────────────────────────────────────────

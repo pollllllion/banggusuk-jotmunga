@@ -74,7 +74,7 @@ export default function App() {
               <Route path="/review/*" element={<Navigate to="/talk" replace />} />
               <Route path="/my-reviews" element={<MyReviewsPage />} />
               <Route path="/feed" element={<MyFeedPage />} />
-              <Route path="/ranking" element={<RankingPage />} />
+              <Route path="/ranking" element={<AdminGuard><RankingPage /></AdminGuard>} />
               <Route path="/u/:id" element={<UserProfilePage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
