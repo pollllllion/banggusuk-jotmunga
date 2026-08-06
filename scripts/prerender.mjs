@@ -34,6 +34,7 @@ import {
   TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming,
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
 } from '../src/shared/contentSeo.mjs'
+import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DIST = resolve(__dirname, '../dist')
@@ -79,8 +80,26 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
   ].filter(Boolean).join('\n    ')
 }
 
-/** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 */
-const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a></nav>`
+/** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 (푸터 문서 포함) */
+const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a>`
+  + STATIC_PAGES.map(p => ` | <a href="${p.path}">${p.label}</a>`).join('')
+  + `</nav>`
+
+/** 안내 문서 본문 (앱의 StaticPages.tsx 와 같은 원문) */
+function docBody(p) {
+  return [
+    `<article>`,
+    `<h1>${esc(p.title)}</h1>`,
+    `<p>최종 개정일 ${esc(p.updated)}</p>`,
+    ...p.sections.flatMap(s => [
+      `<h2>${esc(s.h)}</h2>`,
+      ...(s.p || []).map(t => `<p>${esc(t)}</p>`),
+      s.ul ? `<ul>${s.ul.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '',
+    ]),
+    `</article>`,
+    NAV,
+  ].filter(Boolean).join('\n      ')
+}
 
 function contentBody(c, today) {
   const typeLabel = TYPE_LABELS[c.type] || '작품'
@@ -131,6 +150,16 @@ async function main() {
     return
   }
 
+  let n = 0
+
+  // ── 안내 문서 (소개·약관·개인정보·광고) ─────────────────────
+  // DB 와 무관한 정적 문서라 조회 실패와 상관없이 먼저 찍는다
+  for (const p of STATIC_PAGES) {
+    const head = headBlock({ title: p.title, description: p.description, canonicalPath: p.path })
+    writePage(p.slug, render(template, head, docBody(p)))
+    n++
+  }
+
   const today = todayKey()
   let contents = []
   let discussions = []
@@ -138,13 +167,13 @@ async function main() {
     contents = await fetchAll('contents', '*', VISIBLE_CONTENTS)
     discussions = await fetchAll('discussions', 'id,contentId,title,body,rating,spoiler,createdAt')
   } catch (e) {
-    console.warn(`[prerender] DB 조회 실패, 프리렌더를 건너뜁니다: ${e.message}`)
+    console.warn(`[prerender] DB 조회 실패, 작품·토론글 프리렌더를 건너뜁니다: ${e.message}`)
+    console.log(`[prerender] 안내 문서 ${n}개만 생성됨`)
     return
   }
 
   const byId = new Map(contents.map(c => [c.id, c]))
   const skipped = []
-  let n = 0
 
   // ── 작품 상세 ──────────────────────────────────────────────
   for (const c of contents) {
@@ -229,7 +258,7 @@ async function main() {
   n++
 
   console.log(`[prerender] ${n}개 정적 페이지 생성`)
-  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 목록 2`)
+  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 목록 2 · 안내 문서 ${STATIC_PAGES.length}`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다
   if (skipped.length) {
     console.warn(`[prerender] id 형식 문제로 건너뛴 ${skipped.length}건: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? ' …' : ''}`)

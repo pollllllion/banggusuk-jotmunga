@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
+import { pickTrending } from '@/utils/trending'
 import { TYPE_EMOJIS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import '@/styles/discussion.css'
@@ -19,6 +20,11 @@ const SUBS: { key: string; label: string }[] = [
   { key: 'other',    label: '기타' },
 ]
 const KNOWN_TYPES = ['movie', 'drama', 'variety', 'webtoon', 'webnovel']
+
+/** 글이 이보다 적으면 인기글 섹션을 숨긴다 (아래 목록과 중복이라 자리만 먹음) */
+const TRENDING_MIN_POSTS = 8
+/** 인기글 노출 개수 */
+const TRENDING_LIMIT = 10
 
 export function DiscussionRoomPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -53,6 +59,17 @@ export function DiscussionRoomPage() {
       content.title.toLowerCase().includes(query))
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
 
+  // 인기글 — 필터·검색과 무관하게 게시판 전체에서 뽑는다(상단 고정 섹션).
+  // 글이 몇 개 없을 땐 아래 최신순 목록과 똑같아 보이므로 숨긴다.
+  const allRows = DS.getDiscussions()
+    .filter(p => !blockedIds.includes(p.authorId || ''))
+    .map(p => ({ post: p, content: DS.getContentById(p.contentId) }))
+    .filter((x): x is { post: typeof x.post; content: NonNullable<typeof x.content> } => Boolean(x.content))
+  // 필터·검색 중에는 숨긴다 — 지금 보고 있는 목록과 무관한 글이 위에 남아 있으면 헷갈린다
+  const trending = (sub === 'all' && !query && allRows.length >= TRENDING_MIN_POSTS)
+    ? pickTrending(allRows, p => DS.countDiscussionComments(p.id), TRENDING_LIMIT)
+    : []
+
   const openWrite = () => {
     if (!user) { toast('로그인 후 이용해주세요.'); return }
     navigate('/talk/write')
@@ -69,6 +86,24 @@ export function DiscussionRoomPage() {
         <h2 className="feed-title">{'\u{1F5E3}\u{FE0F}'} 방구석토론방</h2>
         <button className="btn btn-primary btn-small" onClick={openWrite}>✍️ 토론하기</button>
       </div>
+
+      {trending.length > 0 && (
+        <section className="disc-trending fade-in">
+          <h3 className="disc-trending-head">🔥 지금 뜨는 글</h3>
+          <div className="disc-board">
+            {trending.map(({ post, content }, i) => (
+              <DiscussionRow
+                key={post.id}
+                post={post}
+                content={content}
+                showContent
+                rank={i + 1}
+                onOpen={() => navigate(`/talk/${post.id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="feed-typefilter">
         {SUBS.map(s => (

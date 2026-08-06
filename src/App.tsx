@@ -21,6 +21,7 @@ import { UserProfilePage } from '@/pages/UserProfilePage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { AboutPage, TermsPage, PrivacyPage, AdsPage } from '@/pages/StaticPages'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,11 @@ export default function App() {
               <Route path="/u/:id" element={<UserProfilePage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {/* 안내 문서 (푸터에서 진입) */}
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/ads" element={<AdsPage />} />
               <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
             </Route>
 

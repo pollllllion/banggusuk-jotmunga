@@ -1,9 +1,14 @@
 import { defineConfig } from 'vitest/config'
+import { fileURLToPath } from 'node:url'
 
-// 순수 헬퍼(scripts/tmdb-lib.mjs)만 테스트한다. 브라우저 코드(src)는 대상 외.
+// 순수 계산 헬퍼만 테스트한다 (scripts 의 .mjs 라이브러리 + src 의 유틸).
+// 컴포넌트·DOM 렌더링은 여전히 대상 외.
 export default defineConfig({
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     environment: 'node',
-    include: ['scripts/**/*.test.mjs'],
+    include: ['scripts/**/*.test.mjs', 'src/**/*.test.ts'],
   },
 })

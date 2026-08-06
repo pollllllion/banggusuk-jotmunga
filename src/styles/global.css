@@ -963,3 +963,52 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .lg-curve span { font-size: 11px; font-weight: 700; background: var(--primary-50); border-radius: var(--radius-xs); padding: 1px 6px; color: var(--text-secondary); }
 .lg-note { font-size: 12px; color: var(--subtext); line-height: 1.6; margin-top: 8px; }
 .lg-note b { color: var(--text-secondary); }
+
+/* ============================================================
+   Site Footer (홈 피드 하단) + 안내 문서 (소개·약관·개인정보·광고)
+   ============================================================ */
+.site-footer {
+  margin-top: 40px; padding: 22px 4px 8px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.site-footer-links {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 8px 18px; margin-bottom: 12px;
+}
+.site-footer-links a {
+  font-size: 13px; font-weight: 600; color: var(--text-secondary);
+  transition: color var(--duration) var(--ease);
+}
+.site-footer-links a:hover { color: var(--primary-dark); text-decoration: underline; }
+.site-footer-note { font-size: 12px; color: var(--subtext); line-height: 1.6; }
+.site-footer-copy { font-size: 12px; color: var(--subtext); margin-top: 6px; }
+
+.doc {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 26px 28px; max-width: 760px;
+}
+.doc-updated { font-size: 12px; color: var(--subtext); margin-bottom: 18px; }
+.doc-section { margin-bottom: 22px; }
+.doc-section h3 { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.doc-section p { font-size: 14px; color: var(--text-secondary); line-height: 1.75; margin-bottom: 8px; }
+.doc-section ul { margin: 4px 0 0; padding-left: 18px; }
+.doc-section li { font-size: 14px; color: var(--text-secondary); line-height: 1.75; margin-bottom: 4px; }
+.doc-contact {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: var(--radius-md);
+  padding: 12px 14px; font-size: 13px; color: var(--text-secondary);
+}
+.doc-contact strong { color: var(--text); font-weight: 800; }
+.doc-contact a { color: var(--info); font-weight: 700; }
+.doc-nav {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-light);
+}
+.doc-nav a { font-size: 13px; font-weight: 600; color: var(--subtext); }
+.doc-nav a:hover { color: var(--primary-dark); text-decoration: underline; }
+
+@media (max-width: 768px) {
+  .doc { padding: 20px 18px; border-radius: var(--radius-md); }
+  .site-footer { margin-top: 28px; }
+}

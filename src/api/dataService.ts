@@ -182,6 +182,11 @@ export function getUserById(id: string): User | undefined {
   return undefined
 }
 
+/** 고정닉(계정)인지 — profiles 에 있으면 계정, users 에만 있으면 게스트(유동닉). */
+export function isAccountId(id: string | null | undefined): boolean {
+  return !!id && id !== 'deleted' && cache.profiles.some((p: any) => p.id === id)
+}
+
 /** profiles 행 → User (공개 취향·streak 필드 포함). */
 function profileToUser(p: any, email: string): User {
   return {
@@ -288,6 +293,38 @@ export function deleteUser(id: string) {
   saveReviews(getReviews().map(r => r.authorId === id ? { ...r, authorId: 'deleted' } : r))
   saveComments(getComments().map(c => c.authorId === id ? { ...c, authorId: 'deleted' } : c))
   saveUsers(getUsers().filter(u => u.id !== id))
+}
+
+/**
+ * 회원 탈퇴 (계정=고정닉 전용) — 개인정보 처리방침 3항과 같은 동작.
+ * 서버 RPC 하나로 처리한다: 글·댓글 작성자 표시 제거(본문 유지), 추천 기록에서 id 제거,
+ * 찜·본작품·알림·차단 삭제, 프로필 행과 auth 계정 삭제.
+ * (anon 키로는 auth.users 를 지울 수 없어 SECURITY DEFINER RPC 가 필요하다.
+ *  supabase/migration_delete_account.sql 미적용이면 실패를 그대로 돌려준다 — 조용히 로그아웃시키지 않는다.)
+ */
+export async function deleteMyAccount(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc('delete_my_account')
+  if (error) { console.error('[delete_my_account]', error); return { ok: false, error: error.message } }
+
+  // 서버가 지운 모양 그대로 캐시도 맞춘다 (persist 를 타면 안 되므로 캐시를 직접 손본다)
+  const POST_TABLES: Table[] = ['discussions', 'discussion_comments', 'reviews', 'comments']
+  for (const t of POST_TABLES) {
+    cache[t] = cache[t].map((r: any) => r.authorId === userId
+      ? { ...r, authorId: null, guestName: null, guestPwHash: null }
+      : r)
+    cache[t] = cache[t].map((r: any) => ({
+      ...r,
+      likes: Array.isArray(r.likes) ? r.likes.filter((u: string) => u !== userId) : r.likes,
+      ...(Array.isArray(r.dislikes) ? { dislikes: r.dislikes.filter((u: string) => u !== userId) } : {}),
+    }))
+  }
+  cache.bookmarks = cache.bookmarks.filter((b: any) => b.userId !== userId)
+  cache.watched = cache.watched.filter((w: any) => w.userId !== userId)
+  cache.notifications = cache.notifications.filter((n: any) => n.userId !== userId)
+  cache.blocks = cache.blocks.filter((b: any) => b.blockerId !== userId && b.blockedId !== userId)
+  cache.reports = cache.reports.map((r: any) => r.reporterId === userId ? { ...r, reporterId: null } : r)
+  cache.profiles = cache.profiles.filter((p: any) => p.id !== userId)
+  return { ok: true }
 }
 
 // ── Contents ────────────────────────────────────────────────
@@ -531,6 +568,19 @@ export function createDiscussion(data: Partial<Discussion>): Discussion {
   saveDiscussions([d, ...getDiscussions()])
   if (d.rating != null) recomputeContentRating(d.contentId)
   return d
+}
+
+/** 토론글 조회수 +1 — 서버 RPC (남의 글도 올려야 하므로).
+ *  migration_discussion_views 미적용이면 조용히 무시된다(인기글은 추천·댓글만으로 계산). */
+export async function incrementDiscussionViews(id: string) {
+  const ds = getDiscussions()
+  const idx = ds.findIndex(d => d.id === id)
+  if (idx >= 0) {
+    const next = [...ds]; next[idx] = { ...ds[idx], views: (ds[idx].views || 0) + 1 }
+    cache.discussions = next
+  }
+  try { await supabase.rpc('increment_discussion_views', { p_discussion_id: id }) }
+  catch (e) { console.error('[increment_discussion_views]', e) }
 }
 
 /** 수다방 공감 토글 — 서버 RPC로 처리(추천=로그인만), 캐시는 낙관적 갱신 */

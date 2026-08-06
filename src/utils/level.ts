@@ -333,6 +333,27 @@ function expertsForUser(userId: string): ExpertResult | null {
   return res
 }
 
+// 목록에서 같은 작성자가 여러 번 나오므로 세션 캐시를 둔다 (좋문가 배지와 같은 이유).
+const levelCache = new Map<string, LevelInfo>()
+/** 캐시 무효화 — 대량 데이터 재적재 시 호출(선택). */
+export function clearLevelCache() { levelCache.clear() }
+
+/**
+ * 목록·상세에 붙일 활동 레벨. **고정닉(계정)만** 반환한다.
+ * 유동닉·레거시 방문객·탈퇴 글은 null → 배지가 안 붙는 것 자체가 고정닉과의 구분이 된다.
+ */
+export function levelBadgeFor(authorId: string | null | undefined): LevelInfo | null {
+  if (!DS.isAccountId(authorId)) return null
+  const id = authorId as string
+  const cached = levelCache.get(id)
+  if (cached) return cached
+  const u = DS.getUserById(id)
+  if (!u) return null
+  const info = computeLevel(computeXp(computeStats(id, u.createdAt)))
+  levelCache.set(id, info)
+  return info
+}
+
 /** 해당 작성자가 주어진 분야의 좋문가면 배지를, 아니면 null 을 반환. */
 export function expertBadgeFor(authorId: string | null | undefined, type: ContentType): ExpertBadge | null {
   if (!authorId || authorId === 'deleted') return null

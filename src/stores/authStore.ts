@@ -17,7 +17,7 @@ interface AuthState {
   logout: () => Promise<void>
   refresh: () => void
   updateProfile: (updates: Partial<User>) => Promise<void>
-  deleteAccount: () => Promise<void>
+  deleteAccount: () => Promise<AuthResult>
 }
 
 /** 이 브라우저의 게스트(유동닉) 계정 확보 — 비로그인 시 사용 */
@@ -126,14 +126,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   deleteAccount: async () => {
     const current = get().user
-    if (!current) return
-    // 작성 콘텐츠 익명 처리
-    DS.getReviews().filter(r => r.authorId === current.id).forEach(r => DS.updateReview(r.id, { authorId: 'deleted' }))
-    if (get().isAccount) await supabase.auth.signOut()
-    else DS.deleteUser(current.id)
+    if (!current) return { ok: false, error: '로그인 상태가 아닙니다.' }
+
+    if (get().isAccount) {
+      // 계정(고정닉): 서버에서 게시물 익명화 + 개인정보·계정 삭제까지 처리한다.
+      // 실패하면 로그아웃시키지 않는다 — 데이터가 남은 채로 나가면 탈퇴한 줄 알게 된다.
+      const res = await DS.deleteMyAccount(current.id)
+      if (!res.ok) return { ok: false, error: '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.' }
+      await supabase.auth.signOut()
+    } else {
+      // 게스트(유동닉): 이 브라우저에 있는 임시 계정만 지운다
+      DS.deleteUser(current.id)
+      localStorage.removeItem('bangjot_anon_id')
+    }
+
     // 게스트로 복귀
     const guest = ensureGuest()
     DS.setSession(guest)
     set({ user: guest, isAccount: false })
+    return { ok: true }
   },
 }))

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { GuestCred } from '@/components/ui/GuestCred'
 import { ExpertTag } from '@/components/profile/ExpertTag'
+import { LevelTag } from '@/components/profile/LevelTag'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { TYPE_EMOJIS } from '@/utils/constants'
 import { timeAgo, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
@@ -25,12 +26,22 @@ export function DiscussionDetailPage() {
   const [guestPw, setGuestPw] = useState('')
   const [revealSpoiler, setRevealSpoiler] = useState(false)
 
+  // 조회수 +1 (인기글 점수 재료). ref 가드 — StrictMode 이중 실행/리렌더로 두 번 세지 않게.
+  const counted = useRef<string | null>(null)
+  useEffect(() => {
+    if (!id || counted.current === id) return
+    counted.current = id
+    void DS.incrementDiscussionViews(id)
+  }, [id])
+
   const post = DS.getDiscussions().find(d => d.id === id)
   const content = post ? DS.getContentById(post.contentId) : undefined
   if (!post || !content) { navigate('/talk'); return null }
 
   const isGuest = !!post.guestName
   const author = isGuest ? post.guestName : (DS.getUserById(post.authorId || '')?.nickname || '탈퇴한 사용자')
+  // 고정닉(계정)만 강조·프로필 링크 — 유동닉/레거시 방문객과 구분
+  const isAccountAuthor = DS.isAccountId(post.authorId)
   const liked = user ? post.likes.includes(user.id) : false
   const canDeleteAccount = !!user && isAccount && !isGuest && (user.id === post.authorId || user.role === 'admin')
   const comments = DS.getDiscussionCommentsByPost(post.id)
@@ -109,9 +120,10 @@ export function DiscussionDetailPage() {
         {post.spoiler && <span className="disc-spoiler-tag">스포일러</span>}
       </div>
       <div className="disc-detail-meta">
+        <LevelTag authorId={post.authorId} />
         <span
-          className={`disc-author ${!isGuest && post.authorId && post.authorId !== 'deleted' ? 'linkable' : ''}`}
-          onClick={() => { if (!isGuest && post.authorId && post.authorId !== 'deleted') navigate(`/u/${post.authorId}`) }}
+          className={`disc-author ${isAccountAuthor ? 'linkable' : 'guest'}`}
+          onClick={() => { if (isAccountAuthor) navigate(`/u/${post.authorId}`) }}
         >{author}</span>
         <ExpertTag authorId={post.authorId} type={content.type} />
         <span className="disc-time">{timeAgo(post.createdAt)}</span>

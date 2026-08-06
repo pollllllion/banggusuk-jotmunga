@@ -35,8 +35,11 @@ export function SettingsPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('정말 탈퇴하시겠습니까?\n\n작성한 리뷰와 댓글은 익명 처리되며 되돌릴 수 없습니다.')) return
-    await deleteAccount()
+    if (!confirm('정말 탈퇴하시겠습니까?\n\n계정 정보와 찜·알림 등 개인 데이터는 삭제되고,\n작성한 글과 댓글은 작성자 표시를 지운 채 남습니다.\n되돌릴 수 없습니다.')) return
+    setBusy(true)
+    const res = await deleteAccount()
+    setBusy(false)
+    if (!res.ok) { toast(res.error || '탈퇴 처리에 실패했습니다.'); return }
     toast('회원 탈퇴가 완료되었습니다.')
     navigate('/')
   }

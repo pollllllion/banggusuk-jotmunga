@@ -147,6 +147,8 @@ export interface Discussion {
   rating?: number | null
   /** 스포일러 포함 여부 (선택) */
   spoiler?: boolean
+  /** 조회수 (인기글 점수용 · migration_discussion_views 미적용이면 undefined) */
+  views?: number
   createdAt: string
 }
 

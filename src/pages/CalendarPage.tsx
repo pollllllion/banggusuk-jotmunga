@@ -14,6 +14,7 @@ import {
 } from '@/utils/ott'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
+import { Footer } from '@/components/layout/Footer'
 import { SITE_NAME, SITE_URL } from '@/utils/seo'
 import '@/styles/calendar.css'
 
@@ -303,6 +304,8 @@ export function CalendarPage() {
           </div>
         </div>
       )}
+
+      <Footer />
 
       {selected && (
         <div className="cal-modal-back" onClick={() => setSelected(null)}>

@@ -16,6 +16,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fetchAll, VISIBLE_CONTENTS } from './db.mjs'
 import { SITE_URL } from '../src/shared/siteSeo.mjs'
+import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(__dirname, '../public/sitemap.xml')
@@ -44,6 +45,8 @@ async function main() {
     urlEntry('/', today),
     urlEntry('/talk', today),
     urlEntry('/browse', today),
+    // 안내 문서 (소개·약관·개인정보·광고) — 원문은 src/shared/staticPages.mjs
+    ...STATIC_PAGES.map(p => urlEntry(p.path, p.updated)),
   ]
 
   const counts = { contents: 0, discussions: 0 }
@@ -75,7 +78,7 @@ async function main() {
   writeFileSync(OUT, xml, 'utf8')
 
   console.log(`[sitemap] ${entries.length}개 URL → public/sitemap.xml`)
-  console.log(`[sitemap]   작품 ${counts.contents} · 토론글 ${counts.discussions} · 정적 3`)
+  console.log(`[sitemap]   작품 ${counts.contents} · 토론글 ${counts.discussions} · 정적 ${3 + STATIC_PAGES.length}`)
 }
 
 main().catch(e => {
