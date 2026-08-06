@@ -32,12 +32,28 @@ const store = existsSync(STORE) ? JSON.parse(readFileSync(STORE, 'utf8')) : {}
 // 특수문자 없이도 충분히 긴 무작위 비밀번호 (사람이 안 외워도 되는 값)
 const newPassword = () => `Sd${randomBytes(15).toString('base64url')}1!`
 
-async function findAuthUser(email) {
-  const r = await fetch(`${URL}/auth/v1/admin/users?page=1&per_page=1&email=${encodeURIComponent(email)}`, { headers: H })
-  if (!r.ok) return null
-  const data = await r.json()
-  const list = data.users || []
-  return list.find(u => u.email?.toLowerCase() === email.toLowerCase()) || null
+/** 이미 만든 계정 찾기.
+ *  admin API 의 ?email= 필터는 무시되고 첫 페이지가 그대로 돌아온다(있는 계정을 '없다'고 판단하게 됨).
+ *  → 저장된 id 로 직접 조회하고, 없으면 전체 목록을 페이지 순회해서 이메일로 찾는다. */
+async function findAuthUser(key, email) {
+  const savedId = store[key]?.id
+  if (savedId) {
+    const r = await fetch(`${URL}/auth/v1/admin/users/${savedId}`, { headers: H })
+    if (r.ok) {
+      const u = await r.json()
+      if (u?.id) return u
+    }
+  }
+  const PER = 200
+  for (let page = 1; page <= 25; page++) {
+    const r = await fetch(`${URL}/auth/v1/admin/users?page=${page}&per_page=${PER}`, { headers: H })
+    if (!r.ok) break
+    const users = (await r.json()).users || []
+    const hit = users.find(u => u.email?.toLowerCase() === email.toLowerCase())
+    if (hit) return hit
+    if (users.length < PER) break
+  }
+  return null
 }
 
 async function main() {
@@ -47,7 +63,7 @@ async function main() {
     const saved = store[p.key]
     let userId = null
 
-    const existing = await findAuthUser(email)
+    const existing = await findAuthUser(p.key, email)
     if (existing) {
       userId = existing.id
       kept++
