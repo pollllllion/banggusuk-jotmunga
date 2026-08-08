@@ -31,9 +31,10 @@ import {
   absUrl, clampText, buildTitle,
 } from '../src/shared/siteSeo.mjs'
 import {
-  TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming,
+  todayKey,
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
 } from '../src/shared/contentSeo.mjs'
+import { contentBodyLines, isIndexableContent } from '../src/shared/contentIndexable.mjs'
 import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -55,7 +56,13 @@ const esc = s => String(s ?? '')
 /** </script> 로 JSON-LD 블록이 조기 종료되는 것 방지 */
 const escJson = obj => JSON.stringify(obj).replace(/</g, '\\u003c')
 
-function headBlock({ title, description, canonicalPath, ogType = 'website', image, noindex = false, jsonLd = null }) {
+/**
+ * @param noindex  색인 제외
+ * @param nofollow 링크도 따라가지 말 것. 기본은 noindex 와 같이 켜지지만,
+ *                 얇아서 뺀 작품 페이지는 'noindex, follow' 로 둔다 —
+ *                 색인은 안 시키되 크롤러가 그 페이지의 내부 링크는 계속 타야 한다.
+ */
+function headBlock({ title, description, canonicalPath, ogType = 'website', image, noindex = false, nofollow = noindex, jsonLd = null }) {
   const fullTitle = title ? buildTitle(title) : DEFAULT_TITLE
   const desc = clampText(description) || DEFAULT_DESCRIPTION
   const ogImage = image ? absUrl(image) : DEFAULT_OG_IMAGE
@@ -63,7 +70,7 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
   return [
     `<title>${esc(fullTitle)}</title>`,
     `<meta name="description" content="${esc(desc)}" />`,
-    `<meta name="robots" content="${noindex ? 'noindex, nofollow' : 'index, follow'}" />`,
+    `<meta name="robots" content="${noindex ? (nofollow ? 'noindex, nofollow' : 'noindex, follow') : 'index, follow'}" />`,
     `<link rel="canonical" href="${esc(canonical)}" />`,
     `<meta property="og:site_name" content="${esc(SITE_NAME)}" />`,
     `<meta property="og:locale" content="ko_KR" />`,
@@ -101,25 +108,14 @@ function docBody(p) {
   ].filter(Boolean).join('\n      ')
 }
 
+// 본문 문장은 src/shared/contentIndexable.mjs 가 만든다 — 색인 여부를 재는 글자수와
+// 실제로 그리는 본문이 같은 함수에서 나와야 sitemap 과 noindex 가 어긋나지 않는다.
 function contentBody(c, today) {
-  const typeLabel = TYPE_LABELS[c.type] || '작품'
-  const rel = effectiveReleaseDate(c)
-  const upcoming = isUpcoming(c, today)
-  const ott = [...new Set((c.providers || []).map(p => p.providerName).filter(Boolean))]
-  const cast = (c.castMembers || []).map(m => m.name).filter(Boolean).slice(0, 8)
-
   return [
     `<article>`,
     `<h1>${esc(c.title)}</h1>`,
-    c.originalTitle && c.originalTitle !== c.title ? `<p>원제: ${esc(c.originalTitle)}</p>` : '',
     c.posterUrl ? `<img src="${esc(c.posterUrl)}" alt="${esc(c.title)} 포스터" width="200" />` : '',
-    `<p>${esc(typeLabel)}${rel ? ` · ${esc(rel.replace(/-/g, '. '))} ${upcoming ? '공개 예정' : '공개'}` : ''}</p>`,
-    ott.length ? `<p>공개 플랫폼: ${esc(ott.join(', '))}</p>` : (c.platform ? `<p>플랫폼: ${esc(c.platform)}</p>` : ''),
-    c.genres?.length ? `<p>장르: ${esc(c.genres.join(', '))}</p>` : '',
-    c.creators?.length ? `<p>연출·제작: ${esc(c.creators.join(', '))}</p>` : '',
-    cast.length ? `<p>출연: ${esc(cast.join(', '))}</p>` : '',
-    c.synopsis ? `<p>${esc(c.synopsis)}</p>` : '',
-    c.reviewCount > 0 ? `<p>평점 ${esc(Number(c.avgRating).toFixed(1))}/10 (별점 ${esc(c.reviewCount)}개)</p>` : '',
+    ...contentBodyLines(c, today).map(line => `<p>${esc(line)}</p>`),
     `</article>`,
     NAV,
   ].filter(Boolean).join('\n      ')
@@ -175,16 +171,27 @@ async function main() {
   const byId = new Map(contents.map(c => [c.id, c]))
   const skipped = []
 
+  // 작품별 토론글 수 — 사람이 쓴 글이 붙은 작품은 본문이 짧아도 색인한다
+  const talkCount = new Map()
+  for (const d of discussions) talkCount.set(d.contentId, (talkCount.get(d.contentId) || 0) + 1)
+
   // ── 작품 상세 ──────────────────────────────────────────────
+  let thin = 0
   for (const c of contents) {
     if (!SAFE_ID.test(c.id)) { skipped.push(`content:${c.id}`); continue }
+    // 알맹이 없는 페이지는 페이지 자체는 그대로 두고 색인만 막는다 (sitemap 에서도 빠진다)
+    const indexable = isIndexableContent(c, { today, discussionCount: talkCount.get(c.id) || 0 })
+    if (!indexable) thin++
     const head = headBlock({
       title: buildContentTitle(c, today),
       description: buildContentDescription(c, today),
       canonicalPath: `/content/${c.id}`,
       ogType: ogTypeOf(c),
       image: c.posterUrl,
-      jsonLd: buildContentJsonLd(c, SITE_URL),
+      noindex: !indexable,
+      nofollow: false,
+      // 색인 안 할 페이지에 구조화 데이터를 붙일 이유가 없다
+      jsonLd: indexable ? buildContentJsonLd(c, SITE_URL) : null,
     })
     writePage(`content/${c.id}`, render(template, head, contentBody(c, today)))
     n++
@@ -238,7 +245,9 @@ async function main() {
   }), [
     `<h1>작품 둘러보기</h1>`,
     `<ul>`,
-    contents.slice(0, 500).filter(c => SAFE_ID.test(c.id))
+    // 크롤러가 여기서 타고 들어갈 링크는 색인 대상 작품으로 채운다
+    contents.filter(c => SAFE_ID.test(c.id) && isIndexableContent(c, { today, discussionCount: talkCount.get(c.id) || 0 }))
+      .slice(0, 500)
       .map(c => `<li><a href="/content/${esc(c.id)}">${esc(c.title)}</a></li>`).join('\n        '),
     `</ul>`, NAV,
   ].join('\n      ')))
@@ -259,6 +268,8 @@ async function main() {
 
   console.log(`[prerender] ${n}개 정적 페이지 생성`)
   console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 목록 2 · 안내 문서 ${STATIC_PAGES.length}`)
+  // 조용히 색인에서 빼지 않는다 — 몇 개가 왜 빠졌는지 로그로 남긴다
+  console.log(`[prerender]   본문이 얇아 noindex 처리한 작품 ${thin}개 (색인 대상 ${contents.length - thin}개)`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다
   if (skipped.length) {
     console.warn(`[prerender] id 형식 문제로 건너뛴 ${skipped.length}건: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? ' …' : ''}`)

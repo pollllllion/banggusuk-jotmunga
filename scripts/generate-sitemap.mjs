@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url'
 import { fetchAll, VISIBLE_CONTENTS } from './db.mjs'
 import { SITE_URL } from '../src/shared/siteSeo.mjs'
 import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
+import { todayKey } from '../src/shared/contentSeo.mjs'
+import { isIndexableContent } from '../src/shared/contentIndexable.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const OUT = resolve(__dirname, '../public/sitemap.xml')
@@ -49,17 +51,26 @@ async function main() {
     ...STATIC_PAGES.map(p => urlEntry(p.path, p.updated)),
   ]
 
-  const counts = { contents: 0, discussions: 0 }
+  const counts = { contents: 0, thin: 0, discussions: 0 }
 
   try {
-    const contents = await fetchAll('contents', 'id,createdAt,syncedAt,hidden', VISIBLE_CONTENTS)
-    for (const c of contents) {
-      entries.push(urlEntry(`/content/${encodeURIComponent(c.id)}`, toLastmod(c.syncedAt, c.createdAt)))
-    }
-    counts.contents = contents.length
+    // 색인 여부를 판단하려면 본문에 들어가는 필드가 전부 필요하다 (프리렌더와 같은 기준)
+    const contents = await fetchAll('contents', '*', VISIBLE_CONTENTS)
 
     // 리뷰는 토론글로 통합됨 — /review URL 은 sitemap 에 넣지 않는다.
-    const discussions = await fetchAll('discussions', 'id,createdAt')
+    const discussions = await fetchAll('discussions', 'id,contentId,createdAt')
+    const talkCount = new Map()
+    for (const d of discussions) talkCount.set(d.contentId, (talkCount.get(d.contentId) || 0) + 1)
+
+    // 본문이 얇은 작품은 넣지 않는다 — 프리렌더가 같은 기준으로 noindex 를 단다.
+    // 얇은 URL 을 대량으로 밀어 넣으면 정작 색인시켜야 할 페이지가 뒤로 밀린다.
+    const today = todayKey()
+    for (const c of contents) {
+      if (!isIndexableContent(c, { today, discussionCount: talkCount.get(c.id) || 0 })) { counts.thin++; continue }
+      entries.push(urlEntry(`/content/${encodeURIComponent(c.id)}`, toLastmod(c.syncedAt, c.createdAt)))
+      counts.contents++
+    }
+
     for (const d of discussions) {
       entries.push(urlEntry(`/talk/${encodeURIComponent(d.id)}`, toLastmod(d.createdAt)))
     }
@@ -79,6 +90,7 @@ async function main() {
 
   console.log(`[sitemap] ${entries.length}개 URL → public/sitemap.xml`)
   console.log(`[sitemap]   작품 ${counts.contents} · 토론글 ${counts.discussions} · 정적 ${3 + STATIC_PAGES.length}`)
+  if (counts.thin) console.log(`[sitemap]   본문이 얇아 제외한 작품 ${counts.thin}개 (해당 페이지는 noindex)`)
 }
 
 main().catch(e => {

@@ -17,6 +17,7 @@ import { SITE_URL } from '@/utils/seo'
 import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
 } from '@/shared/contentSeo.mjs'
+import { isIndexableContent } from '@/shared/contentIndexable.mjs'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -68,7 +69,13 @@ export function ContentDetailPage() {
   // ── SEO ──────────────────────────────────────────────────────
   const seoTitle = buildContentTitle(content, todayKey)
   const seoDescription = buildContentDescription(content, todayKey)
-  const jsonLd = buildContentJsonLd(content, SITE_URL)
+  // 본문이 얇은 작품은 색인하지 않는다. sitemap·프리렌더와 같은 기준을 써야
+  // "sitemap 엔 있는데 페이지는 noindex" 같은 모순이 안 생긴다.
+  const indexable = isIndexableContent(content, {
+    today: todayKey,
+    discussionCount: DS.getDiscussionsByContent(content.id).length,
+  })
+  const jsonLd = indexable ? buildContentJsonLd(content, SITE_URL) : null
 
   return (
     <>
@@ -78,7 +85,8 @@ export function ContentDetailPage() {
         image={content.posterUrl}
         path={`/content/${content.id}`}
         type={ogTypeOf(content) as 'video.movie' | 'video.tv_show' | 'article'}
-        noindex={content.hidden === true}
+        noindex={!indexable}
+        nofollow={content.hidden === true}
         jsonLd={jsonLd}
       />
       <div className="back-btn" onClick={() => navigate('/browse')}><BackIcon /> 목록으로</div>

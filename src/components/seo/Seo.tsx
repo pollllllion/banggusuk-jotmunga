@@ -27,6 +27,12 @@ interface SeoProps {
   type?: SeoType
   /** 개인 페이지(설정·내 글 등)는 색인 제외 */
   noindex?: boolean
+  /**
+   * 링크도 따라가지 말 것. 기본은 noindex 를 따라간다.
+   * 본문이 얇아서 뺀 작품 페이지는 'noindex, follow' 로 둔다 —
+   * 색인은 안 시키되 크롤러가 그 페이지의 내부 링크는 계속 타야 한다.
+   */
+  nofollow?: boolean
   /** schema.org 구조화 데이터 */
   jsonLd?: Record<string, unknown> | null
 }
@@ -66,7 +72,7 @@ function upsertJsonLd(json: string) {
 }
 
 export function Seo({
-  title, description, image, path, type = 'website', noindex = false, jsonLd = null,
+  title, description, image, path, type = 'website', noindex = false, nofollow = noindex, jsonLd = null,
 }: SeoProps) {
   const location = useLocation()
   // 쿼리스트링은 canonical 에서 제외한다. /browse?sort=top 같은 정렬 조합이
@@ -84,7 +90,7 @@ export function Seo({
     document.title = fullTitle
 
     upsertMeta('name', 'description', desc)
-    upsertMeta('name', 'robots', noindex ? 'noindex, nofollow' : 'index, follow')
+    upsertMeta('name', 'robots', noindex ? (nofollow ? 'noindex, nofollow' : 'noindex, follow') : 'index, follow')
     upsertLink('canonical', canonical)
 
     upsertMeta('property', 'og:site_name', SITE_NAME)
@@ -101,7 +107,7 @@ export function Seo({
     upsertMeta('name', 'twitter:image', ogImage)
 
     upsertJsonLd(jsonLdText)
-  }, [fullTitle, desc, ogImage, canonical, type, noindex, jsonLdText])
+  }, [fullTitle, desc, ogImage, canonical, type, noindex, nofollow, jsonLdText])
 
   // JSON-LD 는 페이지를 떠날 때 반드시 치운다.
   // (다음 페이지가 jsonLd 를 안 주면 이전 작품 정보가 남아 잘못된 구조화 데이터가 된다)
