@@ -131,8 +131,23 @@
 }
 .disc-detail-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .disc-detail-body {
-  font-size: 14.5px; line-height: 1.75; color: var(--text); white-space: pre-wrap;
-  word-break: break-word; padding-bottom: 14px; border-bottom: 1px solid var(--border-light);
+  font-size: 14.5px; line-height: 1.75; color: var(--text);
+  padding-bottom: 14px; border-bottom: 1px solid var(--border-light);
+}
+.disc-detail-text { white-space: pre-wrap; word-break: break-word; margin: 0; }
+/* 서식 있는 본문 — 에디터가 줄바꿈을 <div> 로 넣으므로 pre-wrap 을 끈다 */
+.disc-detail-text.rich { white-space: normal; }
+.disc-detail-text.rich img {
+  max-width: 100%; max-height: 520px; height: auto;
+  border-radius: var(--radius-md); border: 1px solid var(--border-light);
+  vertical-align: bottom; margin: 4px 0;
+}
+
+/* 첨부 움짤·이미지 — 본문 아래에 세로로. 원본 클릭 시 새 탭 */
+.disc-detail-media { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.disc-detail-media img {
+  max-width: 100%; max-height: 520px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-light); display: block; object-fit: contain;
 }
 .disc-detail-foot { display: flex; align-items: center; gap: 10px; padding: 14px 0; flex-wrap: wrap; }
 .disc-detail-work {
@@ -174,11 +189,83 @@
 .disc-write-page label .opt { color: var(--subtext); font-weight: 500; font-size: 12px; }
 .tmdb-result.picked { background: var(--bg); border-radius: var(--radius-md); }
 
+/* 글쓰기 — 본문 에디터(툴바 + 본문 + 첨부 썸네일) */
+.write-notice { font-size: 12px; color: var(--subtext); line-height: 1.6; margin: 6px 0 0; }
+.talk-editor {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--card); overflow: hidden; transition: border-color var(--duration) var(--ease);
+}
+.talk-editor:focus-within { border-color: var(--primary); }
+.talk-editor.dragging { border-color: var(--primary); background: var(--primary-50); }
+.talk-toolbar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 7px 8px; background: var(--bg); border-bottom: 1px solid var(--border-light);
+}
+.talk-tool {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card);
+  padding: 4px 10px; font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
+  transition: all var(--duration) var(--ease);
+}
+.talk-tool:hover:not(:disabled) { border-color: var(--primary-light); color: var(--primary); background: var(--primary-50); }
+.talk-tool:disabled { opacity: 0.45; cursor: default; }
+.talk-toolbar-hint { margin-left: auto; font-size: 11.5px; color: var(--subtext); }
+.talk-url-row {
+  display: flex; gap: 6px; align-items: center;
+  padding: 8px; background: var(--bg); border-bottom: 1px solid var(--border-light);
+}
+.talk-editor .talk-body {
+  display: block; width: 100%; min-height: 200px; overflow-y: auto;
+  border: none; outline: none; background: transparent; color: var(--text);
+  padding: 12px; font-family: inherit; font-size: 14.5px; line-height: 1.7;
+  word-break: break-word;
+}
+/* 본문에 낀 짤 — 글자처럼 흐르되 화면을 넘지 않게. 선택하면 테두리로 표시 */
+.talk-editor .talk-body img {
+  max-width: 100%; max-height: 360px; height: auto;
+  border-radius: var(--radius-sm); vertical-align: bottom; margin: 4px 0;
+}
+.talk-editor .talk-body img::selection { background: var(--primary-50); }
+/* contentEditable 은 placeholder 속성이 없어서 직접 그린다 */
+.talk-editor .talk-body:empty::before {
+  content: attr(data-placeholder); color: var(--subtext); pointer-events: none;
+}
+.talk-select {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card);
+  padding: 4px 6px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
+}
+.talk-color {
+  width: 28px; height: 26px; padding: 0; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card);
+}
+.talk-tool.bold { font-weight: 900; }
+.talk-tool.italic { font-style: italic; }
+.talk-tool.underline { text-decoration: underline; }
+.talk-tool.strike { text-decoration: line-through; }
+.talk-media-list {
+  display: flex; flex-wrap: wrap; gap: 8px; width: 100%;
+  padding: 10px; background: var(--bg); border-top: 1px solid var(--border-light);
+}
+.talk-media-item { position: relative; }
+.talk-media-item img {
+  height: 110px; max-width: 100%; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light); object-fit: contain; display: block;
+}
+.talk-media-del {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+  border-radius: var(--radius-full); border: 1px solid var(--border);
+  background: var(--card); color: var(--subtext); font-size: 14px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.talk-media-del:hover { border-color: var(--danger); color: var(--danger); }
+
 /* 토론글 별점/스포일러 표시 */
 .disc-rating-pill {
   display: inline-flex; align-items: center; gap: 3px;
   font-size: 12px; font-weight: 800; color: #fff; padding: 1px 7px; border-radius: var(--radius-full);
 }
+.disc-media-tag { font-size: 11px; margin-left: 4px; opacity: 0.75; }
+.disc-comment-edit { margin-bottom: 6px; }
 .disc-spoiler-tag {
   font-size: 11px; font-weight: 700; color: var(--danger);
   background: var(--danger-light); border-radius: var(--radius-xs); padding: 1px 6px;

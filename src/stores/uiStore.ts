@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-type ReportTarget = 'review' | 'comment' | 'content'
+type ReportTarget = 'review' | 'comment' | 'content' | 'discussion' | 'discussion_comment'
 
 interface ReportModalState {
   open: boolean

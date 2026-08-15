@@ -9,6 +9,8 @@ const TARGET_LABELS: Record<string, string> = {
   review: '리뷰 신고하기',
   comment: '댓글 신고하기',
   content: '작품 신고하기',
+  discussion: '토론글 신고하기',
+  discussion_comment: '댓글 신고하기',
 }
 
 export function ReportModal() {

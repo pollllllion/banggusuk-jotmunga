@@ -14,7 +14,20 @@ import type { Content, ContentType } from '@/types'
 const REASON_LABELS: Record<string, string> = {
   spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', copyright: '저작권 침해', other: '기타',
 }
-const TARGET_LABELS: Record<string, string> = { review: '리뷰', comment: '댓글', content: '작품' }
+const TARGET_LABELS: Record<string, string> = {
+  review: '리뷰', comment: '댓글', content: '작품',
+  discussion: '토론글', discussion_comment: '토론글 댓글',
+}
+
+/** 신고된 토론글/댓글로 바로 가는 주소 (댓글이면 딸린 원글로) */
+function talkLink(targetType: string, targetId: string): string | null {
+  if (targetType === 'discussion') return `/talk/${targetId}`
+  if (targetType === 'discussion_comment') {
+    const c = DS.getDiscussionComments().find(x => x.id === targetId)
+    return c ? `/talk/${c.discussionId}` : null
+  }
+  return null
+}
 
 export function AdminPage() {
   const { user } = useAuthStore()
@@ -60,7 +73,12 @@ export function AdminPage() {
         [...reports].sort((a, b) => (a.status === 'pending' ? -1 : 1)).map(r => (
           <div key={r.id} className="admin-card fade-in">
             <div className="admin-card-body">
-              <div className="label">{TARGET_LABELS[r.targetType]} 신고 · {REASON_LABELS[r.reason] || r.reason} · {timeAgo(r.createdAt)}</div>
+              <div className="label">
+                {TARGET_LABELS[r.targetType]} 신고 · {REASON_LABELS[r.reason] || r.reason} · {timeAgo(r.createdAt)}
+                {talkLink(r.targetType, r.targetId) && (
+                  <a href={talkLink(r.targetType, r.targetId)!} target="_blank" rel="noreferrer" style={{ marginLeft: 8, color: 'var(--primary)' }}>글 보기 ›</a>
+                )}
+              </div>
               <div className="value">{r.detail || '(상세 내용 없음)'}</div>
               <div className="label" style={{ marginTop: 4 }}>상태: {r.status === 'pending' ? <span style={{ color: 'var(--danger)', fontWeight: 600 }}>대기중</span> : r.status === 'resolved' ? <span style={{ color: 'var(--success)' }}>처리됨</span> : <span style={{ color: 'var(--subtext)' }}>기각</span>}</div>
             </div>

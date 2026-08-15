@@ -28,6 +28,8 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   const goProfile = (e: React.MouseEvent) => { e.stopPropagation(); if (canProfile) navigate(`/u/${post.authorId}`) }
 
   const title = post.title || post.body.slice(0, 40)
+  // 짤 붙은 글은 목록에서 바로 티가 나게 (댓글 수처럼 작은 표시)
+  const hasMedia = !!post.images?.length
 
   // 인기글 섹션 — 순위 차트. 아래 목록과 같은 글이라도 생김새를 달리해서 중복감을 줄인다.
   if (rank != null) {
@@ -36,6 +38,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
         <span className={`disc-rank ${rank <= 3 ? 'top' : ''}`}>{rank}</span>
         <span className="disc-row-title">
           {post.spoiler && <span className="disc-spoiler-tag">스포</span>} {title}
+          {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}
         </span>
         <span className="disc-rank-meta">
           <span className="disc-rank-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
@@ -60,6 +63,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
       </span>
       <span className="disc-row-title">
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>} {title}
+        {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}
       </span>
       <ExpertTag authorId={post.authorId} type={content.type} />
       <Stats post={post} commentCount={commentCount} />

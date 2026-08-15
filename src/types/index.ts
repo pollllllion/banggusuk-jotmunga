@@ -141,12 +141,18 @@ export interface Discussion {
   guestName?: string | null  // 유동닉 표시명
   guestPwHash?: string | null // 유동닉 비번 SHA-256 hex
   title?: string | null      // 게시판 글 제목 (구 글은 없을 수 있음)
-  body: string
+  body: string               // 평문 본문 (목록 미리보기·검색·공유 설명용)
+  /** 서식 있는 본문 HTML. 없으면(옛 글) body 를 그대로 보여준다 */
+  bodyHtml?: string | null
   likes: string[]
   /** 별점 1~10 (선택). 있으면 작품 평점 집계에 반영. 1작품 1별점(작성자당). */
   rating?: number | null
   /** 스포일러 포함 여부 (선택) */
   spoiler?: boolean
+  /** 첨부한 움짤·이미지 공개 URL 목록 (talk-media 버킷) */
+  images?: string[]
+  /** 고쳐 쓴 시각 ("(수정됨)" 표시용 · migration_talk_edit 미적용이면 undefined) */
+  updatedAt?: string | null
   /** 조회수 (인기글 점수용 · migration_discussion_views 미적용이면 undefined) */
   views?: number
   createdAt: string
@@ -162,6 +168,8 @@ export interface DiscussionComment {
   body: string
   likes: string[]
   createdAt: string
+  /** 고쳐 쓴 시각 (migration_talk_edit 미적용이면 undefined) */
+  updatedAt?: string | null
 }
 
 // ── Notification ────────────────────────────────────────────
@@ -181,7 +189,7 @@ export interface Notification {
 export interface Report {
   id: string
   reporterId: string
-  targetType: 'review' | 'comment' | 'content'
+  targetType: 'review' | 'comment' | 'content' | 'discussion' | 'discussion_comment'
   targetId: string
   reason: string
   detail: string
