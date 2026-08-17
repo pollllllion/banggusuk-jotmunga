@@ -244,8 +244,28 @@
 @keyframes popIn { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
 
 @media (max-width: 720px) {
+  .cal-hero h1 { font-size: 19px; }
+  .cal-hero p { font-size: 12px; }
   .cal-cell { height: 104px; padding: 4px; }
   .cal-item .t { display: none; }
   .cal-item { justify-content: center; padding: 3px 4px; }
-  .cal-filters { margin-left: 0; width: 100%; }
+
+  /* 필터 칩이 3~4줄로 접히면 달력이 화면 밖으로 밀린다 — 한 줄 가로 스크롤로 */
+  .cal-filters { margin-left: 0; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .cal-filters::-webkit-scrollbar { display: none; }
+  .cal-chip { flex-shrink: 0; }
+  .cal-subfilters { margin-bottom: 10px; gap: 6px; }
+  .cal-toolbar { gap: 8px; margin-bottom: 10px; }
+  .cal-monthnav .m-label { font-size: 16px; min-width: 104px; }
+
+  /* 모달 — 좁은 화면에서 좌우 여백에 먹히지 않게 */
+  .cal-modal-back { padding: 10px; }
+  .cal-modal, .cal-daylist { max-height: 90vh; }
+  .cal-modal-top { gap: 12px; padding: 16px; }
+  .cal-modal-info h2 { font-size: 16px; }
+  .cal-detail { padding: 4px 16px; }
+  .cal-modal-actions { padding: 0 16px 16px; gap: 6px; }
+  .cal-act { font-size: 13px; }
+  .cal-modal-just { padding: 0 16px 14px; }
+  .cal-admin-edit { margin: -8px 16px 12px; width: calc(100% - 32px); }
 }

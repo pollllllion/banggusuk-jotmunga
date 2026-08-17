@@ -1,16 +1,21 @@
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useUIStore } from '@/stores/uiStore'
 import { BOARDS } from '@/utils/constants'
 
 // 이 게시판 항목 뒤에 구분선을 넣는다
 const DIVIDER_AFTER = new Set(['calendar', 'talk'])
 
 export function Sidebar() {
-  const navigate = useNavigate()
+  const routerNavigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const user = useAuthStore(s => s.user)
   const isAdmin = user?.role === 'admin'
+  const { navDrawerOpen, closeNavDrawer } = useUIStore()
+
+  // 모바일에선 이 사이드바가 서랍으로 열린다 — 이동하면 바로 닫는다
+  const navigate = (path: string) => { closeNavDrawer(); routerNavigate(path) }
 
   const isActive = (path: string) => {
     if (path.startsWith('/browse')) {
@@ -21,7 +26,7 @@ export function Sidebar() {
   }
 
   return (
-    <nav className="sidebar">
+    <nav className={`sidebar ${navDrawerOpen ? 'open' : ''}`}>
       <a className="sidebar-brand" onClick={() => navigate('/')}>
         <img src="/logo-trim.png" alt="방구석좋문가" />
       </a>

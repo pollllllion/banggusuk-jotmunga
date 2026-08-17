@@ -1,0 +1,46 @@
+name: 공개일 알림 발송
+
+# 매일 09:00 KST. 찜해둔 작품이 오늘 공개되면 웹푸시로 알린다.
+# 중복 발송은 push_sent 테이블이 막으므로 수동 재실행해도 안전하다.
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 00:00 UTC = 09:00 KST
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: '실제 발송 없이 대상만 볼지'
+        type: boolean
+        default: false
+      date:
+        description: '기준 날짜 (비우면 오늘 KST)'
+        type: string
+        default: ''
+
+concurrency:
+  group: release-push
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: 공개일 알림 발송
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VAPID_PUBLIC_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.dry }}" = "true" ]; then ARGS="$ARGS --dry"; fi
+          if [ -n "${{ github.event.inputs.date }}" ]; then ARGS="$ARGS --date=${{ github.event.inputs.date }}"; fi
+          node scripts/send-release-push.mjs $ARGS

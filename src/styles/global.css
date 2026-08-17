@@ -7,7 +7,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
   background: var(--bg); color: var(--text); line-height: 1.6;
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
+/* 모바일 더블탭 확대 대기시간(300ms) 제거 — 버튼 반응이 굼떠 보이지 않게 */
+a, button, .sidebar-item, .mobile-nav-item, .cal-cell, .cal-item, .disc-row, .board-row, .content-card { touch-action: manipulation; }
 a { color: inherit; text-decoration: none; cursor: pointer; }
 button { cursor: pointer; border: none; font-family: inherit; font-size: inherit; background: none; }
 input, textarea, select { font-family: inherit; font-size: inherit; }
@@ -188,6 +191,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .btn-secondary { background: var(--card); color: var(--text-secondary); border: 1px solid var(--border); }
 .btn-secondary:hover { background: var(--bg); border-color: #C4C7CC; }
 .btn-small { padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm); }
+.header-write { display: inline-flex; align-items: center; gap: 4px; }
 .btn-text { background: none; color: var(--subtext); padding: 4px 8px; font-size: 12px; border-radius: var(--radius-sm); }
 .btn-text:hover { background: var(--bg); color: var(--text-secondary); }
 .btn-danger { background: none; color: var(--danger); }
@@ -744,22 +748,66 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
    Responsive
    ============================================================ */
 .mobile-nav { display: none; }
+.nav-toggle { display: none; }
+.nav-scrim { display: none; }
+
 @media (max-width: 768px) {
+  /* 사이드바는 기본 숨김 — 햄버거로 서랍처럼 연다 (게시판 목록이 모바일에서 사라지지 않게) */
   .sidebar { display: none; }
+  .sidebar.open {
+    display: block; left: 0; width: min(280px, 82vw); z-index: 401;
+    box-shadow: var(--shadow-xl); animation: drawerIn 0.18s var(--ease);
+  }
+  .sidebar.open .sidebar-item { padding: 12px 16px; font-size: 14px; }
+  .nav-scrim {
+    display: block; position: fixed; inset: 0; z-index: 400;
+    background: rgba(24,24,27,0.45); animation: fadeIn 0.15s var(--ease);
+  }
+  .nav-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: var(--radius-md);
+    color: var(--text-secondary); background: none;
+  }
+  .nav-toggle:active { background: var(--bg); }
+  .header-write { display: none; }
+
   .main { margin-left: 0; padding: 12px; max-width: 100%; width: 100%; overflow-x: hidden; }
-  .layout { margin-top: 52px; min-height: calc(100vh - 52px); padding-bottom: 56px; }
-  .header { padding: 0 12px; height: 52px; left: 0; }
-  .search-bar { width: auto; min-width: 80px; max-width: calc(100vw - 200px); flex-shrink: 1; }
+  .layout {
+    margin-top: 52px; min-height: calc(100vh - 52px);
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+  .header { padding: 0 10px; height: 52px; left: 0; gap: 8px; }
+  .header-left { gap: 8px; flex: 1 1 auto; min-width: 0; }
+  .header-right { gap: 6px; flex-shrink: 0; }
+  /* 검색창은 남는 폭을 전부 쓴다 (뷰포트 뺄셈 대신 flex — 기기 폭에 안 흔들리게) */
+  .search-wrap { flex: 1 1 auto; min-width: 0; }
+  .search-bar { width: 100%; min-width: 0; }
   .logo-text { display: none; }
-  .logo-img { display: block; width: auto; height: 40px; }
+  .logo-img { display: block; width: auto; height: 30px; }
+
   .mobile-nav {
     display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
-    border-top: 1px solid var(--border-light); z-index: 100; height: 52px;
+    border-top: 1px solid var(--border-light); z-index: 100;
+    height: calc(56px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
     justify-content: space-around; align-items: center;
   }
-  .mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 10px; color: var(--subtext); cursor: pointer; padding: 4px 8px; transition: var(--duration) var(--ease); }
-  .mobile-nav-item.active { color: var(--primary); }
+  .mobile-nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    font-size: 10px; color: var(--subtext); cursor: pointer;
+    flex: 1; min-width: 0; padding: 4px 2px; transition: var(--duration) var(--ease);
+  }
+  .mobile-nav-item.active { color: var(--primary); font-weight: 700; }
   .mobile-nav-item svg { width: 20px; height: 20px; }
+  /* 가운데 글쓰기 — 헤더의 '토론하기' 버튼을 모바일에서 대신한다 */
+  .mobile-nav-write {
+    flex: 0 0 auto; width: 44px; height: 44px; margin-top: -14px;
+    border-radius: var(--radius-round); background: var(--primary); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(24,24,27,0.28); border: 3px solid var(--card);
+  }
+  .mobile-nav-write:active { background: var(--primary-dark); }
+
   .auth-card { padding: 28px 20px; }
   .feed-header { flex-wrap: wrap; gap: 8px; }
   .review-card { padding: 14px 16px; }
@@ -788,9 +836,49 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .hot-rank-num { font-size: 46px; -webkit-text-stroke: 2.5px var(--primary); }
 }
 @media (max-width: 380px) {
-  .search-bar { max-width: calc(100vw - 160px); padding: 5px 10px; }
+  .search-bar { padding: 5px 10px; }
   .review-card { padding: 12px 14px; }
   .content-grid { grid-template-columns: repeat(3, 1fr); }
+  .mobile-nav-item { font-size: 9.5px; }
+}
+
+/* iOS Safari 는 폰트 16px 미만 입력창에 포커스하면 화면을 확대해버린다 — 그 확대를 막는다 */
+@media (max-width: 768px) {
+  .search-bar input,
+  .form-input,
+  .write-page input[type="text"], .write-page textarea, .write-page select,
+  .comment-input-area textarea, .reply-input-area textarea,
+  .disc-input, .disc-guest-input,
+  .talk-editor .talk-body { font-size: 16px; }
+}
+
+@keyframes drawerIn { from { transform: translateX(-100%); } to { transform: none; } }
+
+/* ── 홈화면 설치 배너 ─────────────────────────────────────── */
+.install-banner {
+  position: fixed; left: 12px; right: 12px; z-index: 300;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  padding: 10px 12px; animation: fadeIn 0.25s var(--ease);
+}
+.install-banner img { width: 38px; height: 38px; border-radius: var(--radius-md); flex-shrink: 0; }
+.install-text { flex: 1; min-width: 0; font-size: 12px; color: var(--subtext); line-height: 1.45; }
+.install-text b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
+.install-text span b { display: inline; font-size: inherit; color: var(--text-secondary); }
+.install-close {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: var(--radius-sm);
+  color: var(--subtext); font-size: 13px; line-height: 1;
+}
+.install-close:hover { background: var(--bg); color: var(--text); }
+/* 하단 탭 위로 띄운다 (탭에 가려지지 않게) */
+@media (max-width: 768px) {
+  .install-banner { bottom: calc(66px + env(safe-area-inset-bottom)); }
+}
+/* 데스크톱에선 오른쪽 아래 카드로 */
+@media (min-width: 769px) {
+  .install-banner { left: auto; right: 20px; bottom: 20px; width: 340px; }
 }
 
 /* ── 레벨 카드 (내 피드 상단) ─────────────────────────────── */

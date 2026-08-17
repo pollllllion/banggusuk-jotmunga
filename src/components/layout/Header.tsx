@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { SearchIcon, PlusIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon, LogoutIcon } from '@/components/ui/Icons'
+import { SearchIcon, PlusIcon, MenuIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon, LogoutIcon } from '@/components/ui/Icons'
 import { NotificationPanel } from '@/components/notification/NotificationPanel'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS } from '@/utils/constants'
@@ -27,7 +27,7 @@ function interleave<T>(a: T[], b: T[]): T[] {
 export function Header() {
   const navigate = useNavigate()
   const { user, isAccount, logout } = useAuthStore()
-  const { userMenuOpen, toggleUserMenu, closeUserMenu } = useUIStore()
+  const { userMenuOpen, toggleUserMenu, closeUserMenu, toggleNavDrawer } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestOpen, setSuggestOpen] = useState(false)
@@ -147,6 +147,10 @@ export function Header() {
   return (
     <header className="header">
       <div className="header-left">
+        {/* 모바일 전용 — 사이드바 게시판 목록을 서랍으로 연다 */}
+        <button className="nav-toggle" onClick={toggleNavDrawer} aria-label="메뉴 열기">
+          <MenuIcon size={20} />
+        </button>
         <a className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <img className="logo-img" src="/logo-trim.png" alt="방구석좋문가" />
         </a>
@@ -234,7 +238,8 @@ export function Header() {
       </div>
       <div className="header-right">
         <NotificationPanel />
-        <button className="btn btn-primary btn-small" onClick={() => navigate('/talk/write')} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {/* 모바일에선 하단 탭 가운데 + 버튼이 대신한다 (헤더 폭을 검색창에 양보) */}
+        <button className="btn btn-primary btn-small header-write" onClick={() => navigate('/talk/write')}>
           <PlusIcon /> 토론하기
         </button>
         <div className="user-menu" ref={menuRef}>

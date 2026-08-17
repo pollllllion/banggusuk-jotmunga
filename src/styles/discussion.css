@@ -108,6 +108,15 @@
 @media (max-width: 640px) {
   .disc-row-work { display: none; }
   .disc-row-meta { gap: 7px; }
+  .disc-row { padding: 11px 12px; gap: 6px; }
+  .disc-searchbar { flex-wrap: wrap; }
+  /* 상세 모달 — 좁은 화면에서 좌우 여백이 본문을 잡아먹지 않게 */
+  .disc-detail-back { padding: 10px; }
+  .disc-detail { padding: 18px 16px 20px; max-height: 92vh; }
+  .disc-detail-title { font-size: 17px; }
+  .talk-toolbar { gap: 4px; padding: 6px; }
+  .talk-tool { padding: 5px 8px; }
+  .talk-toolbar-hint { display: none; }
 }
 
 /* ── 게시글 상세 모달 ── */
