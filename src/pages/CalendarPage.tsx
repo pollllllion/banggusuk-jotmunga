@@ -96,6 +96,20 @@ export function CalendarPage() {
   const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
   const [airPattern, setAirPattern] = useState<string | null>(null)
 
+  // 모달이 쓰는 상세 컬럼(줄거리 등)은 용량 때문에 시작 로드에서 빠져 있다 — 열 때 그 행만 채운다.
+  // 캐시가 갱신되면 새 객체가 되므로 selected 를 다시 집어와야 화면에 반영된다.
+  useEffect(() => {
+    const id = selected?.id
+    if (!id) return
+    let alive = true
+    DS.loadContentDetail(id).then(changed => {
+      if (!alive || !changed) return
+      const fresh = DS.getContentById(id)
+      if (fresh) setSelected(fresh)
+    })
+    return () => { alive = false }
+  }, [selected?.id])
+
   // 선택된 작품의 공개 패턴(매주 수목/한번에 등)을 TMDB 회차 데이터로 조회. alive 로 경쟁 조건 방지.
   useEffect(() => {
     setAirPattern(null)
