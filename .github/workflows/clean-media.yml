@@ -1,8 +1,10 @@
-name: talk-media 고아 파일 청소
+name: 주간 점검 (고아 파일 청소 + 시작 로드 용량)
 
 # 매주 월요일 05:00 KST + 수동 실행
-# 유동닉이 짤만 올리고 글을 안 쓰면 파일이 버킷에 남는다(anon 은 삭제 권한 없음).
-# 어느 글에도 안 붙어 있고 24시간 지난 파일만 지운다.
+#  1) 유동닉이 짤만 올리고 글을 안 쓰면 파일이 버킷에 남는다(anon 은 삭제 권한 없음).
+#     어느 글에도 안 붙어 있고 24시간 지난 파일만 지운다.
+#  2) 앱 시작 로드가 임계(gzip 350KB)에 닿았는지 본다. 넘으면 이 실행이 **실패**로 뜨고
+#     GitHub 이 알림 메일을 보낸다 — 리팩터를 쫓기며 하지 않으려는 조기 경보다.
 on:
   schedule:
     - cron: '0 20 * * 0'   # 20:00 UTC 일요일 = 05:00 KST 월요일
@@ -38,3 +40,10 @@ jobs:
           else
             node scripts/clean-media.mjs --apply
           fi
+
+      # 임계를 넘으면 exit 1 → 실행이 빨갛게 뜨고 알림이 온다.
+      # 청소 단계 뒤에 둬서, 여기서 실패해도 청소는 이미 끝난 상태다.
+      - name: 시작 로드 용량 점검
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co' }}
+        run: node scripts/payload-check.mjs
