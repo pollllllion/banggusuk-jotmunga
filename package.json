@@ -15,6 +15,7 @@
     "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs",
     "sync:ott": "node --env-file-if-exists=.env scripts/sync-tmdb-ott.mjs",
     "dedupe": "node --env-file-if-exists=.env scripts/merge-dups.mjs",
+    "clean:media": "node --env-file-if-exists=.env scripts/clean-media.mjs",
     "enrich": "node --env-file-if-exists=.env scripts/enrich-tmdb.mjs",
     "personas:create": "node --env-file-if-exists=.env scripts/create-personas.mjs",
     "post": "node --env-file-if-exists=.env scripts/post-as.mjs",

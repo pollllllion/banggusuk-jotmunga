@@ -55,11 +55,45 @@ export function isProbablyGifUrl(url: string): boolean {
   return typeFromUrl(url) === 'image/gif' || /gif/i.test(url.split(/[?#]/)[0])
 }
 
-/** 이미지/움짤 File → 업로드 후 공개 URL. 실패 시 사용자에게 보여줄 메시지로 throw. */
-export async function uploadTalkMedia(file: File): Promise<string> {
-  if (!ALLOWED.includes(file.type)) throw new Error('GIF·PNG·JPG·WEBP 만 올릴 수 있어요.')
-  if (file.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(file.size)}MB). ${MAX_MB}MB 이하로 올려주세요.`)
+/** 정지 이미지 축소 기준 — 화면에서 이보다 크게 볼 일이 없다 */
+const MAX_DIM = 1600
+const WEBP_QUALITY = 0.82
 
+/**
+ * 정지 이미지(PNG·JPG·WEBP)는 올리기 전에 줄인다. **GIF 는 손대지 않는다** —
+ * canvas 로 다시 그리면 애니메이션이 첫 프레임만 남고 죽는다.
+ * webp 로 내보내는 이유: PNG 의 투명 배경을 살리면서 JPEG 만큼 작아진다.
+ * 어떤 이유로든 실패하거나 원본보다 커지면 원본을 그대로 쓴다(업로드 자체를 막지 않는다).
+ */
+async function shrinkIfStatic(file: File): Promise<File> {
+  if (file.type === 'image/gif') return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_DIM / Math.max(bitmap.width, bitmap.height))
+    const w = Math.max(1, Math.round(bitmap.width * scale))
+    const h = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return file
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    bitmap.close()
+
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/webp', WEBP_QUALITY))
+    if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file
+    return new File([blob], 'shrunk.webp', { type: 'image/webp' })
+  } catch {
+    return file
+  }
+}
+
+/** 이미지/움짤 File → 업로드 후 공개 URL. 실패 시 사용자에게 보여줄 메시지로 throw. */
+export async function uploadTalkMedia(input: File): Promise<string> {
+  if (!ALLOWED.includes(input.type)) throw new Error('GIF·PNG·JPG·WEBP 만 올릴 수 있어요.')
+  if (input.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(input.size)}MB). ${MAX_MB}MB 이하로 올려주세요.`)
+
+  const file = await shrinkIfStatic(input)
   const path = `talk/${uuid()}.${EXT[file.type]}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,

@@ -1,0 +1,40 @@
+name: talk-media 고아 파일 청소
+
+# 매주 월요일 05:00 KST + 수동 실행
+# 유동닉이 짤만 올리고 글을 안 쓰면 파일이 버킷에 남는다(anon 은 삭제 권한 없음).
+# 어느 글에도 안 붙어 있고 24시간 지난 파일만 지운다.
+on:
+  schedule:
+    - cron: '0 20 * * 0'   # 20:00 UTC 일요일 = 05:00 KST 월요일
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 삭제할지 (false 면 대상만 출력)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: clean-media
+  cancel-in-progress: false
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 고아 파일 청소
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co' }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.apply }}" != "true" ]; then
+            node scripts/clean-media.mjs
+          else
+            node scripts/clean-media.mjs --apply
+          fi
