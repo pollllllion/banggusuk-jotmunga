@@ -20,6 +20,15 @@ interface AuthState {
   deleteAccount: () => Promise<AuthResult>
 }
 
+/**
+ * 게스트(유동닉)의 role 을 신뢰하지 않는다.
+ * users 테이블은 설계상 개방(누구나 수정)이라, 남이든 본인이든 브라우저에서
+ * role='admin' 으로 바꿔 넣을 수 있다. 관리자 판정은 고정닉 계정(profiles)만.
+ */
+function asGuest(u: User): User {
+  return u.role === 'admin' ? { ...u, role: 'user' } : u
+}
+
 /** 이 브라우저의 게스트(유동닉) 계정 확보 — 비로그인 시 사용 */
 function ensureGuest(): User {
   const savedId = localStorage.getItem('bangjot_anon_id')
@@ -28,7 +37,7 @@ function ensureGuest(): User {
     user = DS.createUser({ nickname: '방문객' + Math.floor(1000 + Math.random() * 9000), role: 'user' })
     localStorage.setItem('bangjot_anon_id', user.id)
   }
-  return user
+  return asGuest(user)
 }
 
 /** 계정 로그인 시 출석 streak 을 집계하고, 갱신된 값을 유저에 반영한다.
@@ -110,8 +119,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   refresh: () => {
     const current = get().user
     if (!current) return
-    const fresh = DS.getUserById(current.id)
-    if (fresh) { DS.setSession(fresh); set({ user: fresh }) }
+    const found = DS.getUserById(current.id)
+    if (found) {
+      const fresh = get().isAccount ? found : asGuest(found)
+      DS.setSession(fresh); set({ user: fresh })
+    }
   },
 
   updateProfile: async (updates) => {
