@@ -25,7 +25,18 @@ export const keepScore = c =>
 const yearOf = c => c.releaseYear ?? (c.releaseDate ? +c.releaseDate.slice(0, 4) : null)
 
 /**
+ * 아무 정보도 없는 빈 껍데기 행 — 포스터·줄거리·공개일·연도·회차가 전부 비었고 화제도 0.
+ * TMDB에 잘못 올라온 유령 항목(예: '킬러들의 쇼핑몰' tv/329791 — 방영일·회차·줄거리 없음)을
+ * 사용자가 본 작품 등록에서 골라 버리면 이런 행이 생긴다. 동명이작이라는 근거가 될 만한
+ * 정보가 하나도 없으므로 같은 제목의 제대로 된 행에 합친다(사용자 링크는 그대로 이전).
+ */
+export const isStub = c =>
+  !c.posterUrl && !c.synopsis && !c.releaseDate && !c.releaseYear &&
+  !c.numberOfEpisodes && !(c.popularity > 0)
+
+/**
  * 같은 작품이라고 볼 근거가 있으면 그 사유 문자열, 없으면 null.
+ *  - b(삭제될 쪽)가 빈 껍데기면 → 판정 정보가 없으므로 남는 행에 흡수
  *  - 같은 tmdbId → 확실
  *  - 둘 다 TMDB인데 id가 다르면 → 줄거리 앞부분 또는 (공개일+회차)가 일치할 때만
  *    (TMDB에 같은 작품이 두 번 올라온 케이스는 잡고, 동명이작은 거른다)
@@ -33,6 +44,7 @@ const yearOf = c => c.releaseYear ?? (c.releaseDate ? +c.releaseDate.slice(0, 4)
  *    단 양쪽에 연도가 다 있고 2년 이상 벌어지면 보류.
  */
 export function sameWork(a, b) {
+  if (isStub(b)) return '빈 껍데기 행'
   if (a.tmdbId && b.tmdbId) {
     if (a.tmdbId === b.tmdbId) return '같은 tmdbId'
     const synA = norm(a.synopsis).slice(0, 40), synB = norm(b.synopsis).slice(0, 40)

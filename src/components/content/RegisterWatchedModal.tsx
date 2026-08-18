@@ -114,6 +114,26 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
     })
   }
 
+  // 영화/드라마/예능도 먼저 우리 DB를 뒤진다.
+  // TMDB엔 시즌별 항목이 없어서(예: '킬러들의 쇼핑몰 시즌2') 캘린더 동기화로 들어온 시즌 행은
+  // TMDB 검색만으로는 절대 안 잡힌다 → 통합검색(Header)과 같은 소스를 여기서도 쓴다.
+  const dbMatches = useMemo<Content[]>(() => {
+    if (!type || !SEARCHABLE.includes(type)) return []
+    const q = query.trim()
+    if (q.length < 2) return []
+    const tvGroup = type !== 'movie'
+    return DS.searchContents(q, 8)
+      .filter(c => tvGroup ? c.type !== 'movie' && SEARCHABLE.includes(c.type) : c.type === 'movie')
+      .slice(0, 6)
+  }, [query, type])
+
+  // DB에 이미 있는 작품은 위쪽 목록에 나오므로 TMDB 결과에선 뺀다 (시즌 행이 있는 경우 포함)
+  const tmdbResults = useMemo(() => {
+    if (!type) return results
+    const shown = new Set(dbMatches.map(c => c.id))
+    return results.filter(r => !shown.has(tmdbContentId(type, r.tmdbId)))
+  }, [results, dbMatches, type])
+
   // 수기(웹툰/웹소설) 등록 시, DB에 이미 있는 같은 작품 후보를 찾아 보여준다.
   // 고르면 새 행을 만들지 않고 기존 작품에 연결(dedup) → 수다방·토론이 한 곳에 모인다.
   const manualSuggestions = useMemo<Content[]>(() => {
@@ -197,13 +217,31 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
                     {loading ? '검색중' : '검색'}
                   </button>
                 </div>
-                {searched && !loading && results.length === 0 && (
+                {searched && !loading && tmdbResults.length === 0 && dbMatches.length === 0 && (
                   <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 12 }}>
                     검색 결과가 없어요. 제목을 바꿔보거나, 웹툰/웹소설이면 카테고리를 다시 골라 수기 입력하세요.
                   </p>
                 )}
+                {dbMatches.length > 0 && (
+                  <div className="manual-suggest">
+                    <div className="manual-suggest-head">이미 등록된 작품 — 고르면 그 작품에 연결돼요</div>
+                    <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
+                      {dbMatches.map(c => (
+                        <div key={c.id} className="tmdb-result" onClick={() => !saving && linkExisting(c)}>
+                          {c.posterUrl
+                            ? <img src={c.posterUrl} alt={c.title} />
+                            : <div className="noimg">No Image</div>}
+                          <div>
+                            <div className="t">{c.title}</div>
+                            <div className="m">{c.releaseYear || '연도미상'}{c.platform ? ` · ${c.platform}` : ''}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="tmdb-results">
-                  {results.map(r => (
+                  {tmdbResults.map(r => (
                     <div key={r.tmdbId} className="tmdb-result" onClick={() => !saving && pickTmdb(r)}>
                       {r.posterUrl
                         ? <img src={r.posterUrl} alt={r.title} />

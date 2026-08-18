@@ -31,6 +31,13 @@ describe('sameWork', () => {
     expect(sameWork(tmdb, seed)).toBeTruthy()
   })
 
+  it('아무 정보 없는 빈 껍데기 행은 같은 제목의 제대로 된 행에 흡수 (킬러들의 쇼핑몰)', () => {
+    const real = row('tmdb-dr-215072', { posterUrl: 'p.jpg', synopsis: '부모를 잃고…', releaseYear: 2024 })
+    const stub = row('tmdb-dr-329791')
+    expect(sameWork(real, stub)).toBeTruthy()
+    expect(sameWork(stub, real)).toBeNull()   // 방향이 반대면(빈 행을 남기는 경우) 병합하지 않는다
+  })
+
   it('시드 행이라도 개봉연도가 2년 넘게 벌어지면 보류', () => {
     const tmdb = row('tmdb-mv-1', { tmdbId: 1, releaseDate: '2026-08-05' })
     const seed = row('c9', { releaseYear: 2011 })
