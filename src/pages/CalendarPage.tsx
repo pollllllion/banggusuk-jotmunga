@@ -10,8 +10,9 @@ import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
 import {
   effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
-  OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank,
+  OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank, posterThumb,
 } from '@/utils/ott'
+import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
 import { Footer } from '@/components/layout/Footer'
@@ -42,7 +43,11 @@ const FILTERS: { code: ContentType | 'all'; label: string }[] = [
 ]
 
 const MAX_PER_CELL = 3
+/** 모바일 셀은 폭이 46px 남짓이라 포스터 1장만 넣는다. 나머지는 "+N" 배지로 알린다. */
+const MAX_PER_CELL_MOBILE = 1
 const MAX_LOGOS = 3
+/** 모바일 그리드 아래 "이번 주 공개" 리스트에 몇 개까지 보일지 */
+const MAX_UPCOMING = 6
 
 /** 로컬 기준 YYYY-MM-DD 키 (타임존 시프트 방지) */
 function keyOf(d: Date): string {
@@ -120,6 +125,8 @@ export function CalendarPage() {
   }, [selected])
 
   const todayKey = keyOf(now)
+  const isMobile = useIsMobile()
+  const perCell = isMobile ? MAX_PER_CELL_MOBILE : MAX_PER_CELL
 
   // 최종 공개일(수동 우선) 기준으로 날짜별 그룹핑 + 필터. 같은 날짜는 화제도 내림차순.
   const byDate = useMemo(() => {
@@ -167,6 +174,26 @@ export function CalendarPage() {
       .filter(([k]) => k.startsWith(prefix))
       .reduce((s, [, arr]) => s + arr.length, 0)
   }, [byDate, cursor])
+
+  // 모바일 그리드 아래에 붙는 리스트. 셀에는 포스터만 보이므로 제목·날짜·OTT·D-day 는 여기서 읽는다.
+  // 보고 있는 달에서 오늘 이후를 날짜순으로, 지난 달을 보고 있으면 그 달을 앞에서부터.
+  const upcoming = useMemo(() => {
+    const prefix = `${cursor.y}-${String(cursor.m + 1).padStart(2, '0')}`
+    const rows = Object.entries(byDate)
+      .filter(([k]) => k.startsWith(prefix))
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .flatMap(([date, arr]) => arr.map(c => ({ date, c })))
+    const future = rows.filter(r => r.date >= todayKey)
+    return (future.length ? future : rows).slice(0, MAX_UPCOMING)
+  }, [byDate, cursor, todayKey])
+
+  // 7일 안에 뭔가 있으면 "이번 주", 아니면 그냥 그 달 공개작
+  const upcomingLabel = useMemo(() => {
+    const week = new Date(now); week.setDate(week.getDate() + 7)
+    const weekKey = keyOf(week)
+    const soon = upcoming.some(r => r.date >= todayKey && r.date <= weekKey)
+    return soon ? '이번 주 공개' : `${cursor.m + 1}월 공개작`
+  }, [upcoming, cursor, todayKey])
 
   const shift = (delta: number) => {
     const d = new Date(cursor.y, cursor.m + delta, 1)
@@ -257,14 +284,24 @@ export function CalendarPage() {
                     onClick={() => items.length && setDayList({ key: k, items })}
                     title={items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : undefined}>
                     <span className="cal-daynum">{date.getDate()}</span>
-                    {items.slice(0, MAX_PER_CELL).map(c => {
+                    {items.slice(0, perCell).map(c => {
                       const provs = providersOf(c)
+                      const thumb = posterThumb(c.posterUrl)
                       return (
                         <div
                           key={c.id}
                           className={`cal-item type-${c.type}`}
                           onClick={e => { e.stopPropagation(); openItem(c) }}
                           title={c.title}>
+                          {/* 모바일 전용 — 좁은 셀에서 글자보다 포스터가 훨씬 빨리 읽힌다 (CSS 로 데스크톱에선 숨김) */}
+                          <span
+                            className={thumb ? 'cal-thumb' : 'cal-thumb none'}
+                            style={thumb ? { backgroundImage: `url(${thumb})` } : undefined}>
+                            {!thumb && <span className="cal-thumb-emoji">{TYPE_EMOJIS[c.type]}</span>}
+                            {provs.length > 0 && (
+                              <span className="cal-thumb-ott"><ProviderLogos providers={provs.slice(0, 1)} size={13} /></span>
+                            )}
+                          </span>
                           {provs.length > 0
                             ? <ProviderLogos providers={provs.slice(0, 1)} size={14} />
                             : <span className="emoji">{TYPE_EMOJIS[c.type]}</span>}
@@ -272,9 +309,9 @@ export function CalendarPage() {
                         </div>
                       )
                     })}
-                    {items.length > MAX_PER_CELL && (
+                    {items.length > perCell && (
                       <span className="cal-more" onClick={e => { e.stopPropagation(); setDayList({ key: k, items }) }}>
-                        +{items.length - MAX_PER_CELL}개 더
+                        +{items.length - perCell}{isMobile ? '' : '개 더'}
                       </span>
                     )}
                   </div>
@@ -283,6 +320,41 @@ export function CalendarPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {isMobile && upcoming.length > 0 && (
+        <section className="cal-up">
+          <h2 className="cal-up-head">{upcomingLabel}</h2>
+          <div className="cal-up-list">
+            {upcoming.map(({ date, c }) => {
+              const thumb = posterThumb(c.posterUrl)
+              const provs = providersOf(c)
+              const dd = ddayOf(date)
+              const d = new Date(date + 'T00:00:00')
+              return (
+                <button key={c.id} className={`cal-up-item type-${c.type}`} onClick={() => openItem(c)}>
+                  <span
+                    className={thumb ? 'cal-up-thumb' : 'cal-up-thumb none'}
+                    style={thumb ? { backgroundImage: `url(${thumb})` } : undefined}>
+                    {!thumb && TYPE_EMOJIS[c.type]}
+                  </span>
+                  <span className="cal-up-body">
+                    <span className="cal-up-t">{c.title}</span>
+                    <span className="cal-up-m">
+                      {d.getMonth() + 1}.{d.getDate()}({WEEKDAYS[d.getDay()]})
+                      {provs.length > 0 && <> · <ProviderLogos providers={provs.slice(0, 3)} size={14} /></>}
+                      {c.platform && provs.length === 0 && ` · ${c.platform}`}
+                    </span>
+                    <span className="cal-up-tags">
+                      <span className={`type-badge type-${c.type}`}>{TYPE_LABELS[c.type]}</span>
+                      <span className={dd.over ? 'cal-up-dday over' : 'cal-up-dday'}>{dd.label}</span>
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       <p className="cal-attribution">

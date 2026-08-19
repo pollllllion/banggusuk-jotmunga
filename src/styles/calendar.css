@@ -243,12 +243,60 @@
 
 @keyframes popIn { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
 
+/* 포스터 썸네일 — 모바일 셀 전용. 데스크톱에선 제목이 보이므로 감춘다. */
+.cal-thumb { display: none; }
+.cal-up { display: none; }
+
 @media (max-width: 720px) {
   .cal-hero h1 { font-size: 19px; }
   .cal-hero p { font-size: 12px; }
   .cal-cell { height: 104px; padding: 4px; }
   .cal-item .t { display: none; }
   .cal-item { justify-content: center; padding: 3px 4px; }
+
+  /* ── 셀 안을 포스터로 ──────────────────────────────
+     셀 폭이 46px 남짓이라 제목은 3~4글자밖에 안 들어간다(그래서 .t 를 숨겨왔다).
+     같은 자리에 포스터를 넣으면 무슨 작품인지 한눈에 읽힌다. OTT 로고는 포스터
+     좌하단에 겹쳐 남긴다 — 어디서 공개되는지가 이 캘린더의 핵심 정보라서. */
+  .cal-item { padding: 0; background: none !important; border: 0; }
+  .cal-item .ott-logos, .cal-item .emoji { display: none; }
+  .cal-thumb {
+    display: block; position: relative; width: 100%; aspect-ratio: 2 / 3; max-height: 62px;
+    margin: 0 auto; border-radius: 5px; background-size: cover; background-position: center;
+    background-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  }
+  .cal-thumb.none { display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .cal-thumb-ott { position: absolute; left: 2px; bottom: 2px; line-height: 0; }
+  .cal-thumb-ott .ott-logo { border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.7); }
+  /* "+2" 는 포스터 위 코너 배지로 */
+  .cal-more {
+    position: absolute; top: 2px; right: 2px; padding: 0 4px; border-radius: 999px;
+    background: rgba(0,0,0,.68); color: #fff; font-size: 10px; font-weight: 700; line-height: 15px;
+  }
+
+  /* ── 그리드 아래 리스트 ────────────────────────────
+     셀에서 뺀 정보(제목·날짜·OTT·D-day)를 여기서 읽는다. 달력은 '언제'를, 리스트는 '무엇'을 맡는다. */
+  .cal-up { display: block; margin: 14px 0 4px; }
+  .cal-up-head { font-size: 14px; font-weight: 800; margin: 0 0 8px; color: var(--text); }
+  .cal-up-list { display: flex; flex-direction: column; gap: 8px; }
+  .cal-up-item {
+    display: flex; gap: 10px; align-items: center; width: 100%; text-align: left;
+    padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-md);
+    background: var(--card); color: var(--text); cursor: pointer;
+  }
+  .cal-up-item:active { background: var(--bg); }
+  .cal-up-thumb {
+    flex-shrink: 0; width: 40px; aspect-ratio: 2 / 3; border-radius: 5px;
+    background-size: cover; background-position: center; background-color: var(--border);
+  }
+  .cal-up-thumb.none { display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .cal-up-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .cal-up-t { font-size: 14px; font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-up-m { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--subtext); }
+  .cal-up-m .ott-logo { width: 14px; height: 14px; }
+  .cal-up-tags { display: flex; align-items: center; gap: 6px; }
+  .cal-up-dday { font-size: 11px; font-weight: 700; color: var(--primary); }
+  .cal-up-dday.over { color: var(--subtext); font-weight: 600; }
 
   /* 필터 칩이 3~4줄로 접히면 달력이 화면 밖으로 밀린다 — 한 줄 가로 스크롤로 */
   .cal-filters { margin-left: 0; width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }

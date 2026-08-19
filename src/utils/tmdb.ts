@@ -42,9 +42,13 @@ export interface TmdbResult {
   posterUrl: string | null
   overview: string
   genreIds: number[]
+  /** 이 결과가 어느 검색에서 왔는지. 통합 검색(searchTmdbAll)에서 앱 타입을 정하는 근거 */
+  kind: 'movie' | 'tv'
+  /** 통합 검색 결과를 한 줄로 섞을 때의 정렬 기준 */
+  popularity: number
 }
 
-function mapResults(results: any[]): TmdbResult[] {
+function mapResults(results: any[], kind: 'movie' | 'tv'): TmdbResult[] {
   return (results || []).map((m: any): TmdbResult => {
     const date = m.release_date || m.first_air_date || ''
     return {
@@ -55,6 +59,8 @@ function mapResults(results: any[]): TmdbResult[] {
       posterUrl: m.poster_path ? IMG + m.poster_path : null,
       overview: m.overview || '',
       genreIds: m.genre_ids || [],
+      kind,
+      popularity: Number(m.popularity) || 0,
     }
   })
 }
@@ -70,7 +76,7 @@ async function fetchSearchPage(kind: 'movie' | 'tv', query: string, page = 1): P
   const res = await fetch(url)
   if (!res.ok) throw new Error(`TMDB ${kind} 검색 실패 (${res.status})`)
   const json = await res.json()
-  return mapResults(json.results)
+  return mapResults(json.results, kind)
 }
 
 /** 공백·문장부호(콜론·하이픈 등) 모두 제거한 느슨한 정규화 (한글/영문/숫자만 남김) */
@@ -108,4 +114,27 @@ export async function smartSearchTmdb(kind: 'movie' | 'tv', query: string): Prom
     }
   }
   return []
+}
+
+/** TMDB 결과 → 앱 콘텐츠 타입. 영화는 그대로, tv 는 장르로 드라마/예능을 가른다. */
+export function tmdbResultType(r: TmdbResult): ContentType {
+  return r.kind === 'movie' ? 'movie' : tmdbTvType(r.genreIds)
+}
+
+/**
+ * 영화·TV 통합 검색 (2026-08-19).
+ *
+ * 등록 모달에서 카테고리를 먼저 고르게 하던 단계를 없애면서 필요해졌다. 예전엔 고른
+ * 카테고리로 `movie` / `tv` 중 하나만 쳤다 — 그건 TMDB 사정이지 등록하는 사람의 관심사가
+ * 아니다. 둘 다 쳐서 인기순으로 섞고, 드라마/예능 구분은 `tmdbResultType` 이 장르로 정한다.
+ *
+ * 한쪽이 실패해도 다른 쪽 결과는 살린다(검색이 통째로 죽는 것보다 낫다).
+ */
+export async function searchTmdbAll(query: string): Promise<TmdbResult[]> {
+  if (!TMDB_KEY) return []
+  const [mv, tv] = await Promise.all([
+    smartSearchTmdb('movie', query).catch(() => [] as TmdbResult[]),
+    smartSearchTmdb('tv', query).catch(() => [] as TmdbResult[]),
+  ])
+  return [...mv, ...tv].sort((a, b) => b.popularity - a.popularity)
 }

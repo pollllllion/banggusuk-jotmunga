@@ -195,3 +195,13 @@ export function releaseSourceLabel(src: ReleaseDateSource | null | undefined): s
 export function isEstimatedSource(src: ReleaseDateSource | null | undefined): boolean {
   return src === 'tmdb_estimated' || src === 'tmdb_first_air_date' || src === 'tmdb_season_air_date' || src === 'tmdb_release_date'
 }
+
+/**
+ * 포스터 URL을 작은 썸네일 크기로 (캘린더 셀·리스트용).
+ * TMDB 는 경로의 `/w500/` 만 바꾸면 그 크기로 준다. TMDB 가 아닌 주소(수기 등록의 data: URL 등)는
+ * 그대로 돌려준다 — 그쪽은 업로드 때 이미 360px 로 줄여 담긴다(`utils/posterImage.ts`).
+ */
+export function posterThumb(url: string | null | undefined, size: 'w92' | 'w154' | 'w185' = 'w154'): string | null {
+  if (!url) return null
+  return url.replace(/\/t\/p\/w\d+\//, `/t/p/${size}/`)
+}
