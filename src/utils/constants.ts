@@ -25,7 +25,7 @@ export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카�
 export const BOARDS: { slug: string; label: string; emoji: string; path: string }[] = [
   { slug: 'calendar', label: '개봉·공개 캘린더', emoji: '\u{1F5D3}\u{FE0F}', path: '/' },
   { slug: 'talk',     label: '방구석토론방',     emoji: '\u{1F5E3}\u{FE0F}', path: '/talk' },
-  { slug: 'relay',    label: '릴레이제작소',     emoji: '\u{270D}\u{FE0F}', path: '/board/relay' },
+  { slug: 'relay',    label: '자유방',           emoji: '\u{270D}\u{FE0F}', path: '/board/relay' },
 ]
 
 // ── 장르 ────────────────────────────────────────────────────
