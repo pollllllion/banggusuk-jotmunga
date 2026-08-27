@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { computeSeasonRanking, computeOverallRanking, type SeasonEntry } from '@/utils/level'
+import { computeSeasonRanking, computeOverallRanking, EXPERT_TIER, type SeasonEntry } from '@/utils/level'
 import { Seo } from '@/components/seo/Seo'
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -15,9 +15,13 @@ function RankRow({ e, i, me, unit, navigate }: {
       <div className="ranking-main">
         <div className="ranking-name-row">
           <span className="ranking-name">{e.nickname}</span>
-          {e.topBadge && <span className={`expert-tag rank-${e.topBadge.rank}`}>{e.topBadge.emoji} {e.topBadge.label}</span>}
+          {e.expert && <span className="expert-tag rank-senior">{EXPERT_TIER.emoji} {EXPERT_TIER.name}</span>}
         </div>
-        <span className="ranking-tier">{e.level.tier.emoji} {e.level.tier.name} · Lv.{e.level.tierIndex + 1}</span>
+        <span className="ranking-tier">
+          {e.expert
+            ? <>{EXPERT_TIER.emoji} {EXPERT_TIER.name}</>
+            : <>{e.level.tier.emoji} {e.level.tier.name} · Lv.{e.level.tierIndex + 1}</>}
+        </span>
       </div>
       <span className="ranking-score"><b>{e.score}</b><small>{unit}</small></span>
     </div>

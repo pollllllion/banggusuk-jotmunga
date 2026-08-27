@@ -179,7 +179,7 @@ export function DiscussionDetailPage() {
           className={`disc-author ${isAccountAuthor ? 'linkable' : 'guest'}`}
           onClick={() => { if (isAccountAuthor) navigate(`/u/${post.authorId}`) }}
         >{author}</span>
-        <ExpertTag authorId={post.authorId} type={content.type} />
+        <ExpertTag authorId={post.authorId} />
         <span className="disc-time">
           {timeAgo(post.createdAt)}{post.updatedAt ? ' · 수정됨' : ''}
         </span>

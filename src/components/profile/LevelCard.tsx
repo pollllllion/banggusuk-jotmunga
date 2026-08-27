@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { TYPE_LABELS } from '@/utils/constants'
-import { computeStats, computeXp, computeLevel, resolveExperts } from '@/utils/level'
+import { EXPERT_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
 import { LevelGuideModal } from '@/components/profile/LevelGuideModal'
 import type { User } from '@/types'
 
 /** 내 피드(프로필) 상단 레벨 카드.
- *  활동 레벨(재미) 과 좋문가 자격(권위) 을 함께 보여준다. tick 으로 강제 재계산.
+ *  활동 레벨(재미) 과 좋문가(권위) 를 함께 보여준다. tick 으로 강제 재계산.
  *  카드를 누르면 레벨 시스템 안내가 열린다. */
 export function LevelCard({ user, tick }: { user: User; tick?: number }) {
   const [showGuide, setShowGuide] = useState(false)
-  const { level, stats, experts } = useMemo(() => {
+  const expert = isExpert(user)
+  const { level, stats } = useMemo(() => {
     const s = computeStats(user.id, user.createdAt)
-    return { level: computeLevel(computeXp(s)), stats: s, experts: resolveExperts(user, s) }
+    return { level: computeLevel(computeXp(s)), stats: s }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id, user.createdAt, user.banned, user.role, user.nickname, user.streak, user.visitDays, tick])
 
@@ -19,17 +19,19 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
     <>
     <div className="level-card clickable fade-in" onClick={() => setShowGuide(true)} title="방좋 레벨 시스템 보기">
       <div className="level-card-head">
-        <span className="level-emoji" aria-hidden>{level.tier.emoji}</span>
+        <span className="level-emoji" aria-hidden>{expert ? EXPERT_TIER.emoji : level.tier.emoji}</span>
         <div className="level-head-text">
           <div className="level-tier-row">
-            <span className="level-tier-name">{level.tier.name}</span>
-            <span className="level-lv">Lv.{level.tierIndex + 1}</span>
+            <span className="level-tier-name">{expert ? EXPERT_TIER.name : level.tier.name}</span>
+            {!expert && <span className="level-lv">Lv.{level.tierIndex + 1}</span>}
             {stats.streak > 0 && <span className="level-streak" title={`누적 방문 ${stats.visitDays}일`}>🔥 {stats.streak}일 연속</span>}
           </div>
           <div className="level-xp-sub">
-            {level.next
-              ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
-              : <>최고 레벨 달성 🎉</>}
+            {expert
+              ? <>관리자가 인정한 좋문가예요 👑</>
+              : level.next
+                ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
+                : <>활동 레벨 최고 단계 🎉</>}
           </div>
         </div>
         <span className="level-xp-num">{level.xp}<small>XP</small></span>
@@ -46,33 +48,26 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
         <span><b>{stats.watched}</b> 시청</span>
       </div>
 
-      {/* 좋문가 자격 — 별도 권위 배지 */}
+      {/* 좋문가 — XP 로는 못 오르는 마지막 칸. 관리자가 글을 읽어보고 준다. */}
       <div className="level-expert">
-        {experts.badges.length > 0 ? (
+        {expert ? (
           <div className="expert-badges">
-            {experts.badges.map(b => (
-              <span key={b.type} className={`expert-badge rank-${b.rank}`} title={`${TYPE_LABELS[b.type]} 평가 ${b.stat.rated}편 · 장문글 ${b.stat.longPosts}개 · 추천 ${b.stat.netLikes}`}>
-                {b.emoji} {b.label}
-              </span>
-            ))}
-          </div>
-        ) : experts.closest ? (
-          <div className="expert-progress">
-            <span className="expert-prospect">🔰 예비 {experts.closest.label}</span>
-            {experts.closest.missing.length > 0 && (
-              <span className="expert-missing">달성까지 {experts.closest.missing.join(' · ')} 남음</span>
-            )}
+            <span className="expert-badge rank-senior" title="관리자가 인정한 좋문가">
+              {EXPERT_TIER.emoji} {EXPERT_TIER.name}
+            </span>
           </div>
         ) : (
           <div className="expert-progress">
-            <span className="expert-missing">평가를 남기면 분야별 <b>좋문가</b> 자격에 도전할 수 있어요.</span>
+            <span className="expert-missing">
+              <b>좋문가</b>는 XP로 오를 수 없어요. 관리자가 글을 보고 직접 지정합니다.
+            </span>
           </div>
         )}
       </div>
 
       <div className="level-card-hint">방좋 레벨 시스템 보기 ›</div>
     </div>
-    {showGuide && <LevelGuideModal currentTierIndex={level.tierIndex} onClose={() => setShowGuide(false)} />}
+    {showGuide && <LevelGuideModal currentTierIndex={level.tierIndex} isExpert={expert} onClose={() => setShowGuide(false)} />}
     </>
   )
 }

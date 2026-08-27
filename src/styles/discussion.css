@@ -329,3 +329,5 @@
   border-radius: var(--radius-xs); padding: 2px 5px; cursor: default;
   font-variant-numeric: tabular-nums;
 }
+/* 좋문가는 'Lv.N' 대신 왕관만 — 숫자가 없어 좁고, 배경 없이 아이콘으로 둔다 */
+.level-tag.is-expert { background: none; padding: 2px 1px; font-size: 12px; }

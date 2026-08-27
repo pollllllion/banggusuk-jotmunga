@@ -94,9 +94,17 @@ export function AdminPage() {
         <div key={u.id} className="admin-card fade-in">
           <div className="admin-card-body">
             <div className="value">{u.nickname} <span style={{ color: 'var(--subtext)', fontSize: 12 }}>{u.email}</span></div>
-            <div className="label">가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')} {u.banned && <span style={{ color: 'var(--danger)', fontWeight: 600 }}>· 정지됨</span>}</div>
+            <div className="label">
+              가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')}
+              {u.expert && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · 👑 좋문가</span>}
+              {u.banned && <span style={{ color: 'var(--danger)', fontWeight: 600 }}> · 정지됨</span>}
+            </div>
           </div>
           <div className="admin-card-actions">
+            {/* 좋문가는 XP 로 못 오르는 마지막 칸 — 여기서만 준다 (migration_level_simplify.sql) */}
+            {u.expert
+              ? <button className="btn btn-secondary btn-small" onClick={() => { DS.updateUser(u.id, { expert: false }); toast(`'${u.nickname}' 좋문가를 해제했습니다.`); rerender() }}>좋문가 해제</button>
+              : <button className="btn btn-secondary btn-small" onClick={() => { if (!confirm(`'${u.nickname}' 님을 좋문가로 지정할까요?`)) return; DS.updateUser(u.id, { expert: true }); toast(`'${u.nickname}' 님이 좋문가가 되었습니다.`); rerender() }}>좋문가 지정</button>}
             {u.banned ? <button className="btn btn-primary btn-small" onClick={() => { DS.updateUser(u.id, { banned: false }); toast('정지가 해제되었습니다.'); rerender() }}>정지 해제</button> :
               <button className="btn btn-danger-solid btn-small" onClick={() => { if (!confirm('이 사용자를 정지하시겠습니까?')) return; DS.updateUser(u.id, { banned: true }); toast('사용자가 정지되었습니다.'); rerender() }}>정지</button>}
           </div>

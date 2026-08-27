@@ -1,18 +1,12 @@
-import { TYPE_LABELS } from '@/utils/constants'
-import { expertBadgeFor } from '@/utils/level'
-import type { ContentType } from '@/types'
+import { EXPERT_TIER, isExpertAuthor } from '@/utils/level'
 
-/** 리뷰·평점 옆에 붙는 작은 좋문가 배지.
- *  해당 작성자가 그 분야(type)의 좋문가가 아니면 아무것도 렌더하지 않는다. */
-export function ExpertTag({ authorId, type }: { authorId: string | null | undefined; type: ContentType }) {
-  const badge = expertBadgeFor(authorId, type)
-  if (!badge) return null
+/** 글·평점 옆에 붙는 좋문가 배지.
+ *  2026-08-27 부터 분야 구분이 없다 — 관리자가 지정한 단일 배지라 작성자 하나당 하나. */
+export function ExpertTag({ authorId }: { authorId: string | null | undefined }) {
+  if (!isExpertAuthor(authorId)) return null
   return (
-    <span
-      className={`expert-tag rank-${badge.rank}`}
-      title={`${TYPE_LABELS[type]} 평가 ${badge.stat.rated}편 · 장문글 ${badge.stat.longPosts}개 · 추천 ${badge.stat.netLikes}`}
-    >
-      {badge.emoji} {badge.label}
+    <span className="expert-tag rank-senior" title="관리자가 인정한 좋문가">
+      {EXPERT_TIER.emoji} {EXPERT_TIER.name}
     </span>
   )
 }

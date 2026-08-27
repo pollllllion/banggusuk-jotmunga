@@ -6,6 +6,8 @@ export interface User {
   password?: string
   role: 'admin' | 'user'
   banned: boolean
+  /** 좋문가 — 관리자가 직접 지정한다. XP 로는 도달 불가 (migration_level_simplify.sql) */
+  expert?: boolean
   createdAt: string
   // ── 출석 streak (profiles 마이그레이션 후 채워짐 · 미적용 시 undefined) ──
   lastVisit?: string | null   // 마지막 집계일 'YYYY-MM-DD'

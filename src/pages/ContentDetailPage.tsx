@@ -53,7 +53,7 @@ export function ContentDetailPage() {
     return { score, count: rated.filter(d => d.rating === score).length }
   })
   const maxCount = Math.max(1, ...dist.map(d => d.count))
-  const expertRating = expertRatingFor(rated, content.type)
+  const expertRating = expertRatingFor(rated)
 
   const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
 
@@ -132,8 +132,8 @@ export function ContentDetailPage() {
             <Stars score={avgRating} size={16} />
             <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
             {expertRating.count > 0 && (
-              <div className="score-expert" title={`이 분야 좋문가 ${expertRating.count}명의 평균 별점`}>
-                <span className="score-expert-label">🛋️ 좋문가 평점</span>
+              <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
+                <span className="score-expert-label">👑 좋문가 평점</span>
                 <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
                 <span className="score-expert-cnt">· {expertRating.count}명</span>
               </div>

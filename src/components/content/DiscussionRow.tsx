@@ -65,7 +65,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>} {title}
         {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}
       </span>
-      <ExpertTag authorId={post.authorId} type={content.type} />
+      <ExpertTag authorId={post.authorId} />
       <Stats post={post} commentCount={commentCount} />
       <span className="disc-row-meta">
         {showContent && (
