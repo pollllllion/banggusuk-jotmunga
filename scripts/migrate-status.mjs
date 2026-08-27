@@ -1,9 +1,10 @@
 /**
  * 마이그레이션 적용 현황 — supabase/*.sql 파일 vs DB 의 applied_migrations 대조
  *
- *   npm run migrate:status              # 현황 출력
+ *   npm run migrate:status              # 현황 출력 (전부 적용됐으면 exit 0 — 배포 전 검사로 쓸 수 있다)
  *   npm run migrate:mark <파일명>       # 방금 SQL Editor 에서 실행한 파일을 적용됨으로 기록
  *   npm run migrate:mark -- --all-hash  # 기록은 있는데 해시가 빈 옛 항목을 현재 내용으로 채움
+ *   npm run migrate:mark -- --rehash    # 기록된 전체 해시를 현재 내용으로 다시 씀 (해시 방식 변경 시에만)
  *
  * 왜 필요한가 (2026-08-17):
  *   이 프로젝트는 Supabase CLI 를 안 쓰고 SQL Editor 에 손으로 붙여 실행한다.
@@ -34,7 +35,18 @@ const DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../supabase')
 const SKIP = new Set(['migration_rls_disable.sql'])
 
 const files = readdirSync(DIR).filter(f => f.endsWith('.sql') && !SKIP.has(f)).sort()
-const hashOf = f => createHash('sha256').update(readFileSync(join(DIR, f))).digest('hex')
+
+/**
+ * 해시는 **줄바꿈을 LF 로 통일한 뒤** 낸다.
+ * 두 PC 의 git 체크아웃 줄바꿈이 달라(CRLF/LF) 바이트가 갈리면, 내용이 한 글자도 안 바뀌었는데도
+ * 전부 "내용 바뀜" 으로 떴다(2026-08-27 기준 26/32). 그러면 진짜로 고쳐놓고 DB 에 안 돌린 파일이
+ * 노이즈에 묻히고, exit 1 이 상시화돼서 배포 전 검사로도 못 쓴다.
+ * BOM 도 떼어낸다 — 에디터마다 붙였다 뗐다 하는데 내용 차이가 아니다.
+ */
+const hashOf = f => {
+  const text = readFileSync(join(DIR, f), 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n')
+  return createHash('sha256').update(text, 'utf8').digest('hex')
+}
 
 async function rows() {
   const res = await fetch(`${url}/rest/v1/applied_migrations?select=*`, { headers: H })
@@ -53,15 +65,22 @@ const [, , cmd, arg] = process.argv
 
 if (cmd === 'mark') {
   const applied = await rows()
-  if (arg === '--all-hash') {
-    // 해시가 비어 있는 기존 기록을 현재 파일 내용으로 채운다(최초 도입용)
-    const targets = applied.filter(r => !r.sha256 && files.includes(r.filename))
+  if (arg === '--all-hash' || arg === '--rehash') {
+    // --all-hash : 해시가 비어 있는 기존 기록만 채운다(최초 도입용)
+    // --rehash   : 기록된 모든 파일의 해시를 현재 내용으로 다시 쓴다.
+    //   ⚠️ "지금 파일 내용 = DB 에 적용된 것" 이라고 선언하는 것이다. 줄바꿈 정규화처럼
+    //      해시 계산 방식을 바꿨을 때만 쓴다. 진짜로 SQL 을 고친 게 섞여 있으면 그것까지
+    //      "적용됨" 으로 덮어써서 영영 못 잡는다.
+    const rehash = arg === '--rehash'
+    const targets = applied.filter(r =>
+      files.includes(r.filename) && (rehash ? r.sha256 !== hashOf(r.filename) : !r.sha256))
     for (const r of targets) {
       await fetch(`${url}/rest/v1/applied_migrations?filename=eq.${encodeURIComponent(r.filename)}`, {
         method: 'PATCH', headers: H, body: JSON.stringify({ sha256: hashOf(r.filename) }),
       })
     }
-    console.log(`해시 채움: ${targets.length}건`)
+    console.log(`${rehash ? '해시 재기록' : '해시 채움'}: ${targets.length}건`)
+    if (targets.length) console.log(targets.map(r => '  ' + r.filename).join('\n'))
     process.exit(0)
   }
   if (!arg) { console.error('파일명을 주세요. 예: npm run migrate:mark migration_rls_fix.sql'); process.exit(1) }
