@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { LevelTag } from '@/components/profile/LevelTag'
-import { timeAgo } from '@/utils/helpers'
+import { boardDate } from '@/utils/helpers'
 import type { Content, Discussion } from '@/types'
 
 /** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판). */
@@ -74,7 +74,9 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
         </span>
       </span>
       <span className="disc-row-views" title="조회">{post.views || 0}</span>
-      <span className="disc-time">{timeAgo(post.createdAt)}</span>
+      <span className="disc-time" title={new Date(post.createdAt).toLocaleString('ko-KR')}>
+        {boardDate(post.createdAt)}
+      </span>
     </div>
   )
 }

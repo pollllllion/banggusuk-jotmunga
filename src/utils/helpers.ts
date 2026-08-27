@@ -34,6 +34,26 @@ export function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('ko-KR')
 }
 
+/**
+ * 게시판 목록용 날짜 — 오늘 안이면 경과 시간, 하루가 지나면 `26.08.25`.
+ *
+ * timeAgo 와 따로 두는 이유: timeAgo 는 알림·글 상세·관리자에서도 쓰는데
+ * 거기선 "3일 전" 이 더 잘 읽힌다. 목록은 열 폭이 44px 남짓이라 짧아야 하고,
+ * 오래된 글은 "몇 일 전" 보다 날짜가 유용하다(디시·클리앙도 같은 방식).
+ * '전' 을 뗀 것도 폭 때문이다.
+ */
+export function boardDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000)
+  if (mins < 0) return '방금'          // 시계 오차로 미래가 찍힌 경우
+  if (mins < 1) return '방금'
+  if (mins < 60) return `${mins}분`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}시간`
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getFullYear() % 100)}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
+}
+
 /** 점수(0~10)에 따른 색상 */
 export function scoreColor(score: number): string {
   if (score >= 8) return 'var(--score-high)'
