@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { DiscussionRow } from '@/components/content/DiscussionRow'
+import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import { pickTrending } from '@/utils/trending'
 import { TYPE_EMOJIS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
@@ -25,6 +25,34 @@ const KNOWN_TYPES = ['movie', 'drama', 'variety', 'webtoon', 'webnovel']
 const TRENDING_MIN_POSTS = 8
 /** 인기글 노출 개수 */
 const TRENDING_LIMIT = 10
+/** 한 페이지에 보여줄 글 수 (디시 50 · 클리앙 30 — 방좋은 글이 길어서 30) */
+const PER_PAGE = 30
+/** 페이지 번호 버튼을 한 번에 몇 개까지 (1 … 4 5 [6] 7 8 … 20) */
+const PAGER_WINDOW = 5
+
+/** 게시판 페이지 번호. 총 1쪽이면 아무것도 안 그린다. */
+function Pager({ page, total, onGo }: { page: number; total: number; onGo: (p: number) => void }) {
+  if (total <= 1) return null
+  const half = Math.floor(PAGER_WINDOW / 2)
+  let from = Math.max(1, page - half)
+  const to = Math.min(total, from + PAGER_WINDOW - 1)
+  from = Math.max(1, to - PAGER_WINDOW + 1)
+  const nums = Array.from({ length: to - from + 1 }, (_, i) => from + i)
+
+  return (
+    <nav className="disc-pager" aria-label="게시판 페이지">
+      <button disabled={page === 1} onClick={() => onGo(page - 1)} aria-label="이전 페이지">‹</button>
+      {from > 1 && <><button onClick={() => onGo(1)}>1</button>{from > 2 && <span className="disc-pager-gap">…</span>}</>}
+      {nums.map(n => (
+        <button key={n} className={n === page ? 'on' : ''} aria-current={n === page ? 'page' : undefined} onClick={() => onGo(n)}>
+          {n}
+        </button>
+      ))}
+      {to < total && <>{to < total - 1 && <span className="disc-pager-gap">…</span>}<button onClick={() => onGo(total)}>{total}</button></>}
+      <button disabled={page === total} onClick={() => onGo(page + 1)} aria-label="다음 페이지">›</button>
+    </nav>
+  )
+}
 
 export function DiscussionRoomPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -37,6 +65,7 @@ export function DiscussionRoomPage() {
   const setSub = (key: string) => {
     const next = new URLSearchParams(searchParams)
     if (key === 'all') next.delete('sub'); else next.set('sub', key)
+    next.delete('p')   // 탭을 바꾸면 목록이 통째로 달라진다 → 1쪽부터
     setSearchParams(next)
   }
 
@@ -63,6 +92,18 @@ export function DiscussionRoomPage() {
       post.body.toLowerCase().includes(query) ||
       matchedContentIds!.has(content.id))
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
+
+  // 페이지 나누기 — 쪽 번호는 URL(?p=)에 둔다. 글을 읽고 뒤로 와도 보던 쪽이 유지된다.
+  // 검색으로 결과가 줄면 현재 쪽이 범위를 넘을 수 있어 clamp 한다(빈 화면 방지).
+  const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE))
+  const page = Math.min(Math.max(1, Number(searchParams.get('p')) || 1), totalPages)
+  const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const goPage = (p: number) => {
+    const next = new URLSearchParams(searchParams)
+    if (p <= 1) next.delete('p'); else next.set('p', String(p))
+    setSearchParams(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // 인기글 — 필터·검색과 무관하게 게시판 전체에서 뽑는다(상단 고정 섹션).
   // 글이 몇 개 없을 땐 아래 최신순 목록과 똑같아 보이므로 숨긴다.
@@ -129,11 +170,15 @@ export function DiscussionRoomPage() {
           {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>✍️ 토론하기</button>}
         </div>
       ) : (
-        <div className="disc-board fade-in">
-          {rows.map(({ post, content }) => (
-            <DiscussionRow key={post.id} post={post} content={content} showContent onOpen={() => navigate(`/talk/${post.id}`)} />
-          ))}
-        </div>
+        <>
+          <div className="disc-board fade-in">
+            <DiscussionRowHead showContent />
+            {pageRows.map(({ post, content }) => (
+              <DiscussionRow key={post.id} post={post} content={content} showContent onOpen={() => navigate(`/talk/${post.id}`)} />
+            ))}
+          </div>
+          <Pager page={page} total={totalPages} onGo={goPage} />
+        </>
       )}
     </>
   )

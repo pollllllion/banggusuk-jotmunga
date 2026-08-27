@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
-import { DiscussionRow } from '@/components/content/DiscussionRow'
+import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import '@/styles/discussion.css'
 
 /** 작품방 게시판 — 이 작품의 토론글 목록 + '토론하기'(통합 작성기로 이동). */
@@ -29,6 +29,8 @@ export function DiscussionBoard({ contentId }: { contentId: string }) {
         </div>
       ) : (
         <div className="disc-board">
+          {/* 작품방은 전부 같은 작품이라 말머리(작품) 열이 없다 */}
+          <DiscussionRowHead />
           {content && posts.map(p => (
             <DiscussionRow key={p.id} post={p} content={content} onOpen={() => navigate(`/talk/${p.id}`)} />
           ))}
