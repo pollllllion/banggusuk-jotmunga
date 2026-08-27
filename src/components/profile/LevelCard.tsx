@@ -34,13 +34,14 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
             {expert
               ? <>관리자가 인정한 좋문가예요 👑</>
               : level.next
-                ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
+                ? (isAdmin
+                    ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
+                    : <>다음 단계는 <b>{level.next.name}</b></>)
                 : <>활동 레벨 최고 단계 🎉</>}
           </div>
         </div>
-        {isAdmin
-          ? <span className="level-xp-num">{level.xp}<small>XP</small></span>
-          : !expert && level.next && <span className="level-xp-num">{level.toNext}<small>XP 남음</small></span>}
+        {/* 일반 사용자에게는 XP 수치를 일절 안 보여준다 — 진행 상황은 아래 진행바로만 */}
+        {isAdmin && <span className="level-xp-num">{level.xp}<small>XP</small></span>}
       </div>
 
       <div className="level-bar" role="progressbar" aria-valuenow={Math.round(level.progress * 100)} aria-valuemin={0} aria-valuemax={100}>

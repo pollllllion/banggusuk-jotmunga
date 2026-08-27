@@ -51,11 +51,11 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
           </div>
         </div>
 
-        {/* 일반 사용자에게 주는 유일한 수치 — 다음 단계까지 얼마나 남았나 */}
+        {/* 일반 사용자에겐 수치를 주지 않는다 — 어디쯤인지는 프로필의 진행바로만 */}
         {!isAdmin && !isExpert && level && (
           <p className="lg-note">
             {level.next
-              ? <>지금은 <b>{level.tier.name}</b>. 다음 <b>{level.next.name}</b>까지 <b>{level.toNext} XP</b> 남았어요.</>
+              ? <>지금은 <b>{level.tier.name}</b>. 다음 단계는 <b>{level.next.name}</b>예요. 진행 상황은 프로필의 막대로 확인할 수 있어요.</>
               : <>활동 레벨 최고 단계예요 🎉</>}
           </p>
         )}
