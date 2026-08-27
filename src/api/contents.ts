@@ -187,6 +187,40 @@ export async function ensureContent(input: EnsureContentInput): Promise<Content>
   return content
 }
 
+export interface ManualContentInput {
+  type: 'webtoon' | 'webnovel'
+  title: string
+  platform?: string | null
+  posterUrl?: string | null
+}
+
+/**
+ * 웹툰·웹소설 직접 등록 — 서버 RPC(create_manual_content).
+ * TMDB 에 없는 타입이라 검색으로는 만들 수 없다. ensureContent 는 tmdb-* id 만 받고,
+ * registerWatched 는 '본 작품' 링크까지 만들어 버려서 글쓰기 경로에는 쓸 수 없다.
+ * 같은 제목이 이미 있으면 서버가 기존 행을 돌려준다 → 중복 행이 생기지 않는다.
+ */
+export async function createManualContent(input: ManualContentInput): Promise<Content> {
+  const { data, error } = await supabase.rpc('create_manual_content', {
+    p_type: input.type,
+    p_title: input.title,
+    p_platform: input.platform ?? null,
+    p_poster_url: input.posterUrl ?? null,
+  })
+  if (error) {
+    console.error('[create_manual_content]', error)
+    // supabase/migration_manual_content.sql 이 아직 SQL Editor 에 적용 안 된 경우
+    if (error.code === 'PGRST202') throw new Error('작품 직접 등록이 아직 서버에 반영되지 않았어요.')
+    throw new Error(error.message || '작품 등록에 실패했어요.')
+  }
+  const content = data as Content
+  // 캐시 반영 (store 를 쓰면 클라이언트가 contents 를 upsert 하려다 RLS에 막힌다)
+  if (content && !cache.contents.some((c: any) => c.id === content.id)) {
+    cache.contents = [content, ...cache.contents]
+  }
+  return content
+}
+
 export interface UpdateMyContentInput {
   contentId: string
   title: string

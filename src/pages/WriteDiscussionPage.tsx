@@ -7,8 +7,9 @@ import { GuestCred } from '@/components/ui/GuestCred'
 import { TalkBodyEditor, cleanBodyHtml } from '@/components/content/TalkBodyEditor'
 import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
-import { TYPE_LABELS } from '@/utils/constants'
-import { scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
+import { PosterUploader } from '@/components/content/PosterUploader'
+import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
+import { normalizeTitle, scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
 import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import type { Content } from '@/types'
@@ -91,6 +92,42 @@ export function WriteDiscussionPage() {
     }, 350)
     return () => { alive = false; clearTimeout(timer) }
   }, [q])
+
+  // 직접 등록(웹툰·웹소설) — TMDB 에 없는 타입이라 검색으로는 못 만든다.
+  // 글 제목(title)과 이름이 겹치지 않게 접두사를 붙였다.
+  const [manual, setManual] = useState(false)
+  const [mType, setMType] = useState<'webtoon' | 'webnovel'>('webtoon')
+  const [mTitle, setMTitle] = useState('')
+  const [mPlatform, setMPlatform] = useState('')
+  const [mPoster, setMPoster] = useState('')
+
+  // 직접 등록 시 DB에 이미 있는 같은 작품 후보 — 고르면 새 행을 만들지 않는다.
+  const manualSuggestions = useMemo<Content[]>(() => {
+    const key = normalizeTitle(mTitle)
+    if (!key) return []
+    return DS.getContents()
+      .filter(c => c.type === mType && !c.id.startsWith('tmdb-') && normalizeTitle(c.title).includes(key))
+      .slice(0, 6)
+  }, [mTitle, mType])
+
+  const submitManual = async () => {
+    if (!mTitle.trim()) { toast('제목을 입력해주세요.'); return }
+    if (resolving) return
+    setResolving(true)
+    try {
+      setPicked(await DS.createManualContent({
+        type: mType,
+        title: mTitle.trim(),
+        platform: mPlatform.trim() || null,
+        posterUrl: mPoster.trim() || null,
+      }))
+      setManual(false)
+    } catch (e: any) {
+      toast(e?.message || '작품 등록에 실패했어요.')
+    } finally {
+      setResolving(false)
+    }
+  }
 
   /** TMDB 결과 선택 — 그 작품을 DB에 만들고(이미 있으면 기존 행) 그걸 고른 것으로 친다. */
   const pickTmdb = async (r: TmdbResult) => {
@@ -200,6 +237,53 @@ export function WriteDiscussionPage() {
                 <button className="btn-text btn-small" style={{ marginLeft: 'auto' }} onClick={() => { setPicked(null); setRating(0) }}>변경</button>
               )}
             </div>
+          ) : manual ? (
+            /* 직접 등록 (웹툰·웹소설) — TMDB 에 없어서 검색으로는 만들 수 없는 타입 */
+            <>
+              <button className="btn-text btn-small" onClick={() => setManual(false)} style={{ marginBottom: 8 }}>‹ 검색으로 돌아가기</button>
+              {!isAccount ? (
+                <p style={{ color: 'var(--subtext)', fontSize: 13 }}>
+                  작품 직접 등록은 로그인(고정닉) 후 이용할 수 있어요. 유동닉으로는 이미 등록된 작품에만 글을 쓸 수 있어요.
+                </p>
+              ) : (
+                <>
+                  <div className="cat-chips">
+                    {CONTENT_TYPES.filter(t => t.code === 'webtoon' || t.code === 'webnovel').map(t => (
+                      <button key={t.code} className={mType === t.code ? 'on' : ''} onClick={() => setMType(t.code as 'webtoon' | 'webnovel')}>
+                        {t.emoji} {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input className="form-input" autoFocus placeholder="제목 *" maxLength={200} value={mTitle} onChange={e => setMTitle(e.target.value)} />
+
+                    {manualSuggestions.length > 0 && (
+                      <div className="manual-suggest">
+                        <div className="manual-suggest-head">이미 등록된 같은 작품이 있어요 — 고르면 그 작품에 글을 써요</div>
+                        <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
+                          {manualSuggestions.map(c => (
+                            <div key={c.id} className="tmdb-result" onClick={() => { setPicked(c); setManual(false) }}>
+                              {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
+                              <div>
+                                <div className="t">{c.title}</div>
+                                <div className="m">{TYPE_LABELS[c.type]}{c.platform ? ` · ${c.platform}` : ''}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="manual-suggest-or">↓ 다른 작품이면 아래에서 새로 등록</div>
+                      </div>
+                    )}
+
+                    <input className="form-input" placeholder="플랫폼 (예: 네이버웹툰, 카카오페이지) — 선택" value={mPlatform} onChange={e => setMPlatform(e.target.value)} />
+                    <PosterUploader value={mPoster} onChange={setMPoster} />
+                    <button className="btn btn-primary" disabled={resolving || !mTitle.trim()} onClick={submitManual}>
+                      {resolving ? '등록 중…' : '이 작품으로 글쓰기'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <>
               <input className="form-input" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} />
@@ -230,8 +314,11 @@ export function WriteDiscussionPage() {
                 <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>{resolving ? '작품을 불러오는 중…' : '검색 중…'}</p>
               )}
               {q.trim() && !tmdbLoading && !resolving && !matches.length && !tmdbHits.length && (
-                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. (웹툰·웹소설은 내 피드 등록으로 추가할 수 있어요)</p>
+                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. (없는 작품은 내 피드 작품등록으로 추가할 수 있어요.)</p>
               )}
+              <button className="btn-text btn-small" style={{ marginTop: 8 }} onClick={() => setManual(true)}>
+                + 웹툰·웹소설 직접 등록
+              </button>
             </>
           )}
         </div>
