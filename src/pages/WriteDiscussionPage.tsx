@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -10,6 +10,7 @@ import { Seo } from '@/components/seo/Seo'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
+import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import type { Content } from '@/types'
 import '@/styles/discussion.css'
 
@@ -55,14 +56,62 @@ export function WriteDiscussionPage() {
   const [guestPw, setGuestPw] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // 통합검색(Header)·본 작품 등록과 같은 소스를 쓴다.
-  // 예전엔 여기만 원문 substring 이라 "유퀴즈"로 "유 퀴즈 온 더 블럭"이 안 잡혔고,
-  // 원제·감독으로도 못 찾았고, 숨긴 작품이 그대로 떴다.
+  const [tmdbHits, setTmdbHits] = useState<TmdbResult[]>([])
+  const [tmdbLoading, setTmdbLoading] = useState(false)
+  const [resolving, setResolving] = useState(false)
+
+  // 우리 DB 먼저 — 통합검색(Header)·본 작품 등록과 같은 소스.
   const matches = useMemo(() => {
     const query = q.trim()
     if (!query) return []
     return DS.searchContents(query, 12)
   }, [q])
+
+  /**
+   * DB에 없는 작품까지 찾도록 TMDB로 한 번 더 검색한다 — 통합검색·본 작품 등록과 같은 방식.
+   * 우리 contents 는 개봉·공개 캘린더로 채워져서 2026년 위주다. '유 퀴즈 온 더 블럭', '스킨스'
+   * 처럼 예전 작품은 DB에 아예 없어서, 로컬 검색만으로는 무슨 수를 써도 안 나온다.
+   * alive 플래그로 늦게 도착한 이전 입력의 응답이 최신 결과를 덮지 않게 막는다.
+   */
+  useEffect(() => {
+    const query = q.trim()
+    if (!tmdbEnabled || query.length < 2) { setTmdbHits([]); setTmdbLoading(false); return }
+    let alive = true
+    setTmdbLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const r = await searchTmdbAll(query)
+        // 이미 DB에 있는 작품은 위쪽 목록에 나오므로 뺀다 (시즌별 행이 있는 경우 포함)
+        if (alive) setTmdbHits(r.filter(x => !DS.hasTmdbContent(x.kind, x.tmdbId)).slice(0, 8))
+      } catch {
+        if (alive) setTmdbHits([])   // 실시간이라 키마다 토스트는 안 띄움
+      } finally {
+        if (alive) setTmdbLoading(false)
+      }
+    }, 350)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [q])
+
+  /** TMDB 결과 선택 — 그 작품을 DB에 만들고(이미 있으면 기존 행) 그걸 고른 것으로 친다. */
+  const pickTmdb = async (r: TmdbResult) => {
+    if (resolving) return
+    setResolving(true)
+    try {
+      const type = tmdbResultType(r)
+      setPicked(await DS.ensureContent({
+        contentId: tmdbContentId(type, r.tmdbId),
+        type,
+        title: r.title,
+        posterUrl: r.posterUrl,
+        releaseYear: r.year,
+        synopsis: r.overview,
+      }))
+    } catch (e: any) {
+      toast(e?.message || '작품을 불러오지 못했어요.')
+    } finally {
+      setResolving(false)
+    }
+  }
 
   // 이 작품에 이미 별점을 매겼나? (1작품 1별점 · 지금 고치는 글 자신은 제외)
   const rated = picked && user && isAccount ? DS.getUserRatingForContent(user.id, picked.id) : undefined
@@ -154,7 +203,7 @@ export function WriteDiscussionPage() {
           ) : (
             <>
               <input className="form-input" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} />
-              {matches.length > 0 && (
+              {(matches.length > 0 || tmdbHits.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (
                     <div key={c.id} className="tmdb-result" onClick={() => setPicked(c)}>
@@ -165,10 +214,23 @@ export function WriteDiscussionPage() {
                       </div>
                     </div>
                   ))}
+                  {/* DB에 없는 작품 — 고르면 그 자리에서 등록된다(ensureContent) */}
+                  {tmdbHits.map(r => (
+                    <div key={`${r.kind}-${r.tmdbId}`} className="tmdb-result" onClick={() => pickTmdb(r)}>
+                      {r.posterUrl ? <img src={r.posterUrl} alt={r.title} /> : <div className="noimg">No Image</div>}
+                      <div>
+                        <div className="t">{r.title}</div>
+                        <div className="m">{TYPE_LABELS[tmdbResultType(r)]}{r.year ? ` · ${r.year}` : ''}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-              {q.trim() && !matches.length && (
-                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. (없는 작품은 내 피드 등록으로 추가할 수 있어요)</p>
+              {q.trim() && (tmdbLoading || resolving) && (
+                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>{resolving ? '작품을 불러오는 중…' : '검색 중…'}</p>
+              )}
+              {q.trim() && !tmdbLoading && !resolving && !matches.length && !tmdbHits.length && (
+                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. (웹툰·웹소설은 내 피드 등록으로 추가할 수 있어요)</p>
               )}
             </>
           )}
