@@ -7,7 +7,11 @@ import { EXPERT_TIER, isExpertAuthor, levelBadgeFor } from '@/utils/level'
  *
  *  툴팁의 XP 수치는 관리자에게만 — 목록마다 닉네임 옆에 붙는 배지라
  *  여기서 새면 남의 XP 까지 다 들여다볼 수 있다. */
-export function LevelTag({ authorId }: { authorId: string | null | undefined }) {
+export function LevelTag({ authorId, expertOnly }: {
+  authorId: string | null | undefined
+  /** 좋문가일 때만 그린다(👑). 목록처럼 줄이 빽빽한 곳에서 Lv.N 까지 붙으면 제목이 밀린다. */
+  expertOnly?: boolean
+}) {
   const isAdmin = useAuthStore(s => s.user?.role === 'admin')
   const info = levelBadgeFor(authorId)
   if (!info) return null
@@ -19,6 +23,7 @@ export function LevelTag({ authorId }: { authorId: string | null | undefined }) 
       </span>
     )
   }
+  if (expertOnly) return null
   return (
     <span className="level-tag" title={`${info.tier.emoji} ${info.tier.name}${xpPart}`}>
       Lv.{info.tierIndex + 1}

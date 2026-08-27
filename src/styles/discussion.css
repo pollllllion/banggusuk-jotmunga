@@ -78,18 +78,18 @@
 }
 .disc-row:last-child { border-bottom: none; }
 .disc-row:hover { background: var(--bg); }
-.disc-row-badge { flex-shrink: 0; }
 /* 제목이 줄에서 유일하게 큰 것이어야 한다 — 나머지는 전부 11.5px 로 내렸다 */
 .disc-row-title {
   flex: 0 1 auto; min-width: 0;
   font-size: 14px; font-weight: 700; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* 제목 바로 오른쪽: 공감수 · 댓글수 */
+/* 제목 바로 오른쪽: 댓글수. 작품명과 같은 파란색 — 둘 다 "누르면 대화로 간다" 쪽이다 */
 .disc-row-counts { display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0; }
 .disc-row-stat {
   display: inline-flex; align-items: center; gap: 3px;
-  font-size: 12px; color: var(--subtext); font-weight: 600;
+  font-size: 11.5px; color: var(--primary); font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 /* 오른쪽 끝: 닉네임 → 시간 순 */
 .disc-row-meta {
@@ -100,7 +100,7 @@
    평문 링크로 낮추고 색으로만 "누를 수 있다"를 표시한다. */
 .disc-row-work {
   max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  color: var(--primary); font-weight: 600; font-size: 11.5px; cursor: pointer;
+  color: var(--primary); font-weight: 700; font-size: 11.5px; cursor: pointer;
   transition: color var(--duration) var(--ease);
 }
 .disc-row-work:hover { color: var(--primary-dark); text-decoration: underline; }
@@ -311,9 +311,8 @@
 }
 .disc-rank-work:hover { color: var(--primary); text-decoration: underline; }
 
-/* 목록 행 톤 정리 — 타입은 이모지만 (배지 색이 행마다 튀지 않게).
-   별점 pill 은 목록에서 안 쓴다(DiscussionRow 참고). 상세·인기글에는 그대로 남아 있다. */
-.disc-row .disc-row-badge { background: none; padding: 0; font-size: 13px; line-height: 1; }
+/* 목록 행에서는 타입 배지·별점 pill 을 안 쓴다(DiscussionRow 참고).
+   둘 다 상세·인기글에는 그대로 남아 있다. */
 
 @media (max-width: 640px) {
   .disc-rank-work { display: none; }

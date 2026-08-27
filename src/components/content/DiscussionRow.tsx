@@ -1,8 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
-import { CommentIcon } from '@/components/ui/Icons'
 import { LevelTag } from '@/components/profile/LevelTag'
-import { TYPE_EMOJIS, TYPE_LABELS } from '@/utils/constants'
 import { timeAgo } from '@/utils/helpers'
 import type { Content, Discussion } from '@/types'
 
@@ -49,12 +47,9 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
 
   return (
     <div className="disc-row" onClick={onOpen}>
-      {showContent && (
-        <span className={`disc-row-badge type-badge type-${content.type}`} title={TYPE_LABELS[content.type]}>
-          {TYPE_EMOJIS[content.type]}
-        </span>
-      )}
-      {/* 별점은 목록에 안 그린다 — 글쓴이 한 명의 점수라 훑을 때 판단 근거가 약하고,
+      {/* 타입 이모지(🎬📺…)는 안 그린다 — 줄 맨 앞에서 제목보다 먼저 읽혔다.
+          어떤 작품인지는 오른쪽 작품명이 말해 준다. */}
+      {/* 별점도 안 그린다 — 글쓴이 한 명의 점수라 훑을 때 판단 근거가 약하고,
           줄마다 다른 색이 켜져서 제목보다 먼저 눈에 띈다. 작품 평균은 작품 상세에 있다. */}
       <span className="disc-row-title">
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>} {title}
@@ -67,7 +62,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
           <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
         )}
         <span className="disc-writer">
-          <LevelTag authorId={post.authorId} />
+          <LevelTag authorId={post.authorId} expertOnly />
           <span
             className={`disc-author ${isAccount ? '' : 'guest'} ${canProfile ? 'linkable' : ''}`}
             onClick={goProfile}>
@@ -90,7 +85,7 @@ function Stats({ commentCount }: { commentCount: number }) {
   if (!commentCount) return null
   return (
     <span className="disc-row-counts">
-      <span className="disc-row-stat"><CommentIcon /> {commentCount}</span>
+      <span className="disc-row-stat">💬 {commentCount}</span>
     </span>
   )
 }
