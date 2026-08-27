@@ -1038,6 +1038,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .level-guide { max-height: 88vh; overflow-y: auto; }
 .lg-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px; }
 .lg-sec-title { font-size: 13px; font-weight: 800; color: var(--text); margin: 16px 0 8px; }
+/* XP 산정 규칙은 관리자에게만 보인다 — 그 섹션임을 관리자 본인도 알아보게 */
+.lg-admin-only {
+  font-size: 10px; font-weight: 700; color: var(--subtext);
+  background: var(--bg-soft, var(--card)); border: 1px solid var(--border);
+  border-radius: var(--radius-full); padding: 1px 7px; margin-left: 6px; vertical-align: middle;
+}
 .lg-tiers { display: flex; flex-direction: column; gap: 4px; }
 .lg-tier {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px;

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useAuthStore } from '@/stores/authStore'
 import { EXPERT_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
 import { LevelGuideModal } from '@/components/profile/LevelGuideModal'
 import type { User } from '@/types'
@@ -9,6 +10,9 @@ import type { User } from '@/types'
 export function LevelCard({ user, tick }: { user: User; tick?: number }) {
   const [showGuide, setShowGuide] = useState(false)
   const expert = isExpert(user)
+  // 총 XP 수치는 관리자만 본다. 일반 사용자에게는 '다음 단계까지 남은 XP' 만 준다
+  // — 누적 점수를 보여주면 그걸 올리는 방법을 역산하게 된다. (LevelGuideModal 주석 참고)
+  const isAdmin = useAuthStore(s => s.user?.role === 'admin')
   const { level, stats } = useMemo(() => {
     const s = computeStats(user.id, user.createdAt)
     return { level: computeLevel(computeXp(s)), stats: s }
@@ -34,7 +38,9 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
                 : <>활동 레벨 최고 단계 🎉</>}
           </div>
         </div>
-        <span className="level-xp-num">{level.xp}<small>XP</small></span>
+        {isAdmin
+          ? <span className="level-xp-num">{level.xp}<small>XP</small></span>
+          : !expert && level.next && <span className="level-xp-num">{level.toNext}<small>XP 남음</small></span>}
       </div>
 
       <div className="level-bar" role="progressbar" aria-valuenow={Math.round(level.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
@@ -67,7 +73,7 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
 
       <div className="level-card-hint">방좋 레벨 시스템 보기 ›</div>
     </div>
-    {showGuide && <LevelGuideModal currentTierIndex={level.tierIndex} isExpert={expert} onClose={() => setShowGuide(false)} />}
+    {showGuide && <LevelGuideModal level={level} isExpert={expert} onClose={() => setShowGuide(false)} />}
     </>
   )
 }
