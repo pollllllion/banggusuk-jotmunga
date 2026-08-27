@@ -1,10 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
-import { HeartIcon, CommentIcon, EyeIcon } from '@/components/ui/Icons'
-import { ExpertTag } from '@/components/profile/ExpertTag'
+import { CommentIcon } from '@/components/ui/Icons'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { TYPE_EMOJIS, TYPE_LABELS } from '@/utils/constants'
-import { timeAgo, scoreColor } from '@/utils/helpers'
+import { timeAgo } from '@/utils/helpers'
 import type { Content, Discussion } from '@/types'
 
 /** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판). */
@@ -42,7 +41,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
         </span>
         <span className="disc-rank-meta">
           <span className="disc-rank-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
-          <Stats post={post} commentCount={commentCount} />
+          <Stats commentCount={commentCount} />
         </span>
       </div>
     )
@@ -55,18 +54,14 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
           {TYPE_EMOJIS[content.type]}
         </span>
       )}
-      {/* 별점 자리는 없어도 비워둔다 — 있고 없고에 따라 제목 시작점이 흔들리지 않게 */}
-      <span className="disc-row-rating">
-        {post.rating != null && (
-          <span className="disc-rating-pill" style={{ color: scoreColor(post.rating) }}>★ {post.rating}</span>
-        )}
-      </span>
+      {/* 별점은 목록에 안 그린다 — 글쓴이 한 명의 점수라 훑을 때 판단 근거가 약하고,
+          줄마다 다른 색이 켜져서 제목보다 먼저 눈에 띈다. 작품 평균은 작품 상세에 있다. */}
       <span className="disc-row-title">
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>} {title}
         {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}
       </span>
-      <ExpertTag authorId={post.authorId} />
-      <Stats post={post} commentCount={commentCount} />
+      {/* ExpertTag 는 여기 안 붙인다 — 아래 LevelTag 가 좋문가면 👑 를 그려서 왕관이 두 번 나온다 */}
+      <Stats commentCount={commentCount} />
       <span className="disc-row-meta">
         {showContent && (
           <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
@@ -85,16 +80,17 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   )
 }
 
-/** 추천·댓글·조회 — 0인 항목은 그리지 않는다 (전부 0이면 아예 안 보임). */
-function Stats({ post, commentCount }: { post: Discussion; commentCount: number }) {
-  const likes = post.likes.length
-  const views = post.views || 0
-  if (!likes && !commentCount && !views) return null
+/**
+ * 목록에 붙는 숫자 — **댓글수만**.
+ * 추천·조회는 뺐다. 지금 값이 0~15 범위라 줄마다 구분이 안 되면서 자리만 차지했고,
+ * "읽을 만한 글인가"는 인기글 섹션이 이미 답한다. 댓글수는 "대화가 붙었나" 라
+ * 목록에서 유일하게 남길 값으로 봤다. (2026-08-27 목록 정리)
+ */
+function Stats({ commentCount }: { commentCount: number }) {
+  if (!commentCount) return null
   return (
     <span className="disc-row-counts">
-      {likes > 0 && <span className="disc-row-stat"><HeartIcon filled={false} size={12} /> {likes}</span>}
-      {commentCount > 0 && <span className="disc-row-stat"><CommentIcon /> {commentCount}</span>}
-      {views > 0 && <span className="disc-row-stat"><EyeIcon size={12} /> {views}</span>}
+      <span className="disc-row-stat"><CommentIcon /> {commentCount}</span>
     </span>
   )
 }
