@@ -42,6 +42,11 @@ export function DiscussionRoomPage() {
 
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
   const query = q.trim().toLowerCase()
+  // 작품명으로 거를 땐 통합검색과 같은 매칭을 쓴다 — "유퀴즈"로도 '유 퀴즈 온 더 블럭' 글이 나오게.
+  // 글 제목·본문은 쓴 그대로 찾아야 하므로 원문 substring 을 유지한다.
+  const matchedContentIds = query
+    ? new Set(DS.searchContents(q.trim(), Infinity).map(c => c.id))
+    : null
 
   // 전체 작품 글(discussions) + 작품 정보 결합 → 타입/검색 필터 → 최신순
   const rows = DS.getDiscussions()
@@ -56,7 +61,7 @@ export function DiscussionRoomPage() {
     .filter(({ post, content }) => !query ||
       (post.title || '').toLowerCase().includes(query) ||
       post.body.toLowerCase().includes(query) ||
-      content.title.toLowerCase().includes(query))
+      matchedContentIds!.has(content.id))
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
 
   // 인기글 — 필터·검색과 무관하게 게시판 전체에서 뽑는다(상단 고정 섹션).

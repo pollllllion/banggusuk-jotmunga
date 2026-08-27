@@ -55,10 +55,13 @@ export function WriteDiscussionPage() {
   const [guestPw, setGuestPw] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // 통합검색(Header)·본 작품 등록과 같은 소스를 쓴다.
+  // 예전엔 여기만 원문 substring 이라 "유퀴즈"로 "유 퀴즈 온 더 블럭"이 안 잡혔고,
+  // 원제·감독으로도 못 찾았고, 숨긴 작품이 그대로 떴다.
   const matches = useMemo(() => {
-    const query = q.trim().toLowerCase()
+    const query = q.trim()
     if (!query) return []
-    return DS.getContents().filter(c => c.title.toLowerCase().includes(query)).slice(0, 12)
+    return DS.searchContents(query, 12)
   }, [q])
 
   // 이 작품에 이미 별점을 매겼나? (1작품 1별점 · 지금 고치는 글 자신은 제외)

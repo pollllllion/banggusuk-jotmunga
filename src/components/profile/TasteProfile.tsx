@@ -112,11 +112,11 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
   const [dirInput, setDirInput] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // 로컬 DB 매칭 (이미 등록된 작품)
+  // 로컬 DB 매칭 (이미 등록된 작품) — 통합검색과 같은 소스
   const matches = useMemo(() => {
-    const query = q.trim().toLowerCase()
+    const query = q.trim()
     if (!query) return []
-    return DS.getContents().filter(c => c.title.toLowerCase().includes(query) && !works.includes(c.id)).slice(0, 6)
+    return DS.searchContents(query, 20).filter(c => !works.includes(c.id)).slice(0, 6)
   }, [q, works])
 
   // TMDB 통합 검색 (DB에 없는 작품도 찾기) — 본 작품 등록과 동일 소스

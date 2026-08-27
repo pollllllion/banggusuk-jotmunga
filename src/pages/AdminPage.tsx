@@ -129,10 +129,12 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
     else toast('해당 작품을 찾을 수 없어요.')
   }, [editId])
 
-  const q = query.trim().toLowerCase()
-  // 최신 개봉순(공개일 내림차순, 없으면 뒤로). 검색은 제목 기준.
+  const q = query.trim()
+  // 검색은 통합검색과 같은 매칭(띄어쓰기·원제·감독). 관리자는 숨긴 작품도 찾아야 하므로 포함시킨다.
+  const matchedIds = q ? new Set(DS.searchContents(q, Infinity, { includeHidden: true }).map(c => c.id)) : null
+  // 최신 개봉순(공개일 내림차순, 없으면 뒤로).
   const contents = [...DS.getContents()]
-    .filter(c => !q || c.title.toLowerCase().includes(q))
+    .filter(c => !matchedIds || matchedIds.has(c.id))
     .filter(c => !onlyUnverified || !c.verified)
     .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
   const unverifiedCount = DS.getContents().filter(c => !c.verified).length

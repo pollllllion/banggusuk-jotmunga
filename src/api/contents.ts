@@ -59,13 +59,17 @@ export function hasTmdbContent(kind: 'movie' | 'tv', tmdbId: number): boolean {
  *
  * 점수: 제목 완전일치 > 제목 앞부분 > 제목 포함 > 원제 > 감독·작가 > 장르.
  * 동점이면 화제도(popularity) → 리뷰수 순. 숨긴 작품은 제외.
+ *
+ * 작품을 검색하는 곳(통합검색·본 작품 등록·토론 글쓰기·취향 프로필·토론방·관리자)은
+ * 전부 이 함수를 쓴다. 각자 substring 으로 따로 구현하면 같은 검색어에 다른 결과가 나온다.
+ * @param opts.includeHidden 숨긴 작품도 포함 (관리자 목록 전용 — 숨긴 걸 다시 찾아야 하므로)
  */
-export function searchContents(query: string, limit = 8): Content[] {
+export function searchContents(query: string, limit = 8, opts?: { includeHidden?: boolean }): Content[] {
   const q = normalizeTitle(query)
   if (!q) return []
   const hits: { c: Content; score: number }[] = []
   for (const c of getContents()) {
-    if (c.hidden) continue
+    if (c.hidden && !opts?.includeHidden) continue
     const title = normalizeTitle(c.title)
     const original = normalizeTitle(c.originalTitle || '')
     let score = 0
