@@ -14,12 +14,18 @@ const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefine
 
 export type PushState = 'unsupported' | 'default' | 'denied' | 'on'
 
-/** base64url(VAPID 공개키) → PushManager 가 요구하는 Uint8Array */
-function urlBase64ToUint8Array(base64: string): Uint8Array {
+/**
+ * base64url(VAPID 공개키) → PushManager 가 요구하는 Uint8Array.
+ *
+ * 버퍼를 명시적으로 만들어 `Uint8Array<ArrayBuffer>` 로 좁힌다.
+ * `new Uint8Array(길이)` 는 `Uint8Array<ArrayBufferLike>` 라 SharedArrayBuffer 도
+ * 포함되는데, applicationServerKey 가 받는 BufferSource 는 그걸 안 받는다.
+ */
+function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padded = (base64 + '='.repeat((4 - (base64.length % 4)) % 4))
     .replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(padded)
-  const out = new Uint8Array(raw.length)
+  const out = new Uint8Array(new ArrayBuffer(raw.length))
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i)
   return out
 }
