@@ -346,6 +346,14 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .auth-card .logo { justify-content: center; margin-bottom: 6px; }
 .auth-card .logo-text { font-size: 22px; }
 .auth-subtitle { text-align: center; color: var(--subtext); margin-bottom: 20px; font-size: 13px; }
+/* 로그인 상태 유지 — 라벨 전체가 클릭 영역이라 폰에서 체크박스를 정확히 안 눌러도 된다 */
+.auth-remember {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 4px; font-size: 13px; color: var(--subtext);
+  cursor: pointer; user-select: none;
+}
+.auth-remember input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; margin: 0; }
+
 .auth-btn {
   width: 100%; padding: 12px;
   background: linear-gradient(135deg, var(--primary), #71717A); color: #fff; border: none;

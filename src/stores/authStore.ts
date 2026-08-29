@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { User } from '@/types'
 import * as DS from '@/api/dataService'
 import { supabase } from '@/lib/supabaseClient'
+import { setRemember } from '@/lib/authStorage'
 
 interface AuthResult { ok: boolean; error?: string; needsConfirm?: boolean }
 
@@ -12,7 +13,7 @@ interface AuthState {
   isAccount: boolean
 
   init: () => Promise<void>
-  login: (email: string, password: string) => Promise<AuthResult>
+  login: (email: string, password: string, remember?: boolean) => Promise<AuthResult>
   register: (data: { nickname: string; email: string; password: string }) => Promise<AuthResult>
   logout: () => Promise<void>
   refresh: () => void
@@ -125,7 +126,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, initialized: true })
   },
 
-  login: async (email, password) => {
+  login: async (email, password, remember = true) => {
+    // 토큰을 어디에 저장할지가 이 한 줄로 갈린다 — 반드시 로그인 요청 전에 정해야
+    // 새 토큰이 의도한 저장소로 들어간다.
+    setRemember(remember)
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error || !data.user) return { ok: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' }
     const account = await DS.ensureProfile(data.user)

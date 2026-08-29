@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabaseClient'
+import { isRemember } from '@/lib/authStorage'
 import { isPasswordValid, getPasswordRules, isValidEmail } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
 
@@ -17,6 +18,7 @@ export function AuthPage() {
   // login
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPw, setLoginPw] = useState('')
+  const [remember, setRememberChecked] = useState(isRemember())
 
   // register
   const [regEmail, setRegEmail] = useState('')
@@ -34,7 +36,7 @@ export function AuthPage() {
     setError('')
     if (!loginEmail || !loginPw) { setError('이메일과 비밀번호를 입력하세요.'); return }
     setBusy(true)
-    const result = await login(loginEmail, loginPw)
+    const result = await login(loginEmail, loginPw, remember)
     setBusy(false)
     if (!result.ok) { setError(result.error || '로그인 실패'); return }
     navigate('/')
@@ -106,6 +108,10 @@ export function AuthPage() {
               <label>비밀번호</label>
               <input type="password" className="form-input" placeholder="비밀번호를 입력하세요" value={loginPw} onChange={e => setLoginPw(e.target.value)} />
             </div>
+            <label className="auth-remember">
+              <input type="checkbox" checked={remember} onChange={e => setRememberChecked(e.target.checked)} />
+              <span>로그인 상태 유지</span>
+            </label>
             <button type="submit" className="auth-btn" disabled={busy}>{busy ? '처리 중...' : '로그인'}</button>
             <div className="auth-switch">계정이 없으신가요? <a onClick={() => { setMode('register'); setError('') }}>회원가입</a></div>
             <div className="auth-switch" style={{ marginTop: 8 }}><a onClick={() => { setMode('reset'); setError('') }}>비밀번호를 잊으셨나요?</a></div>

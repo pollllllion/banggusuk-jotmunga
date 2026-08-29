@@ -5,6 +5,7 @@
  * publishable 키는 브라우저 노출을 전제로 설계된 공개용 키라 코드에 있어도 안전합니다.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { authStorage } from './authStorage'
 
 const DEFAULT_URL = 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const DEFAULT_ANON = 'sb_publishable_XRQiUZAforlq1XXAZytb0A_6CAkxx6t'
@@ -16,9 +17,11 @@ export const isSupabaseConfigured = Boolean(url && anonKey)
 
 /**
  * 자동 로그인은 여기서 정해진다.
- * 로그인 토큰을 localStorage 에 두고(persistSession) 만료 전에 갱신하면(autoRefreshToken),
+ * 토큰을 보관하고(persistSession) 만료 전에 갱신하면(autoRefreshToken),
  * 브라우저를 껐다 켜도·폰을 며칠 뒤에 열어도 로그인 상태가 이어진다.
  * supabase-js 의 기본값과 같지만, 기본값이 바뀌면 조용히 로그아웃되는 종류의 변화라 명시한다.
+ *
+ * 어디에 보관할지는 로그인 화면의 "로그인 상태 유지" 체크가 정한다 → authStorage.
  *
  * storageKey 는 건드리지 않는다 — 바꾸는 순간 기존 토큰이 옛 키에 남아
  * 지금 로그인해 둔 사람이 전부 로그아웃된다.
@@ -31,5 +34,6 @@ export const supabase: SupabaseClient = createClient(url, anonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    storage: authStorage,
   },
 })
