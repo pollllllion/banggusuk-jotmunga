@@ -40,6 +40,53 @@ function ensureGuest(): User {
   return asGuest(user)
 }
 
+/**
+ * 로그인 상태 복구 구독 — 자동 로그인의 나머지 절반.
+ *
+ * init 은 앱이 뜨는 그 한 순간만 본다. 그런데 폰에서 앱을 며칠 만에 열면
+ * 저장된 토큰이 만료돼 있어 getSession 이 잠깐 빈손으로 돌아오고(네트워크가 아직
+ * 안 붙었을 때도 마찬가지), 그 사이 화면은 게스트로 내려간다. 조금 뒤 토큰 갱신이
+ * 성공해도 아무도 그 사실을 화면에 반영하지 않아 로그아웃된 것처럼 남는다.
+ * 그래서 갱신·로그인·로그아웃을 계속 듣고 그때그때 상태를 맞춘다.
+ *
+ * 다른 탭에서 로그아웃한 경우도 여기로 들어온다.
+ */
+let authSubscribed = false
+
+function subscribeAuthChanges(set: (s: Partial<AuthState>) => void, get: () => AuthState) {
+  if (authSubscribed) return
+  authSubscribed = true
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    // INITIAL_SESSION 은 init 이 직접 처리한다(중복 처리 방지).
+    if (event === 'INITIAL_SESSION') return
+
+    // 콜백 안에서 supabase 를 다시 부르면 교착이 생길 수 있다 — 밖으로 빼서 실행한다.
+    setTimeout(async () => {
+      try {
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          if (!get().isAccount) return
+          const guest = ensureGuest()
+          DS.setSession(guest)
+          await DS.reloadUserScoped()
+          set({ user: guest, isAccount: false })
+          return
+        }
+        // 이미 같은 계정으로 붙어 있으면 굳이 다시 그리지 않는다(토큰만 갱신된 경우).
+        if (get().isAccount && get().user?.id === session.user.id) return
+
+        const account = await DS.ensureProfile(session.user)
+        if (account.banned) { await supabase.auth.signOut(); return }
+        DS.setSession(account)
+        await DS.reloadUserScoped()
+        set({ user: await withAttendance(account), isAccount: true })
+      } catch (e) {
+        console.error('[auth] 상태 변경 처리 실패:', e)
+      }
+    }, 0)
+  })
+}
+
 /** 계정 로그인 시 출석 streak 을 집계하고, 갱신된 값을 유저에 반영한다.
  *  (profiles 마이그레이션 미적용 시 touchAttendance 가 null → 원본 그대로) */
 async function withAttendance(account: User): Promise<User> {
@@ -54,6 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     try {
+      subscribeAuthChanges(set, get)
       await DS.loadAll()
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {

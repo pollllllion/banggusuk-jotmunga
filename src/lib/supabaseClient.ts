@@ -14,4 +14,22 @@ const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) |
 
 export const isSupabaseConfigured = Boolean(url && anonKey)
 
-export const supabase: SupabaseClient = createClient(url, anonKey)
+/**
+ * 자동 로그인은 여기서 정해진다.
+ * 로그인 토큰을 localStorage 에 두고(persistSession) 만료 전에 갱신하면(autoRefreshToken),
+ * 브라우저를 껐다 켜도·폰을 며칠 뒤에 열어도 로그인 상태가 이어진다.
+ * supabase-js 의 기본값과 같지만, 기본값이 바뀌면 조용히 로그아웃되는 종류의 변화라 명시한다.
+ *
+ * storageKey 는 건드리지 않는다 — 바꾸는 순간 기존 토큰이 옛 키에 남아
+ * 지금 로그인해 둔 사람이 전부 로그아웃된다.
+ *
+ * ⚠️ iOS Safari 에서 홈 화면에 추가하지 않고 탭으로만 쓰면, 7일간 방문이 없을 때
+ * 브라우저(ITP)가 localStorage 를 비워서 로그아웃된다. 앱으로 설치하면 유지된다.
+ */
+export const supabase: SupabaseClient = createClient(url, anonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+})
