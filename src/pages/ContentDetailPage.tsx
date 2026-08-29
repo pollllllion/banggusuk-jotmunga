@@ -9,7 +9,7 @@ import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
-import { BackIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
+import { BackIcon, BellIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
@@ -18,6 +18,7 @@ import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
 } from '@/shared/contentSeo.mjs'
 import { isIndexableContent } from '@/shared/contentIndexable.mjs'
+import { getPushState, enablePush } from '@/utils/push'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -56,12 +57,40 @@ export function ContentDetailPage() {
   const expertRating = expertRatingFor(rated)
 
   const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
+  const alerted = user ? DS.isContentAlerted(user.id, content.id) : false
 
   const handleBookmark = () => {
     if (!user) return
     if (!isAccount) { toast('찜은 로그인(고정닉) 후 이용할 수 있어요.'); return }
     const added = DS.toggleBookmark(user.id, content.id)
     toast(added ? '작품을 찜했습니다.' : '찜을 취소했습니다.'); rerender()
+  }
+
+  /**
+   * 공개알림 — 찜과 별개다.
+   * 알림이 실제로 오려면 ① 이 작품의 알림 행 ② 이 기기의 푸시 구독, 둘 다 필요하다.
+   * 그래서 켜는 순간 구독이 없으면 여기서 바로 권한을 요청한다.
+   * (설정 페이지까지 찾아가라고 하면 그 단계에서 다 이탈한다 — 원래 그래서 안 왔다)
+   */
+  const handleAlert = async () => {
+    if (!user) return
+    if (!isAccount) { toast('공개알림은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+
+    const on = DS.toggleContentAlert(user.id, content.id)
+    rerender()
+    if (!on) { toast('공개알림을 껐어요.'); return }
+
+    const state = await getPushState()
+    if (state === 'on') { toast('공개일에 알려드릴게요.'); return }
+    if (state === 'unsupported') { toast('이 브라우저는 알림을 지원하지 않아요. 다른 기기에서 켜주세요.'); return }
+    if (state === 'denied') { toast('브라우저에서 알림이 차단돼 있어요. 주소창 옆 자물쇠에서 허용으로 바꿔주세요.'); return }
+    try {
+      await enablePush(user.id)
+      toast('공개일에 알려드릴게요.')
+    } catch (e: any) {
+      // 알림 행은 남겨둔다 — 다른 기기에서 구독을 켜면 그때부터 유효하다
+      toast(e?.message || '알림 권한을 받지 못했어요. 설정에서 다시 켜주세요.')
+    }
   }
 
   const goWrite = () => navigate(`/talk/write?contentId=${content.id}`)
@@ -110,8 +139,13 @@ export function ContentDetailPage() {
               <button className="btn btn-primary" onClick={goWrite}>✍️ 토론하기</button>
             )}
             <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
-              <BookmarkIcon filled={bookmarked} /> {isUpcoming ? '찜 · 공개알림' : '찜'}
+              <BookmarkIcon filled={bookmarked} /> 찜
             </button>
+            {isUpcoming && (
+              <button className={`btn-like ${alerted ? 'active' : ''}`} onClick={handleAlert}>
+                <BellIcon size={15} filled={alerted} /> {alerted ? '알림 켜짐' : '공개알림'}
+              </button>
+            )}
             <button className="btn-text btn-small" onClick={() => openReportModal('content', content.id)}>
               <FlagIcon /> 신고
             </button>

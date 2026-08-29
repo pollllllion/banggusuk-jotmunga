@@ -213,6 +213,15 @@ export interface Bookmark {
   createdAt: string
 }
 
+// ── ContentAlert (작품 공개알림) ────────────────────────────
+// 찜과 모양은 같지만 뜻이 다르다. 찜은 "저장", 이건 "공개일에 푸시를 받겠다".
+// 발송 대상은 scripts/send-release-push.mjs 가 이 테이블에서 뽑는다.
+export interface ContentAlert {
+  userId: string
+  contentId: string
+  createdAt: string
+}
+
 // ── Watched (내가 본 작품 — 내 피드) ────────────────────────
 export interface Watched {
   userId: string

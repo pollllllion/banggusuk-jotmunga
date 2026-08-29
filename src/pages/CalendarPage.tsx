@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
 import { ContentInfo } from '@/components/content/ContentInfo'
-import { BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
+import { BellIcon, BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
 import {
@@ -17,6 +17,7 @@ import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
 import { Footer } from '@/components/layout/Footer'
 import { SITE_NAME, SITE_URL } from '@/utils/seo'
+import { getPushState, enablePush } from '@/utils/push'
 import '@/styles/calendar.css'
 
 /** 홈(캘린더) 구조화 데이터 — 검색결과에 사이트명·검색창을 노출시키기 위한 것 */
@@ -98,6 +99,7 @@ export function CalendarPage() {
   const [ott, setOtt] = useState<string>('all')
   const [selected, setSelected] = useState<Content | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
+  const [alerted, setAlerted] = useState(false)
   const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
   const [airPattern, setAirPattern] = useState<string | null>(null)
 
@@ -204,12 +206,36 @@ export function CalendarPage() {
   const openItem = (c: Content) => {
     setSelected(c)
     setBookmarked(user ? DS.isBookmarked(user.id, c.id) : false)
+    setAlerted(user ? DS.isContentAlerted(user.id, c.id) : false)
   }
 
-  const toggleAlarm = () => {
+  const toggleBookmark = () => {
     if (!user || !selected) return
-    if (!isAccount) { toast('찜·공개알림은 로그인(고정닉) 후 이용할 수 있어요.'); return }
-    setBookmarked(DS.toggleBookmark(user.id, selected.id))
+    if (!isAccount) { toast('찜은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    const added = DS.toggleBookmark(user.id, selected.id)
+    setBookmarked(added)
+    toast(added ? '작품을 찜했습니다.' : '찜을 취소했습니다.')
+  }
+
+  // 알림은 찜과 별개다 — 자세한 이유는 ContentDetailPage 의 handleAlert 주석 참고
+  const toggleAlarm = async () => {
+    if (!user || !selected) return
+    if (!isAccount) { toast('공개알림은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+
+    const on = DS.toggleContentAlert(user.id, selected.id)
+    setAlerted(on)
+    if (!on) { toast('공개알림을 껐어요.'); return }
+
+    const state = await getPushState()
+    if (state === 'on') { toast('공개일에 알려드릴게요.'); return }
+    if (state === 'unsupported') { toast('이 브라우저는 알림을 지원하지 않아요. 다른 기기에서 켜주세요.'); return }
+    if (state === 'denied') { toast('브라우저에서 알림이 차단돼 있어요. 주소창 옆 자물쇠에서 허용으로 바꿔주세요.'); return }
+    try {
+      await enablePush(user.id)
+      toast('공개일에 알려드릴게요.')
+    } catch (e: any) {
+      toast(e?.message || '알림 권한을 받지 못했어요. 설정에서 다시 켜주세요.')
+    }
   }
 
   const selDate = selected ? effectiveReleaseDate(selected) : null
@@ -437,9 +463,13 @@ export function CalendarPage() {
               <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
             </div>
             <div className="cal-modal-actions">
-              <button className={`cal-act ${bookmarked ? 'on' : ''}`} onClick={toggleAlarm}>
+              <button className={`cal-act ${bookmarked ? 'on' : ''}`} onClick={toggleBookmark}>
                 <BookmarkIcon filled={bookmarked} />
-                {bookmarked ? '알림 신청됨' : '찜하고 알림받기'}
+                {bookmarked ? '찜함' : '찜'}
+              </button>
+              <button className={`cal-act ${alerted ? 'on' : ''}`} onClick={toggleAlarm}>
+                <BellIcon size={15} filled={alerted} />
+                {alerted ? '알림 켜짐' : '공개알림'}
               </button>
               <button className="cal-act primary" onClick={() => navigate(`/content/${selected.id}`)}>
                 <CommentIcon /> 작품방 들어가기

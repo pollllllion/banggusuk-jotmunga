@@ -11,18 +11,18 @@ import { CONTENT_LIST_COLS } from './contentColumns'
 
 export type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'discussion_comments' | 'profiles'
+  | 'bookmarks' | 'content_alerts' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'discussion_comments' | 'profiles'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'discussion_comments', 'profiles']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'content_alerts', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'discussion_comments', 'profiles']
 
 export const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [],
+  bookmarks: [], content_alerts: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [],
 }
 
-/** 테이블별 기본키 컬럼. watched·bookmarks·blocks 는 복합키라 id 컬럼이 아예 없다. */
+/** 테이블별 기본키 컬럼. watched·bookmarks·content_alerts·blocks 는 복합키라 id 컬럼이 아예 없다. */
 function pkCols(t: Table): string[] {
-  if (t === 'bookmarks' || t === 'watched') return ['userId', 'contentId']
+  if (t === 'bookmarks' || t === 'content_alerts' || t === 'watched') return ['userId', 'contentId']
   if (t === 'blocks') return ['blockerId', 'blockedId']
   return ['id']
 }
@@ -32,7 +32,7 @@ function rowKey(t: Table, r: any): string {
 }
 
 function conflictCols(t: Table): string {
-  if (t === 'bookmarks') return 'userId,contentId'
+  if (t === 'bookmarks' || t === 'content_alerts') return 'userId,contentId'
   if (t === 'blocks') return 'blockerId,blockedId'
   return 'id'
 }
@@ -53,7 +53,7 @@ async function persist(t: Table, prev: any[], next: any[]) {
     // 삭제된 행
     const removed = prev.filter(r => !nextKeys.has(rowKey(t, r)))
     for (const r of removed) {
-      if (t === 'bookmarks') await supabase.from(t).delete().eq('userId', r.userId).eq('contentId', r.contentId)
+      if (t === 'bookmarks' || t === 'content_alerts') await supabase.from(t).delete().eq('userId', r.userId).eq('contentId', r.contentId)
       else if (t === 'blocks') await supabase.from(t).delete().eq('blockerId', r.blockerId).eq('blockedId', r.blockedId)
       else await supabase.from(t).delete().eq('id', r.id)
     }
@@ -161,7 +161,7 @@ async function loadGuestUsers() {
  * 인증 상태가 바뀐 뒤 반드시 다시 로드해야 한다. (안 그러면 anon으로 로드된
  * 빈 캐시가 남아 내 피드/찜/알림이 텅 빈 것처럼 보인다.)
  */
-const USER_SCOPED: Table[] = ['watched', 'bookmarks', 'blocks', 'notifications', 'reports']
+const USER_SCOPED: Table[] = ['watched', 'bookmarks', 'content_alerts', 'blocks', 'notifications', 'reports']
 
 export async function reloadUserScoped() {
   await Promise.all(USER_SCOPED.map(async t => {

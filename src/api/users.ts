@@ -162,6 +162,7 @@ export async function deleteMyAccount(userId: string): Promise<{ ok: boolean; er
     }))
   }
   cache.bookmarks = cache.bookmarks.filter((b: any) => b.userId !== userId)
+  cache.content_alerts = cache.content_alerts.filter((a: any) => a.userId !== userId)
   cache.watched = cache.watched.filter((w: any) => w.userId !== userId)
   cache.notifications = cache.notifications.filter((n: any) => n.userId !== userId)
   cache.blocks = cache.blocks.filter((b: any) => b.blockerId !== userId && b.blockedId !== userId)

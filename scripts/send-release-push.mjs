@@ -1,7 +1,8 @@
 /**
  * 공개일 알림 발송 (웹푸시)
  * ------------------------------------------------------------
- * 오늘(KST) 공개·개봉하는 작품을 찜해 둔 사람에게 푸시를 보낸다.
+ * 오늘(KST) 공개·개봉하는 작품에 공개알림을 켜 둔 사람에게 푸시를 보낸다.
+ * 대상은 content_alerts 다 — 찜(bookmarks)은 저장일 뿐 알림과 무관하다.
  * GitHub Actions 일일 크론에서 돈다. 서비스 키를 쓰므로 RLS 를 우회한다.
  *
  *   node scripts/send-release-push.mjs           # 실제 발송
@@ -52,7 +53,10 @@ async function rest(path, init = {}) {
     },
   })
   if (!res.ok) throw new Error(`${path}: HTTP ${res.status} ${await res.text()}`)
-  return res.status === 204 ? null : res.json()
+  // PostgREST 는 return=minimal 인 INSERT 에 201 을 본문 없이 준다.
+  // 204 만 걸러내면 push_sent 기록에서 JSON 파싱이 터지고, 이력이 안 남아 다음날 또 보낸다.
+  const body = await res.text()
+  return body ? JSON.parse(body) : null
 }
 
 /** in.(...) 필터는 URL 길이 제한이 있어 잘라서 부른다 */
@@ -87,15 +91,15 @@ async function main() {
   console.log(`[push] ${TODAY} 공개 작품 ${contents.length}편`)
   if (!contents.length) return
 
-  // 2) 그 작품을 찜한 사람
-  const bookmarks = await fetchIn('bookmarks', '"userId","contentId"', 'contentId', contents.map(c => c.id))
-  if (!bookmarks.length) { console.log('[push] 찜한 사람 없음'); return }
+  // 2) 그 작품에 공개알림을 켠 사람
+  const alerts = await fetchIn('content_alerts', '"userId","contentId"', 'contentId', contents.map(c => c.id))
+  if (!alerts.length) { console.log('[push] 알림 켠 사람 없음'); return }
 
   // 3) 이미 보낸 건 제외
   const sent = await fetchIn('push_sent', '"userId","contentId"', 'contentId', contents.map(c => c.id), '&kind=eq.release')
   const sentKey = new Set(sent.map(s => `${s.userId}|${s.contentId}`))
-  const targets = bookmarks.filter(b => !sentKey.has(`${b.userId}|${b.contentId}`))
-  console.log(`[push] 찜 ${bookmarks.length}건 중 미발송 ${targets.length}건`)
+  const targets = alerts.filter(a => !sentKey.has(`${a.userId}|${a.contentId}`))
+  console.log(`[push] 알림 ${alerts.length}건 중 미발송 ${targets.length}건`)
   if (!targets.length) return
 
   // 4) 대상자들의 구독
@@ -106,7 +110,7 @@ async function main() {
     if (!subsByUser.has(s.userId)) subsByUser.set(s.userId, [])
     subsByUser.get(s.userId).push(s)
   }
-  console.log(`[push] 알림 켠 사람 ${subsByUser.size}명 / 기기 ${subs.length}대`)
+  console.log(`[push] 푸시 구독 있는 사람 ${subsByUser.size}명 / 기기 ${subs.length}대`)
 
   if (DRY) {
     for (const t of targets) {
@@ -131,7 +135,7 @@ async function main() {
 
     const payload = JSON.stringify({
       title: `오늘 공개! ${c.title}`,
-      body: `${TYPE_LABEL[c.type] || c.type}${c.platform ? ` · ${c.platform}` : ''} · 찜해둔 작품이 오늘 공개돼요.`,
+      body: `${TYPE_LABEL[c.type] || c.type}${c.platform ? ` · ${c.platform}` : ''} · 알림 신청한 작품이 오늘 공개돼요.`,
       url: `/content/${c.id}`,
       image: c.posterUrl || undefined,
       tag: `release-${c.id}`,

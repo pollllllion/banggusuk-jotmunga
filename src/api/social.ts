@@ -1,13 +1,13 @@
 /**
- * 개인 기록·소통 — 찜(bookmarks), 본 작품(watched), 차단(blocks),
- * 알림(notifications), 신고(reports), 공지(announcements).
+ * 개인 기록·소통 — 찜(bookmarks), 공개알림(content_alerts), 본 작품(watched),
+ * 차단(blocks), 알림(notifications), 신고(reports), 공지(announcements).
  *
- * bookmarks/watched/blocks/notifications/reports 는 RLS 상 "본인 것만" 보인다.
+ * bookmarks/content_alerts/watched/blocks/notifications/reports 는 RLS 상 "본인 것만" 보인다.
  * 로그인 상태가 바뀌면 cache.ts 의 reloadUserScoped() 로 다시 읽어야 한다.
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
-import type { Bookmark, Watched, Block, Notification, Report, Announcement, Content, ContentType } from '@/types'
+import type { Bookmark, ContentAlert, Watched, Block, Notification, Report, Announcement, Content, ContentType } from '@/types'
 import { cache, load, store } from './cache'
 import { currentUser } from './session'
 
@@ -29,6 +29,28 @@ export function isBookmarked(userId: string, contentId: string): boolean {
 
 export function getUserBookmarks(userId: string): Bookmark[] {
   return getBookmarks().filter(b => b.userId === userId)
+}
+
+// ── ContentAlert (공개알림) ─────────────────────────────────
+// 찜과 별개다. 찜해도 알림은 안 가고, 여기 행이 있는 작품만 공개일에 푸시된다.
+// 브라우저 푸시 구독(push_subscriptions)은 이것과 또 별개 — 둘 다 있어야 실제로 온다.
+export function getContentAlerts(): ContentAlert[] { return load('content_alerts') }
+export function saveContentAlerts(rows: ContentAlert[]) { store('content_alerts', rows) }
+
+export function toggleContentAlert(userId: string, contentId: string): boolean {
+  const rows = getContentAlerts()
+  const exists = rows.some(a => a.userId === userId && a.contentId === contentId)
+  if (exists) saveContentAlerts(rows.filter(a => !(a.userId === userId && a.contentId === contentId)))
+  else saveContentAlerts([...rows, { userId, contentId, createdAt: new Date().toISOString() }])
+  return !exists
+}
+
+export function isContentAlerted(userId: string, contentId: string): boolean {
+  return getContentAlerts().some(a => a.userId === userId && a.contentId === contentId)
+}
+
+export function getUserContentAlerts(userId: string): ContentAlert[] {
+  return getContentAlerts().filter(a => a.userId === userId)
 }
 
 // ── Watched (내가 본 작품 — 내 피드) ────────────────────────

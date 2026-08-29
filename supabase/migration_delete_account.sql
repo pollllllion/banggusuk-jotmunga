@@ -50,6 +50,7 @@ begin
 
   -- 3) 개인 데이터 삭제
   delete from public.bookmarks     where "userId"    = uid;
+  delete from public.content_alerts where "userId"   = uid;
   delete from public.watched       where "userId"    = uid;
   delete from public.notifications where "userId"    = uid;
   delete from public.blocks        where "blockerId" = uid or "blockedId" = uid;
