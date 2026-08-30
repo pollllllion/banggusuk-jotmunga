@@ -35,11 +35,13 @@ export function CurationListPage() {
       ) : (
         <div className="cur-list">
           {list.map(c => {
-            const posters = (c.items || [])
-              .map(i => DS.getContentById(i.contentId))
-              .filter(x => x?.posterUrl)
-              .slice(0, MAX_POSTERS)
+            const works = (c.items || []).map(i => DS.getContentById(i.contentId)).filter(Boolean)
+            const posters = works.filter(x => x!.posterUrl).slice(0, MAX_POSTERS)
             const total = (c.items || []).length
+            // 카드에는 요약문 대신 실린 작품명을 보여준다 — 포스터 옆에서 뭐가 실렸는지
+            // 바로 읽힌다. summary 는 지우지 않는다: 검색결과 meta description 이 그걸 쓴다
+            // (buildCurationDescription). items 가 아직 안 왔을 때만 summary 로 대신한다.
+            const line = works.length ? works.map(w => w!.title).join(' · ') : c.summary
 
             return (
               <article key={c.id} className="cur-card fade-in" onClick={() => navigate(`/curation/${c.id}`)}>
@@ -55,7 +57,7 @@ export function CurationListPage() {
                   )}
                 <div className="cur-card-body">
                   <h3>{c.title}</h3>
-                  <p>{c.summary}</p>
+                  <p>{line}</p>
                   <span className="cur-card-date">
                     {String(c.publishedAt).slice(0, 10).replace(/-/g, '. ')}
                     {total > 0 && ` · 작품 ${total}편`}
