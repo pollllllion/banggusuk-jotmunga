@@ -96,10 +96,19 @@ export function buildContentTitle(c, today = todayKey()) {
     : `${c.title} 리뷰·평점`
 }
 
+/**
+ * schema.org 타입.
+ *
+ * 여기서 고른 타입은 구글 '리뷰 스니펫'의 itemReviewed / aggregateRating 대상이 된다.
+ * 구글이 허용하는 타입 목록에 일반 CreativeWork 는 없어서, 그대로 쓰면
+ * "'itemReviewed' 입력란의 개체 유형이 잘못되었습니다" 오류가 뜬다(2026-08-30 GSC).
+ * → 웹소설은 Book, 웹툰·미분류는 연재물이니 CreativeWorkSeries 로 떨어뜨린다.
+ */
 export function schemaTypeOf(c) {
   if (c.type === 'movie') return 'Movie'
   if (c.type === 'drama' || c.type === 'variety') return 'TVSeries'
-  return 'CreativeWork'
+  if (c.type === 'webnovel') return 'Book'
+  return 'CreativeWorkSeries'
 }
 
 export function ogTypeOf(c) {

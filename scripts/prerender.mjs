@@ -32,7 +32,7 @@ import {
 } from '../src/shared/siteSeo.mjs'
 import {
   todayKey,
-  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
+  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, schemaTypeOf,
 } from '../src/shared/contentSeo.mjs'
 import { contentBodyLines, isIndexableContent } from '../src/shared/contentIndexable.mjs'
 import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
@@ -159,9 +159,12 @@ async function main() {
   const today = todayKey()
   let contents = []
   let discussions = []
+  let profiles = []
   try {
     contents = await fetchAll('contents', '*', VISIBLE_CONTENTS)
-    discussions = await fetchAll('discussions', 'id,contentId,title,body,rating,spoiler,createdAt')
+    discussions = await fetchAll('discussions', 'id,contentId,title,body,rating,spoiler,createdAt,authorId,guestName')
+    // Review 스키마의 author 용 (구글은 author 없는 리뷰 스니펫을 오류로 본다)
+    profiles = await fetchAll('profiles', 'id,nickname')
   } catch (e) {
     console.warn(`[prerender] DB 조회 실패, 작품·토론글 프리렌더를 건너뜁니다: ${e.message}`)
     console.log(`[prerender] 안내 문서 ${n}개만 생성됨`)
@@ -169,6 +172,12 @@ async function main() {
   }
 
   const byId = new Map(contents.map(c => [c.id, c]))
+  const nickById = new Map(profiles.map(p => [p.id, p.nickname]))
+
+  /** 글쓴이 표시명 — 화면(DiscussionRow)과 같은 규칙 */
+  const authorName = d => d.authorId
+    ? (nickById.get(d.authorId) || '탈퇴한 사용자')
+    : (d.guestName || '익명')
   const skipped = []
 
   // 작품별 토론글 수 — 사람이 쓴 글이 붙은 작품은 본문이 짧아도 색인한다
@@ -214,13 +223,20 @@ async function main() {
       canonicalPath: `/talk/${d.id}`,
       ogType: 'article',
       image: c?.posterUrl,
+      // author 누락·itemReviewed 타입 오류는 구글이 '심각한 문제'로 잡아 스니펫을 통째로 뺀다
       jsonLd: (c && hasRating) ? {
         '@context': 'https://schema.org',
         '@type': 'Review',
         url: `${SITE_URL}/talk/${d.id}`,
         name: title,
         datePublished: d.createdAt,
-        itemReviewed: { '@type': 'CreativeWork', name: c.title },
+        author: { '@type': 'Person', name: authorName(d) },
+        itemReviewed: {
+          '@type': schemaTypeOf(c),
+          name: c.title,
+          url: `${SITE_URL}/content/${c.id}`,
+          ...(c.posterUrl ? { image: c.posterUrl } : {}),
+        },
         reviewRating: { '@type': 'Rating', ratingValue: d.rating, bestRating: 10, worstRating: 1 },
       } : null,
     })
