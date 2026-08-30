@@ -82,6 +82,30 @@ function toHint(c, rel) {
 }
 
 /**
+ * 후보가 왜 줄었는지 단계별로 센다.
+ *
+ * OTT 필터를 걸면 극장 개봉작이 통째로 빠진다 — JustWatch 는 OTT 제공 정보라
+ * 극장 개봉작은 providers 가 비어 있다(2026-09 기준 97편 중 75편). 화면에 이유를
+ * 안 보여주면 "필터가 고장났다"로 보인다. 그래서 숫자를 그대로 노출한다.
+ */
+export function candidateCounts({ contents, from, to, ottName = '', type = '' }) {
+  const inRange = contents
+    .filter(c => !c.hidden)
+    .map(c => ({ c, rel: effectiveReleaseDate(c) }))
+    .filter(x => x.rel && x.rel >= from && x.rel <= to)
+    .map(x => x.c)
+  const afterType = inRange.filter(c => !type || c.type === type)
+  const afterOtt = afterType.filter(c => hasProvider(c, ottName))
+  return {
+    inRange: inRange.length,
+    afterType: afterType.length,
+    afterOtt: afterOtt.length,
+    /** 이 기간에 OTT 정보가 아예 없는 작품 (대부분 극장 개봉작) */
+    noProviders: afterType.filter(c => !(c.providers || []).length).length,
+  }
+}
+
+/**
  * 기간·필터에 걸리는 후보를 인기순으로 준다 — 어디까지나 **고르기 위한 목록**이다.
  *
  * 자동으로 상위 N 편을 집어넣던 걸 이걸로 대체했다. 인기 점수는 TMDB 값이라

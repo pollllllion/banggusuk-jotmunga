@@ -4,7 +4,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { OTT_FILTERS } from '@/utils/ott'
 import { CONTENT_TYPES } from '@/utils/constants'
-import { buildDraft, listCandidates, monthRange, weekRange } from '@/shared/curationDraft.mjs'
+import { buildDraft, listCandidates, candidateCounts, monthRange, weekRange } from '@/shared/curationDraft.mjs'
 import { publishBlockers, MIN_BODY, MIN_NOTE, MIN_ITEMS } from '@/shared/curationSeo.mjs'
 import type { Curation, CurationItem, ContentType } from '@/types'
 
@@ -110,6 +110,7 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
   const [cands, setCands] = useState<Hint[] | null>(null)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [ctx, setCtx] = useState<{ from: string; to: string; periodLabel: string; ottLabel: string } | null>(null)
+  const [counts, setCounts] = useState<{ inRange: number; afterType: number; afterOtt: number; noProviders: number } | null>(null)
 
   const load = () => {
     const { from, to } = mode === 'month' ? monthRange(month) : weekRange(weekStart)
@@ -117,9 +118,10 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
       ? `${month.split('-')[0]}년 ${Number(month.split('-')[1])}월`
       : `${from.replace(/-/g, '. ')} 주`
     const ottLabel = OTT_FILTERS.find(o => o.name === ott)?.label || ''
-    const list = listCandidates({ contents: DS.getContents(), from, to, ottName: ott, type, limit: 60 }) as Hint[]
-    if (!list.length) { toast('그 기간에 걸리는 작품이 없습니다.'); return }
+    const contents = DS.getContents()
+    const list = listCandidates({ contents, from, to, ottName: ott, type, limit: 60 }) as Hint[]
     setCands(list)
+    setCounts(candidateCounts({ contents, from, to, ottName: ott, type }))
     setPicked(new Set())
     setCtx({ from, to, periodLabel, ottLabel })
   }
@@ -186,6 +188,22 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
             <strong>실을 작품을 고르세요 — {picked.size}편 선택</strong>
             <span className="label">후보 {cands.length}편 · 인기순</span>
           </div>
+          {counts && (
+            <div className="cur-pick-counts">
+              기간 내 {counts.inRange}편
+              {type && ` → 유형 ${counts.afterType}편`}
+              {ott && ` → ${ctx?.ottLabel} ${counts.afterOtt}편`}
+              {cands.length === 60 && counts.afterOtt > 60 && ' (상위 60편만 표시)'}
+              {ott && counts.noProviders > 0 && (
+                <div className="cur-pick-hint">
+                  이 기간에 OTT 정보가 없는 작품이 {counts.noProviders}편 있습니다 —
+                  대부분 극장 개봉작이라 OTT 를 고르면 전부 빠집니다.
+                  극장 개봉작을 실으려면 OTT 를 &apos;전체&apos;로 두세요.
+                </div>
+              )}
+            </div>
+          )}
+          {!cands.length && <p className="label" style={{ padding: '12px 0' }}>조건에 맞는 작품이 없습니다.</p>}
           <ul className="cur-pick-list">
             {cands.map(h => (
               <li key={h.contentId} className={picked.has(h.contentId) ? 'on' : ''} onClick={() => toggle(h.contentId)}>

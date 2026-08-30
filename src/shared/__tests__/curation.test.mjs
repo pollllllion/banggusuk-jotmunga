@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { publishBlockers, bodyParagraphs, curationBodyLines, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
-import { buildDraft, buildSlug, listCandidates, monthRange, weekRange, slugify } from '../curationDraft.mjs'
+import { buildDraft, buildSlug, listCandidates, candidateCounts, monthRange, weekRange, slugify } from '../curationDraft.mjs'
 
 /** 발행 조건을 다 채운 글 */
 function full(over = {}) {
@@ -203,5 +203,32 @@ describe('listCandidates', () => {
   it('평가가 없는 작품도 죽지 않는다', () => {
     const h = listCandidates({ contents, from, to }).find(x => x.contentId === 'm2')
     expect(h.voteCount).toBe(0)
+  })
+})
+
+describe('candidateCounts', () => {
+  const contents = [
+    // 극장 개봉작 — providers 가 비어 있다 (JustWatch 는 OTT 제공 정보라 극장작이 없다)
+    { id: 'th1', title: '극장영화1', type: 'movie', releaseDate: '2026-09-04', popularity: 60 },
+    { id: 'th2', title: '극장영화2', type: 'movie', releaseDate: '2026-09-11', popularity: 50, providers: [] },
+    { id: 'nf1', title: '넷플영화', type: 'movie', releaseDate: '2026-09-18', popularity: 40, providers: [{ providerName: 'Netflix' }] },
+    { id: 'nd1', title: '넷플드라마', type: 'drama', releaseDate: '2026-09-20', popularity: 30, providers: [{ providerName: 'Netflix' }] },
+    { id: 'h1', title: '숨김작', type: 'movie', releaseDate: '2026-09-06', popularity: 999, hidden: true },
+  ]
+  const { from, to } = monthRange('2026-09')
+
+  it('단계마다 몇 편이 남는지 센다', () => {
+    expect(candidateCounts({ contents, from, to })).toEqual({ inRange: 4, afterType: 4, afterOtt: 4, noProviders: 2 })
+  })
+
+  it('OTT + 영화를 겹치면 극장 개봉작이 빠지는 게 보인다 — 사용자가 신고한 그 상황', () => {
+    const c = candidateCounts({ contents, from, to, ottName: 'Netflix', type: 'movie' })
+    expect(c.afterType).toBe(3)     // 영화 3편
+    expect(c.afterOtt).toBe(1)      // 그중 넷플릭스는 1편
+    expect(c.noProviders).toBe(2)   // 나머지 2편은 OTT 정보 자체가 없다
+  })
+
+  it('providers 가 undefined 든 [] 든 똑같이 센다', () => {
+    expect(candidateCounts({ contents, from, to, type: 'movie' }).noProviders).toBe(2)
   })
 })
