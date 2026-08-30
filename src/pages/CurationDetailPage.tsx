@@ -70,16 +70,16 @@ export function CurationDetailPage() {
             const c = DS.getContentById(it.contentId)
             return (
               <section key={it.contentId} className="cur-item">
+                {/* 포스터·제목 어느 쪽을 눌러도 작품으로 간다 — 따로 링크를 달 이유가 없다 */}
                 {c?.posterUrl && (
                   <img
-                    className="cur-item-poster" src={c.posterUrl} alt="" loading="lazy"
+                    className="cur-item-poster" src={c.posterUrl} alt={c.title} loading="lazy"
                     onClick={() => navigate(`/content/${it.contentId}`)}
                   />
                 )}
                 <div className="cur-item-body">
                   <h2 onClick={() => navigate(`/content/${it.contentId}`)}>{c ? c.title : it.contentId}</h2>
                   <p>{it.note}</p>
-                  <a onClick={() => navigate(`/content/${it.contentId}`)}>작품 정보 보기 ›</a>
                 </div>
               </section>
             )

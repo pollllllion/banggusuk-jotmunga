@@ -23,6 +23,26 @@ export function getPublishedCurations(): Curation[] {
 
 // 본문을 이미 받아온 글 (같은 글을 다시 열어도 재요청하지 않게)
 const detailLoaded = new Set<string>()
+// items 만 따로 받아온 글 — body 는 아직 없으므로 detailLoaded 와 섞으면 안 된다
+const itemsLoaded = new Set<string>()
+
+/**
+ * 목록 카드에 작품 포스터를 그리려면 items 가 필요하다.
+ * body(수백~수천 자)는 빼고 items 만 **한 번의 질의로** 전부 채운다.
+ * ⚠️ detailLoaded 에 넣지 말 것 — 그러면 상세 화면이 body 를 영영 안 받아온다.
+ */
+export async function loadCurationItems(): Promise<boolean> {
+  const need = getCurations().filter(c => !itemsLoaded.has(c.id)).map(c => c.id)
+  if (!need.length) return false
+  const { data, error } = await supabase.from('curations').select('id,items').in('id', need)
+  if (error) { console.error('[loadCurationItems]', error.message); return false }
+  for (const row of data || []) {
+    itemsLoaded.add(row.id)
+    const idx = cache.curations.findIndex((c: any) => c.id === row.id)
+    if (idx >= 0) cache.curations[idx] = { ...cache.curations[idx], items: (row as any).items }
+  }
+  return (data || []).length > 0
+}
 
 /**
  * 본문·작품목록만 뒤늦게 채운다. 시작 로드에서는 빼기 때문에(CURATION_DETAIL_COLS)
@@ -38,6 +58,7 @@ export async function loadCurationDetail(id: string): Promise<boolean> {
     .maybeSingle()
   if (error) { console.error('[loadCurationDetail]', error.message); return false }
   detailLoaded.add(id)
+  itemsLoaded.add(id)
   if (!data) return false
   const idx = cache.curations.findIndex((c: any) => c.id === id)
   if (idx < 0) return false
@@ -67,6 +88,7 @@ export function createCuration(data: Partial<Curation>): Curation {
   }
   saveCurations([c, ...getCurations()])
   detailLoaded.add(c.id)
+  itemsLoaded.add(c.id)
   return c
 }
 

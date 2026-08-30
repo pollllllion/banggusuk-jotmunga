@@ -1260,3 +1260,20 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .cal-curation { gap: 10px; padding: 12px 14px; }
   .cal-curation-more { display: none; }
 }
+
+/* 큐레이션 목록 카드 — 실린 작품 포스터 */
+.cur-card-posters { display: flex; align-items: center; flex-shrink: 0; padding: 12px 0 12px 14px; }
+.cur-card-posters img {
+  width: 54px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--radius-sm);
+  border: 2px solid var(--card); margin-right: -16px; background: var(--bg);
+}
+.cur-card-posters img:last-of-type { margin-right: 0; }
+.cur-card-more {
+  margin-left: 22px; font-size: 12px; font-weight: 800; color: var(--subtext); flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .cur-card { flex-direction: column; }
+  .cur-card-posters { padding: 14px 14px 0; }
+  .cur-card-posters img { width: 46px; margin-right: -14px; }
+}

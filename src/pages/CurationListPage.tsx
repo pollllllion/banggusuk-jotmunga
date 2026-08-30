@@ -1,12 +1,23 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
 import { SITE_NAME } from '@/utils/seo'
 
+/** 카드에 늘어놓을 포스터 최대 장수 */
+const MAX_POSTERS = 5
+
 /** 큐레이션 목록 — 발행된 기획 글만 최신순 */
 export function CurationListPage() {
   const navigate = useNavigate()
+  const [, setTick] = useState(0)
   const list = DS.getPublishedCurations()
+
+  // 제목만 있으면 어떤 글인지 한눈에 안 들어온다. 실린 작품 포스터를 카드에 깐다.
+  // items 는 시작 로드에 없어서 한 번의 질의로 채워 온다(body 는 안 받는다).
+  useEffect(() => {
+    void DS.loadCurationItems().then(changed => { if (changed) setTick(t => t + 1) })
+  }, [list.length])
 
   return (
     <>
@@ -23,16 +34,36 @@ export function CurationListPage() {
         <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>아직 올라온 글이 없습니다.</p>
       ) : (
         <div className="cur-list">
-          {list.map(c => (
-            <article key={c.id} className="cur-card fade-in" onClick={() => navigate(`/curation/${c.id}`)}>
-              {c.coverUrl && <img className="cur-card-cover" src={c.coverUrl} alt="" loading="lazy" />}
-              <div className="cur-card-body">
-                <h3>{c.title}</h3>
-                <p>{c.summary}</p>
-                <span className="cur-card-date">{String(c.publishedAt).slice(0, 10).replace(/-/g, '. ')}</span>
-              </div>
-            </article>
-          ))}
+          {list.map(c => {
+            const posters = (c.items || [])
+              .map(i => DS.getContentById(i.contentId))
+              .filter(x => x?.posterUrl)
+              .slice(0, MAX_POSTERS)
+            const total = (c.items || []).length
+
+            return (
+              <article key={c.id} className="cur-card fade-in" onClick={() => navigate(`/curation/${c.id}`)}>
+                {c.coverUrl
+                  ? <img className="cur-card-cover" src={c.coverUrl} alt="" loading="lazy" />
+                  : posters.length > 0 && (
+                    <div className="cur-card-posters">
+                      {posters.map(p => (
+                        <img key={p!.id} src={p!.posterUrl!} alt={p!.title} loading="lazy" />
+                      ))}
+                      {total > posters.length && <span className="cur-card-more">+{total - posters.length}</span>}
+                    </div>
+                  )}
+                <div className="cur-card-body">
+                  <h3>{c.title}</h3>
+                  <p>{c.summary}</p>
+                  <span className="cur-card-date">
+                    {String(c.publishedAt).slice(0, 10).replace(/-/g, '. ')}
+                    {total > 0 && ` · 작품 ${total}편`}
+                  </span>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
     </>
