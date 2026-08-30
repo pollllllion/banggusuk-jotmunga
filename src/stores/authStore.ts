@@ -102,8 +102,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     try {
-      subscribeAuthChanges(set, get)
+      // 구독을 loadAll() 보다 먼저 걸면, 아직 캐시가 비어 있는 사이에 SIGNED_IN·
+      // TOKEN_REFRESHED 가 도착해 ensureProfile 이 "없는 계정"으로 판단한다.
+      // 그래서 로드가 끝난 뒤에 건다. (ensureProfile 자체도 DB 를 다시 확인하지만,
+      //  애초에 그 경합을 만들지 않는 게 맞다)
       await DS.loadAll()
+      subscribeAuthChanges(set, get)
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
         // 로그인 계정(고정닉)

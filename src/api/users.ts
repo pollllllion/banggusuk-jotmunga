@@ -43,10 +43,34 @@ function profileToUser(p: any, email: string): User {
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
 
 // ── Profiles (Supabase Auth 고정닉 계정) ────────────────────
-/** auth 사용자에 대응하는 profiles 행 확보(없으면 생성) → User 형태로 반환 */
+/**
+ * auth 사용자에 대응하는 profiles 행 확보(없으면 생성) → User 형태로 반환
+ *
+ * ⚠️ 여기서 upsert 를 쓰면 안 된다. 예전 구현은 캐시에 행이 없으면 곧바로
+ *    `회원0000` / role:'user' / 새 createdAt 로 upsert(onConflict:'id') 했는데,
+ *    **캐시가 비어 있다고 해서 DB 에도 없는 게 아니다.**
+ *      - loadAll() 이 아직 안 끝났거나(onAuthStateChange 가 먼저 도착)
+ *      - profiles 조회가 실패해 cache.profiles 가 [] 로 남았거나
+ *    이러면 멀쩡한 계정의 닉네임·권한·가입일이 통째로 덮였다.
+ *    실제로 2026-08-30 에 한 계정의 닉네임과 admin 권한이 이렇게 날아갔다.
+ *
+ * 그래서 캐시에 없으면 DB 에 직접 물어보고, 조회조차 실패하면 **아무것도 쓰지 않고**
+ * 던진다. 덮어쓰는 것보다 로그인 실패가 낫다.
+ */
 export async function ensureProfile(authUser: { id: string; email?: string | null }, nickname?: string): Promise<User> {
-  const existing = cache.profiles.find((p: any) => p.id === authUser.id)
-  if (existing) return profileToUser(existing, authUser.email || '')
+  const cached = cache.profiles.find((p: any) => p.id === authUser.id)
+  if (cached) return profileToUser(cached, authUser.email || '')
+
+  // 캐시에 없다 = DB 에도 없다가 아니다. 반드시 확인한다.
+  const { data: found, error: readErr } = await supabase
+    .from('profiles').select('*').eq('id', authUser.id).maybeSingle()
+  if (readErr) throw new Error(`프로필을 확인하지 못했습니다: ${readErr.message}`)
+  if (found) {
+    cache.profiles = [found, ...cache.profiles.filter((p: any) => p.id !== authUser.id)]
+    return profileToUser(found, authUser.email || '')
+  }
+
+  // 여기까지 왔으면 정말 없는 계정 — 이때만 만든다.
   const row = {
     id: authUser.id,
     nickname: nickname || ('회원' + Math.floor(1000 + Math.random() * 9000)),
@@ -54,9 +78,17 @@ export async function ensureProfile(authUser: { id: string; email?: string | nul
     banned: false,
     createdAt: new Date().toISOString(),
   }
+  const { error: insErr } = await supabase.from('profiles').insert(row)
+  if (insErr) {
+    // 23505 = 그 사이 다른 탭·기기가 먼저 만들었다. 그쪽 행을 따른다(덮지 않는다).
+    const { data: raced } = await supabase.from('profiles').select('*').eq('id', authUser.id).maybeSingle()
+    if (raced) {
+      cache.profiles = [raced, ...cache.profiles.filter((p: any) => p.id !== authUser.id)]
+      return profileToUser(raced, authUser.email || '')
+    }
+    throw new Error(`프로필을 만들지 못했습니다: ${insErr.message}`)
+  }
   cache.profiles = [row, ...cache.profiles]
-  try { await supabase.from('profiles').upsert(row, { onConflict: 'id' }) }
-  catch (e) { console.error('[profile upsert]', e) }
   return { id: row.id, nickname: row.nickname, email: authUser.email || '', role: row.role, banned: row.banned, createdAt: row.createdAt }
 }
 
