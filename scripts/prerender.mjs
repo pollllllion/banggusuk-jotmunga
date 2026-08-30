@@ -184,6 +184,23 @@ async function main() {
     console.warn(`[prerender] 큐레이션 조회 실패, 건너뜁니다: ${e.message}`)
   }
 
+  const pubCurations = curations
+    .filter(c => c.status === 'published' && c.publishedAt)
+    .filter(c => SAFE_ID.test(c.id))
+    .filter(c => !publishBlockers(c).length)
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))
+
+  // 작품 → 그 작품이 실린 글 (역링크).
+  // 큐레이션 → 작품 단방향만 두면 작품 페이지 1,800여 개에 쌓인 크롤 예산이
+  // 원본 글로 흐르지 않는다. 크롤러가 실제로 타려면 정적 HTML 에 들어가 있어야 한다.
+  const curationsByContent = new Map()
+  for (const cur of pubCurations) {
+    for (const it of cur.items || []) {
+      if (!curationsByContent.has(it.contentId)) curationsByContent.set(it.contentId, [])
+      curationsByContent.get(it.contentId).push(cur)
+    }
+  }
+
   const byId = new Map(contents.map(c => [c.id, c]))
   const nickById = new Map(profiles.map(p => [p.id, p.nickname]))
 
@@ -215,7 +232,13 @@ async function main() {
       // 색인 안 할 페이지에 구조화 데이터를 붙일 이유가 없다
       jsonLd: indexable ? buildContentJsonLd(c, SITE_URL) : null,
     })
-    writePage(`content/${c.id}`, render(template, head, contentBody(c, today)))
+    const backlinks = curationsByContent.get(c.id) || []
+    const body = backlinks.length
+      ? contentBody(c, today) + `\n      <section><h2>이 작품이 실린 글</h2><ul>`
+        + backlinks.map(x => `<li><a href="/curation/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
+        + `</ul></section>`
+      : contentBody(c, today)
+    writePage(`content/${c.id}`, render(template, head, body))
     n++
   }
 
@@ -286,12 +309,6 @@ async function main() {
   // 이 사이트만의 원본 콘텐츠라 색인 우선순위가 가장 높다.
   // 발행 가드를 통과 못 한 글은 애초에 발행이 안 되지만, DB 를 직접 만진 경우를 대비해
   // 여기서도 한 번 더 거른다 — 얇은 글을 색인에 밀어 넣으면 사이트 평가가 깎인다.
-  const pubCurations = curations
-    .filter(c => c.status === 'published' && c.publishedAt)
-    .filter(c => SAFE_ID.test(c.id))
-    .filter(c => !publishBlockers(c).length)
-    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))
-
   for (const c of pubCurations) {
     const head = headBlock({
       title: c.title,

@@ -250,6 +250,8 @@ export function CalendarPage() {
         <p>앞으로 나올 영화·드라마·예능·웹툰·웹소설의 출시일을 한눈에. 찜해두면 공개일에 알려드려요.</p>
       </div>
 
+      <LatestCuration />
+
       <div className="cal-toolbar">
         <div className="cal-monthnav">
           <button className="cal-navbtn" onClick={() => shift(-1)} aria-label="이전 달">‹</button>
@@ -486,6 +488,29 @@ export function CalendarPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * 홈 상단의 최신 기획 글 배너.
+ *
+ * 목록 컬럼(title·summary·publishedAt)만 쓰므로 시작 로드 캐시로 충분하다 —
+ * 본문(body·items)은 안 건드린다. 발행 글이 없으면 아무것도 안 그린다.
+ */
+function LatestCuration() {
+  const navigate = useNavigate()
+  const [latest] = DS.getPublishedCurations()
+  if (!latest) return null
+
+  return (
+    <div className="cal-curation" onClick={() => navigate(`/curation/${latest.id}`)}>
+      <span className="cal-curation-tag">공개작 정리</span>
+      <div className="cal-curation-body">
+        <strong>{latest.title}</strong>
+        {latest.summary && <p>{latest.summary}</p>}
+      </div>
+      <span className="cal-curation-more">읽기 ›</span>
     </div>
   )
 }

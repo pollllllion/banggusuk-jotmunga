@@ -88,3 +88,21 @@ export function unpublishCuration(id: string) {
 export function deleteCuration(id: string) {
   saveCurations(getCurations().filter(c => c.id !== id))
 }
+
+/**
+ * 이 작품이 실린 발행 글 — 작품 페이지의 역링크용.
+ *
+ * items 는 시작 로드에서 빠져 있어서(curationColumns.ts) 캐시로는 알 수 없다.
+ * jsonb 포함(cs) 질의로 DB 에 직접 물어본다. 인덱스는 없지만 curations 는 수십 행이다.
+ */
+export async function getCurationsForContent(contentId: string): Promise<Curation[]> {
+  if (!contentId) return []
+  const { data, error } = await supabase
+    .from('curations')
+    .select('id,title,summary,publishedAt')
+    .eq('status', 'published')
+    .contains('items', [{ contentId }])
+    .order('publishedAt', { ascending: false })
+  if (error) { console.error('[getCurationsForContent]', error.message); return [] }
+  return (data || []) as Curation[]
+}

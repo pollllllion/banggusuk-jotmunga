@@ -37,6 +37,14 @@ export function Sidebar() {
             onClick={() => navigate(b.path)}>
             <span className="e">{b.emoji}</span> {b.label}
           </div>
+          {/* 큐레이션은 게시판이 아니라 운영자 기획 글이라 BOARDS 에 안 넣고 여기 끼운다 */}
+          {b.slug === 'calendar' && (
+            <div
+              className={`sidebar-item ${isActive('/curation') ? 'active' : ''}`}
+              onClick={() => navigate('/curation')}>
+              <span className="e">{'\u{1F4DD}'}</span> 공개작 정리
+            </div>
+          )}
           {DIVIDER_AFTER.has(b.slug) && <div className="sidebar-divider" />}
         </div>
       ))}

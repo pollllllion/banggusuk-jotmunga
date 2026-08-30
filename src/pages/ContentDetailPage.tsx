@@ -6,6 +6,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { DiscussionBoard } from '@/components/content/DiscussionBoard'
+import { CurationBacklinks } from '@/components/content/CurationBacklinks'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
@@ -186,6 +187,9 @@ export function ContentDetailPage() {
           </div>
         </div>
       )}
+
+      {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
+      <CurationBacklinks contentId={content.id} />
 
       {/* 토론글(=글) 목록 + 작성 */}
       <DiscussionBoard contentId={content.id} />

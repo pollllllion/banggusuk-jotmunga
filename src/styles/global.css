@@ -1220,3 +1220,43 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   margin-top: 6px; padding: 8px 10px; background: var(--danger-light);
   color: var(--danger); border-radius: var(--radius-sm); line-height: 1.6;
 }
+
+/* 작품 상세 — 이 작품이 실린 글 (역링크) */
+.cur-backlinks {
+  background: var(--card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 18px 20px; margin-top: 20px;
+}
+.cur-backlinks h2 { font-size: 15px; font-weight: 800; color: var(--dark); margin-bottom: 10px; }
+.cur-backlinks ul { list-style: none; margin: 0; padding: 0; }
+.cur-backlinks li {
+  cursor: pointer; padding: 8px 0; border-top: 1px solid var(--border-light);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.cur-backlinks li:first-child { border-top: 0; }
+.cur-backlinks .cur-backlink-title { font-size: 14px; font-weight: 700; color: var(--info); }
+.cur-backlinks li:hover .cur-backlink-title { text-decoration: underline; }
+
+/* 홈 상단 최신 기획 글 배너 */
+.cal-curation {
+  display: flex; align-items: center; gap: 14px; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 16px;
+  transition: border-color .15s, transform .15s;
+}
+.cal-curation:hover { border-color: var(--primary); transform: translateY(-1px); }
+.cal-curation-tag {
+  flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 4px 10px;
+  border-radius: 999px; background: var(--primary-light); color: var(--primary-dark);
+}
+.cal-curation-body { min-width: 0; flex: 1; }
+.cal-curation-body strong { display: block; font-size: 15px; font-weight: 800; color: var(--dark); }
+.cal-curation-body p {
+  font-size: 13px; color: var(--text-secondary); margin-top: 3px;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cal-curation-more { flex-shrink: 0; font-size: 13px; font-weight: 700; color: var(--info); }
+
+@media (max-width: 768px) {
+  .cal-curation { gap: 10px; padding: 12px 14px; }
+  .cal-curation-more { display: none; }
+}
