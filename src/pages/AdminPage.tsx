@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -39,7 +39,7 @@ export function AdminPage() {
   const openNewContent = Boolean(navState?.newContent)
   const editContentId = navState?.editContentId
   const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce'>('contents')
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
   if (!user || user.role !== 'admin') return null
 
@@ -69,7 +69,7 @@ export function AdminPage() {
         <button className={`admin-tab ${tab === 'announce' ? 'active' : ''}`} onClick={() => setTab('announce')}>공지</button>
       </div>
 
-      {tab === 'contents' && <ContentsTab rerender={rerender} openNew={openNewContent} editId={editContentId} />}
+      {tab === 'contents' && <ContentsTab rerender={rerender} tick={tick} openNew={openNewContent} editId={editContentId} />}
 
       {tab === 'curations' && <CurationsTab rerender={rerender} />}
 
@@ -121,7 +121,10 @@ export function AdminPage() {
 }
 
 // ── 작품 관리 탭 ─────────────────────────────────────────────
-function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; openNew?: boolean; editId?: string }) {
+/** 한 번에 그릴 행 수 — 2,100여 행을 통째로 그리면 DOM 이 2만 노드를 넘어 탭 전환이 멈춘다 */
+const PAGE = 50
+
+function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void; tick: number; openNew?: boolean; editId?: string }) {
   const toast = useToastStore(s => s.show)
   const { user } = useAuthStore()
   const [editing, setEditing] = useState<Content | null>(null)
@@ -130,6 +133,10 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   const [showDedup, setShowDedup] = useState(false)
   const [query, setQuery] = useState('')
   const [onlyUnverified, setOnlyUnverified] = useState(false)
+  const [limit, setLimit] = useState(PAGE)
+
+  // 조건이 바뀌면 처음부터 다시 보여준다
+  useEffect(() => { setLimit(PAGE) }, [query, onlyUnverified])
 
   // 캘린더 '+ 신작 등록' 바로가기로 들어오면 폼을 자동으로 연다.
   useEffect(() => { if (openNew) { setEditing(null); setShowForm(true) } }, [openNew])
@@ -142,14 +149,27 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
   }, [editId])
 
   const q = query.trim()
+
+  /**
+   * ⚠️ 이 셋은 매 렌더마다 2,100여 행을 훑는다 — 탭을 누르거나 글자를 한 자 칠 때마다
+   *    정렬(localeCompare)·정규화가 다시 돌아 화면이 눈에 띄게 멈췄다. 반드시 메모한다.
+   */
   // 검색은 통합검색과 같은 매칭(띄어쓰기·원제·감독). 관리자는 숨긴 작품도 찾아야 하므로 포함시킨다.
-  const matchedIds = q ? new Set(DS.searchContents(q, Infinity, { includeHidden: true }).map(c => c.id)) : null
-  // 최신 개봉순(공개일 내림차순, 없으면 뒤로).
-  const contents = [...DS.getContents()]
-    .filter(c => !matchedIds || matchedIds.has(c.id))
-    .filter(c => !onlyUnverified || !c.verified)
-    .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
-  const unverifiedCount = DS.getContents().filter(c => !c.verified).length
+  const contents = useMemo(() => {
+    const matchedIds = q ? new Set(DS.searchContents(q, Infinity, { includeHidden: true }).map(c => c.id)) : null
+    // 최신 개봉순(공개일 내림차순, 없으면 뒤로).
+    return [...DS.getContents()]
+      .filter(c => !matchedIds || matchedIds.has(c.id))
+      .filter(c => !onlyUnverified || !c.verified)
+      .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
+  }, [q, onlyUnverified, tick])
+  const unverifiedCount = useMemo(() => DS.getContents().filter(c => !c.verified).length, [tick])
+  const dupGroupCount = useMemo(() => findDupGroups(DS.getContents()).length, [tick])
+
+  // 2,141행을 한 번에 그리면 DOM 노드가 2만 개를 넘어가고, 탭을 옮길 때마다
+  // 그걸 통째로 파기·재생성한다(실측 21,599노드, 렌더러가 몇 초씩 멈췄다).
+  // 검색이 있으니 전부 펼쳐 둘 이유가 없다 — 끊어서 보여주고 필요하면 더 부른다.
+  const shown = contents.slice(0, limit)
 
   const startNew = () => { setEditing(null); setShowForm(true) }
   const startEdit = (c: Content) => { setEditing(c); setShowForm(true) }
@@ -174,8 +194,6 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
     setEditing(c); setShowForm(true)
     rerender()
   }
-
-  const dupGroupCount = findDupGroups(DS.getContents()).length
 
   if (showForm) {
     return <ContentFormGate content={editing} authorId={user!.id} onDone={() => { setShowForm(false); rerender() }} onCancel={() => setShowForm(false)} />
@@ -210,7 +228,7 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
       </div>
 
       {contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
-      {contents.map(c => (
+      {shown.map(c => (
         <div key={c.id} className="admin-card fade-in">
           <div className="admin-card-body">
             <div className="value">
@@ -232,6 +250,16 @@ function ContentsTab({ rerender, openNew, editId }: { rerender: () => void; open
           </div>
         </div>
       ))}
+
+      {contents.length > shown.length && (
+        <button
+          className="btn btn-secondary"
+          style={{ width: '100%', marginTop: 12 }}
+          onClick={() => setLimit(l => l + PAGE)}
+        >
+          더 보기 ({shown.length} / {contents.length})
+        </button>
+      )}
     </>
   )
 }
