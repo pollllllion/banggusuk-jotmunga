@@ -11,8 +11,8 @@ export function Footer() {
 
   return (
     <footer className="site-footer">
+      {/* 공개작 정리는 사이드바·홈 배너·작품 역링크로 들어가므로 푸터에서는 뺐다 */}
       <nav className="site-footer-links">
-        <a onClick={() => navigate('/curation')}>공개작 정리</a>
         {links.map(d => (
           <a key={d.slug} onClick={() => navigate(d.path)}>{d.label}</a>
         ))}
