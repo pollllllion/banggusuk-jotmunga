@@ -79,6 +79,11 @@ function toRow(type, m, dateField, genreMap, platform) {
     reviewCount: 0,
     createdBy: 'tmdb',
     createdAt: new Date().toISOString(),
+    // verified 는 **일부러 안 보낸다**. contents.verified 의 기본값이 true 라
+    // 새로 들어오는 TMDB 행은 자동으로 인증된다(migration_content_verified.sql 의
+    // 원래 의도 — "TMDB 작품은 자동 인증"). 여기서 명시로 쓰면 upsert 가
+    // 관리자의 수동 '인증취소'까지 매번 되돌려 버린다.
+    // 사용자가 만든 작품(ensure_content RPC)은 false 를 명시하므로 영향 없다.
     // ★ hidden·syncedAt 을 반드시 같이 쓸 것 (2026-08-05) ★
     //   upsert 는 merge-duplicates 라 여기 없는 칸은 기존 값이 그대로 남는다.
     //   전에는 이 두 칸이 없어서, sync-tmdb-ott 의 정리에 한 번 숨겨진 작품을
