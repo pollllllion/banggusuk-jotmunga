@@ -63,18 +63,33 @@ export function buildSlug({ mode = 'month', from, ottName = '', type = '' }) {
     .filter(Boolean).join('-')
 }
 
+/** 후보 한 편을 화면·코멘트 작성에 쓸 형태로 */
+function toHint(c, rel) {
+  return {
+    contentId: c.id,
+    title: c.title,
+    type: c.type,
+    posterUrl: c.posterUrl,
+    rel,
+    day: fmtDay(rel),
+    genres: (c.genres || []).slice(0, 3).join('·'),
+    creators: (c.creators || []).slice(0, 2).join('·'),
+    providers: [...new Set((c.providers || []).map(p => p.providerName))].slice(0, 3).join('·'),
+    popularity: Math.round(c.popularity || 0),
+    voteAverage: c.voteAverage ?? null,
+    voteCount: c.voteCount ?? 0,
+  }
+}
+
 /**
- * 초안 생성.
+ * 기간·필터에 걸리는 후보를 인기순으로 준다 — 어디까지나 **고르기 위한 목록**이다.
  *
- * @param contents  전체 작품 (앱 캐시의 목록 컬럼이면 충분)
- * @param from,to   'YYYY-MM-DD' 포함 구간
- * @param ottName   TMDB provider 이름 (예: 'Netflix'). 없으면 전체
- * @param ottLabel  화면 표기 (예: '넷플릭스')
- * @param type      'movie' | 'drama' | 'variety' | ... 없으면 전체
- * @param limit     최대 편수
+ * 자동으로 상위 N 편을 집어넣던 걸 이걸로 대체했다. 인기 점수는 TMDB 값이라
+ * "기대작"과 자주 어긋난다(시즌 25 예능이 신작 영화보다 높게 나오는 식).
+ * 무엇을 실을지는 사람이 정하는 게 맞다.
  */
-export function buildDraft({ contents, from, to, mode = 'month', ottName = '', ottLabel = '', type = '', limit = 12, periodLabel = '' }) {
-  const picked = contents
+export function listCandidates({ contents, from, to, ottName = '', type = '', limit = 40 }) {
+  return contents
     .filter(c => !c.hidden)
     .filter(c => !type || c.type === type)
     .filter(c => hasProvider(c, ottName))
@@ -82,8 +97,41 @@ export function buildDraft({ contents, from, to, mode = 'month', ottName = '', o
     .filter(x => x.rel && x.rel >= from && x.rel <= to)
     .sort((a, b) => (b.c.popularity || 0) - (a.c.popularity || 0))
     .slice(0, limit)
-    // 글에서는 공개일 순으로 읽히는 게 자연스럽다 (고르는 건 인기순, 싣는 건 날짜순)
-    .sort((a, b) => a.rel.localeCompare(b.rel))
+    .map(x => toHint(x.c, x.rel))
+}
+
+/**
+ * 초안 생성.
+ *
+ * @param contents    전체 작품 (앱 캐시의 목록 컬럼이면 충분)
+ * @param from,to     'YYYY-MM-DD' 포함 구간
+ * @param mode        'month' | 'week' — 슬러그를 만드는 데 쓴다
+ * @param ottName     TMDB provider 이름 (예: 'Netflix'). 없으면 전체
+ * @param ottLabel    화면 표기 (예: '넷플릭스')
+ * @param type        'movie' | 'drama' | ... 없으면 전체
+ * @param contentIds  실을 작품을 직접 고른 경우 그 id 들. 주면 이것만 싣는다.
+ *                    (안 주면 인기 상위 limit 편 — 예전 동작)
+ * @param limit       contentIds 를 안 줬을 때만 쓰는 상한
+ */
+export function buildDraft({ contents, from, to, mode = 'month', ottName = '', ottLabel = '', type = '', contentIds = /** @type {string[] | null} */ (null), limit = 12, periodLabel = '' }) {
+  let picked
+  if (contentIds && contentIds.length) {
+    const want = new Set(contentIds)
+    picked = contents
+      .filter(c => want.has(c.id))
+      .map(c => ({ c, rel: effectiveReleaseDate(c) }))
+  } else {
+    picked = contents
+      .filter(c => !c.hidden)
+      .filter(c => !type || c.type === type)
+      .filter(c => hasProvider(c, ottName))
+      .map(c => ({ c, rel: effectiveReleaseDate(c) }))
+      .filter(x => x.rel && x.rel >= from && x.rel <= to)
+      .sort((a, b) => (b.c.popularity || 0) - (a.c.popularity || 0))
+      .slice(0, limit)
+  }
+  // 고르는 기준이 무엇이든, 글에서는 공개일 순으로 읽히는 게 자연스럽다
+  picked = picked.sort((a, b) => String(a.rel || '').localeCompare(String(b.rel || '')))
 
   const label = periodLabel || `${from} ~ ${to}`
   const where = ottLabel ? `${ottLabel} ` : ''
@@ -99,18 +147,10 @@ export function buildDraft({ contents, from, to, mode = 'month', ottName = '', o
     id: buildSlug({ mode, from, ottName, type }),
     title,
     summary,
-    // 본문·코멘트는 사람이 쓴다 (위 주석 참고)
+    // 본문·코멘트는 사람이 쓴다 (파일 상단 주석 참고)
     body: '',
     items: picked.map(x => ({ contentId: x.c.id, note: '' })),
     // 화면에서 코멘트 쓸 때 참고용으로만 쓰는 값 — 저장하지 않는다
-    hints: picked.map(x => ({
-      contentId: x.c.id,
-      title: x.c.title,
-      posterUrl: x.c.posterUrl,
-      day: fmtDay(x.rel),
-      genres: (x.c.genres || []).slice(0, 3).join('·'),
-      creators: (x.c.creators || []).slice(0, 2).join('·'),
-      providers: [...new Set((x.c.providers || []).map(p => p.providerName))].slice(0, 3).join('·'),
-    })),
+    hints: picked.map(x => toHint(x.c, x.rel)),
   }
 }

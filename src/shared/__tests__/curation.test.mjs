@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { publishBlockers, bodyParagraphs, curationBodyLines, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
-import { buildDraft, buildSlug, monthRange, weekRange, slugify } from '../curationDraft.mjs'
+import { buildDraft, buildSlug, listCandidates, monthRange, weekRange, slugify } from '../curationDraft.mjs'
 
 /** 발행 조건을 다 채운 글 */
 function full(over = {}) {
@@ -157,9 +157,51 @@ describe('buildDraft', () => {
     expect(publishBlockers(d).length).toBeGreaterThan(0)
   })
 
+  it('contentIds 를 주면 그것만 싣고, 인기순 상한을 무시한다', () => {
+    const d = buildDraft({ contents, from, to, contentIds: ['m1', 'd1'], limit: 1, periodLabel: '2026년 9월' })
+    expect(d.items.map(i => i.contentId)).toEqual(['d1', 'm1'])   // 실릴 땐 공개일 순
+  })
+
+  it('contentIds 는 기간·필터 밖 작품도 실을 수 있다 (사람이 고른 것을 존중)', () => {
+    const d = buildDraft({ contents, from, to, ottName: 'Netflix', contentIds: ['m3'], periodLabel: '2026년 9월' })
+    expect(d.items.map(i => i.contentId)).toEqual(['m3'])
+  })
+
   it('manualOverride 공개일을 우선한다', () => {
     const c = [{ id: 'x', title: 'x', type: 'movie', releaseDate: '2026-10-01', manualOverride: true, manualReleaseDate: '2026-09-15', popularity: 1 }]
     const d = buildDraft({ contents: c, from, to, periodLabel: '2026년 9월' })
     expect(d.items.map(i => i.contentId)).toEqual(['x'])
+  })
+})
+
+describe('listCandidates', () => {
+  const contents = [
+    { id: 'm1', title: '인기작', type: 'movie', releaseDate: '2026-09-10', popularity: 100, voteAverage: 7.5, voteCount: 20, providers: [{ providerName: 'Netflix' }] },
+    { id: 'm2', title: '비인기작', type: 'movie', releaseDate: '2026-09-02', popularity: 5, providers: [{ providerName: 'Netflix' }] },
+    { id: 'd1', title: '티빙작', type: 'drama', releaseDate: '2026-09-05', popularity: 80, providers: [{ providerName: 'TVING' }] },
+    { id: 'h1', title: '숨김작', type: 'movie', releaseDate: '2026-09-06', popularity: 999, hidden: true },
+  ]
+  const { from, to } = monthRange('2026-09')
+
+  it('인기순으로 준다 — 고르기 위한 목록이라 날짜순이 아니다', () => {
+    expect(listCandidates({ contents, from, to }).map(h => h.contentId)).toEqual(['m1', 'd1', 'm2'])
+  })
+
+  it('숨김 작품은 빠진다', () => {
+    expect(listCandidates({ contents, from, to }).map(h => h.contentId)).not.toContain('h1')
+  })
+
+  it('OTT 필터가 걸린다', () => {
+    expect(listCandidates({ contents, from, to, ottName: 'TVING' }).map(h => h.contentId)).toEqual(['d1'])
+  })
+
+  it('고를 때 판단할 값을 같이 준다', () => {
+    const [top] = listCandidates({ contents, from, to })
+    expect(top).toMatchObject({ title: '인기작', day: '9월 10일', popularity: 100, voteAverage: 7.5, voteCount: 20 })
+  })
+
+  it('평가가 없는 작품도 죽지 않는다', () => {
+    const h = listCandidates({ contents, from, to }).find(x => x.contentId === 'm2')
+    expect(h.voteCount).toBe(0)
   })
 })

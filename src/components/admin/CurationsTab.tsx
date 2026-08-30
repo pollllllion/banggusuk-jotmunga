@@ -4,8 +4,8 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { OTT_FILTERS } from '@/utils/ott'
 import { CONTENT_TYPES } from '@/utils/constants'
-import { buildDraft, monthRange, weekRange, slugify } from '@/shared/curationDraft.mjs'
-import { publishBlockers, MIN_BODY, MIN_NOTE } from '@/shared/curationSeo.mjs'
+import { buildDraft, listCandidates, monthRange, weekRange } from '@/shared/curationDraft.mjs'
+import { publishBlockers, MIN_BODY, MIN_NOTE, MIN_ITEMS } from '@/shared/curationSeo.mjs'
 import type { Curation, CurationItem, ContentType } from '@/types'
 
 /**
@@ -17,8 +17,9 @@ import type { Curation, CurationItem, ContentType } from '@/types'
  */
 
 interface Hint {
-  contentId: string; title: string; posterUrl?: string | null
-  day: string; genres: string; creators: string; providers: string
+  contentId: string; title: string; type?: string; posterUrl?: string | null
+  rel?: string; day: string; genres: string; creators: string; providers: string
+  popularity?: number; voteAverage?: number | null; voteCount?: number
 }
 
 /** 'YYYY-MM' 현재 달 */
@@ -92,6 +93,13 @@ export function CurationsTab({ rerender }: { rerender: () => void }) {
 }
 
 // ── 초안 뽑기 ───────────────────────────────────────────────
+/**
+ * 후보를 인기순으로 늘어놓고 **사람이 고른다.**
+ *
+ * 예전엔 인기 상위 N 편을 자동으로 집어넣었는데, TMDB 인기 점수는 "기대작"과 자주
+ * 어긋난다 — 시즌 25까지 온 예능이 신작 영화보다 위로 올라오는 식이다.
+ * 무엇을 실을지는 사람이 정하는 게 맞다.
+ */
 function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id: string) => void }) {
   const toast = useToastStore(s => s.show)
   const [mode, setMode] = useState<'month' | 'week'>('month')
@@ -99,33 +107,45 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
   const [weekStart, setWeekStart] = useState(thisMonday())
   const [ott, setOtt] = useState('')
   const [type, setType] = useState<'' | ContentType>('')
-  const [limit, setLimit] = useState(12)
-  const [preview, setPreview] = useState<any>(null)
+  const [cands, setCands] = useState<Hint[] | null>(null)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [ctx, setCtx] = useState<{ from: string; to: string; periodLabel: string; ottLabel: string } | null>(null)
 
-  const make = () => {
+  const load = () => {
     const { from, to } = mode === 'month' ? monthRange(month) : weekRange(weekStart)
     const periodLabel = mode === 'month'
       ? `${month.split('-')[0]}년 ${Number(month.split('-')[1])}월`
       : `${from.replace(/-/g, '. ')} 주`
     const ottLabel = OTT_FILTERS.find(o => o.name === ott)?.label || ''
-    const draft = buildDraft({
-      contents: DS.getContents(), from, to, mode, ottName: ott, ottLabel, type, limit, periodLabel,
-    })
-    if (!draft.items.length) { toast('그 기간에 걸리는 작품이 없습니다.'); return }
-    setPreview(draft)
+    const list = listCandidates({ contents: DS.getContents(), from, to, ottName: ott, type, limit: 60 }) as Hint[]
+    if (!list.length) { toast('그 기간에 걸리는 작품이 없습니다.'); return }
+    setCands(list)
+    setPicked(new Set())
+    setCtx({ from, to, periodLabel, ottLabel })
+  }
+
+  const toggle = (id: string) => {
+    const next = new Set(picked)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setPicked(next)
   }
 
   const create = () => {
-    if (!preview) return
-    let id = slugify(preview.id)
-    // 같은 달·같은 OTT 로 두 번 뽑으면 슬러그가 겹친다 — 뒤에 번호를 붙인다
-    let n = 2
-    while (DS.getCurationById(id)) { id = `${slugify(preview.id)}-${n++}` }
-    DS.createCuration({
-      id, title: preview.title, summary: preview.summary, body: '',
-      items: preview.items as CurationItem[], authorId,
+    if (!ctx || picked.size < MIN_ITEMS) { toast(`최소 ${MIN_ITEMS}편은 골라야 합니다.`); return }
+    const draft = buildDraft({
+      contents: DS.getContents(), from: ctx.from, to: ctx.to, mode,
+      ottName: ott, ottLabel: ctx.ottLabel, type,
+      contentIds: [...picked], periodLabel: ctx.periodLabel,
     })
-    setPreview(null)
+    let id = draft.id
+    // 같은 달·같은 필터로 두 번 뽑으면 슬러그가 겹친다 — 뒤에 번호를 붙인다
+    let n = 2
+    while (DS.getCurationById(id)) { id = `${draft.id}-${n++}` }
+    DS.createCuration({
+      id, title: draft.title, summary: draft.summary, body: '',
+      items: draft.items as CurationItem[], authorId,
+    })
+    setCands(null); setPicked(new Set())
     onCreated(id)
   }
 
@@ -155,26 +175,40 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
             <option value="">유형 전체</option>
             {CONTENT_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
           </select>
-          <select className="form-input" style={{ width: 110 }} value={limit} onChange={e => setLimit(Number(e.target.value))}>
-            {[5, 8, 10, 12, 15, 20].map(n => <option key={n} value={n}>{n}편</option>)}
-          </select>
         </div>
       </div>
 
-      <button className="btn btn-primary btn-small" onClick={make}>초안 뽑기</button>
+      <button className="btn btn-primary btn-small" onClick={load}>후보 불러오기</button>
 
-      {preview && (
+      {cands && (
         <div className="cur-preview">
-          <div className="value" style={{ fontWeight: 700 }}>{preview.title}</div>
-          <div className="label" style={{ margin: '4px 0 8px' }}>{preview.summary}</div>
-          <ul className="cur-preview-list">
-            {(preview.hints as Hint[]).map(h => (
-              <li key={h.contentId}>{h.day} · {h.title}{h.providers ? ` (${h.providers})` : ''}</li>
+          <div className="cur-pick-head">
+            <strong>실을 작품을 고르세요 — {picked.size}편 선택</strong>
+            <span className="label">후보 {cands.length}편 · 인기순</span>
+          </div>
+          <ul className="cur-pick-list">
+            {cands.map(h => (
+              <li key={h.contentId} className={picked.has(h.contentId) ? 'on' : ''} onClick={() => toggle(h.contentId)}>
+                <input type="checkbox" readOnly checked={picked.has(h.contentId)} />
+                {h.posterUrl && <img src={h.posterUrl} alt="" loading="lazy" />}
+                <div className="cur-pick-info">
+                  <div className="cur-pick-title">{h.day} · {h.title}</div>
+                  <div className="label">
+                    {[h.genres, h.creators, h.providers].filter(Boolean).join(' · ')}
+                  </div>
+                  <div className="label">
+                    인기 {h.popularity}
+                    {h.voteCount ? ` · 평점 ${Number(h.voteAverage).toFixed(1)} (${h.voteCount}명)` : ' · 평가 없음'}
+                  </div>
+                </div>
+              </li>
             ))}
           </ul>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary btn-small" onClick={create}>이 목록으로 초안 만들기</button>
-            <button className="btn btn-secondary btn-small" onClick={() => setPreview(null)}>취소</button>
+            <button className="btn btn-primary btn-small" onClick={create} disabled={picked.size < MIN_ITEMS}>
+              선택한 {picked.size}편으로 초안 만들기
+            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => { setCands(null); setPicked(new Set()) }}>취소</button>
           </div>
         </div>
       )}
@@ -263,6 +297,10 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
       <label style={{ display: 'block', margin: '16px 0 8px', fontWeight: 700 }}>
         실린 작품 {items.length}편 — 각 {MIN_NOTE}자 이상 코멘트
       </label>
+      <ItemAdder
+        existing={items.map(i => i.contentId)}
+        onAdd={id => setItems([...items, { contentId: id, note: '' }])}
+      />
       {!loaded && <p className="label">불러오는 중...</p>}
       {items.map((it, idx) => {
         const c = DS.getContentById(it.contentId)
@@ -316,6 +354,35 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── 작품 추가(검색) ─────────────────────────────────────────
+/** 초안에 빠진 작품을 직접 찾아 넣는다 — 기간 밖 작품도 넣을 수 있다 */
+function ItemAdder({ existing, onAdd }: { existing: string[]; onAdd: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const hits = q.trim().length >= 2
+    ? DS.searchContents(q.trim(), 8).filter(c => !existing.includes(c.id))
+    : []
+
+  return (
+    <div className="cur-adder">
+      <input
+        type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)}
+        placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
+      />
+      {hits.length > 0 && (
+        <ul className="cur-adder-list">
+          {hits.map(c => (
+            <li key={c.id} onClick={() => { onAdd(c.id); setQ('') }}>
+              {c.posterUrl && <img src={c.posterUrl} alt="" loading="lazy" />}
+              <span>{c.title}</span>
+              <span className="label">{c.releaseDate || c.releaseYear || ''}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

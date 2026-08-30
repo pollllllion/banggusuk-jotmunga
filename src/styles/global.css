@@ -1190,3 +1190,28 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .cur-card-cover { width: 90px; }
   .cur-item-poster { width: 70px; }
 }
+
+/* 큐레이션 — 작품 고르기 */
+.cur-pick-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.cur-pick-list { list-style: none; margin: 0 0 12px; padding: 0; max-height: 420px; overflow-y: auto; }
+.cur-pick-list li {
+  display: flex; gap: 10px; align-items: center; cursor: pointer;
+  padding: 8px; border-radius: var(--radius-sm); border: 1px solid transparent;
+}
+.cur-pick-list li:hover { background: var(--card); }
+.cur-pick-list li.on { background: var(--card); border-color: var(--primary); }
+.cur-pick-list img { width: 40px; border-radius: var(--radius-sm); flex-shrink: 0; }
+.cur-pick-info { min-width: 0; }
+.cur-pick-title { font-size: 14px; font-weight: 700; color: var(--dark); }
+
+.cur-adder { margin-bottom: 12px; position: relative; }
+.cur-adder-list {
+  list-style: none; margin: 4px 0 0; padding: 4px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.cur-adder-list li {
+  display: flex; gap: 8px; align-items: center; cursor: pointer;
+  padding: 6px 8px; border-radius: var(--radius-sm); font-size: 13px;
+}
+.cur-adder-list li:hover { background: var(--bg); }
+.cur-adder-list img { width: 28px; border-radius: 3px; }
