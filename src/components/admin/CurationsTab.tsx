@@ -109,7 +109,7 @@ function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id:
       : `${from.replace(/-/g, '. ')} 주`
     const ottLabel = OTT_FILTERS.find(o => o.name === ott)?.label || ''
     const draft = buildDraft({
-      contents: DS.getContents(), from, to, ottName: ott, ottLabel, type, limit, periodLabel,
+      contents: DS.getContents(), from, to, mode, ottName: ott, ottLabel, type, limit, periodLabel,
     })
     if (!draft.items.length) { toast('그 기간에 걸리는 작품이 없습니다.'); return }
     setPreview(draft)

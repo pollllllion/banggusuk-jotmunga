@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { publishBlockers, bodyParagraphs, curationBodyLines, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
-import { buildDraft, monthRange, weekRange, slugify } from '../curationDraft.mjs'
+import { buildDraft, buildSlug, monthRange, weekRange, slugify } from '../curationDraft.mjs'
 
 /** 발행 조건을 다 채운 글 */
 function full(over = {}) {
@@ -90,14 +90,34 @@ describe('monthRange / weekRange', () => {
 })
 
 describe('slugify', () => {
-  it('한글·공백은 하이픈으로 떨어지고 앞뒤 하이픈은 없앤다', () => {
-    expect(slugify('2026년 9월 넷플릭스')).toBe('2026-9')
-  })
   it('프리렌더 SAFE_ID 를 만족한다', () => {
     expect(slugify('a b/../c')).toMatch(/^[A-Za-z0-9._~-]+$/)
   })
   it('전부 걸러지면 기본값', () => {
     expect(slugify('한글만')).toBe('curation')
+  })
+})
+
+describe('buildSlug', () => {
+  it('월간 + OTT', () => {
+    expect(buildSlug({ mode: 'month', from: '2026-09-01', ottName: 'Netflix' })).toBe('2026-09-netflix')
+  })
+  it('공백 있는 provider 이름도 처리한다', () => {
+    expect(buildSlug({ mode: 'month', from: '2026-09-01', ottName: 'Disney Plus' })).toBe('2026-09-disney-plus')
+  })
+  it('주간은 시작일 전체를 쓴다', () => {
+    expect(buildSlug({ mode: 'week', from: '2026-09-28', ottName: 'TVING', type: 'drama' })).toBe('2026-09-28-tving-drama')
+  })
+  it('필터가 없으면 기간만', () => {
+    expect(buildSlug({ mode: 'month', from: '2026-09-01' })).toBe('2026-09')
+  })
+  it('한글 제목에서 만들지 않는다 — OTT 가 달라도 같은 슬러그가 되던 버그', () => {
+    const a = buildSlug({ mode: 'month', from: '2026-09-01', ottName: 'Netflix' })
+    const b = buildSlug({ mode: 'month', from: '2026-09-01', ottName: 'TVING' })
+    expect(a).not.toBe(b)
+  })
+  it('프리렌더 SAFE_ID 를 만족한다', () => {
+    expect(buildSlug({ mode: 'month', from: '2026-09-01', ottName: 'Amazon Prime Video' })).toMatch(/^[A-Za-z0-9._~-]+$/)
   })
 })
 
@@ -121,6 +141,7 @@ describe('buildDraft', () => {
     const d = buildDraft({ contents, from, to, ottName: 'Netflix', ottLabel: '넷플릭스', periodLabel: '2026년 9월' })
     expect(d.items.map(i => i.contentId)).toEqual(['m2', 'm1'])
     expect(d.title).toBe('2026년 9월 넷플릭스 공개작 정리')
+    expect(d.id).toBe('2026-09-netflix')
   })
 
   it('인기순으로 고르되 공개일 순으로 싣는다', () => {

@@ -48,6 +48,22 @@ export function slugify(s) {
 }
 
 /**
+ * 슬러그는 **한글 제목이 아니라 필터 값에서** 만든다.
+ *
+ * 표시용 제목("2026년 9월 넷플릭스 공개작 정리")을 slugify 하면 한글이 통째로 걸러져
+ * `2026-9` 만 남는다 — 넷플릭스든 티빙이든 같은 슬러그가 되고, 중복 회피가 붙어
+ * `/curation/2026-9-2` 같은 읽을 수 없는 URL 이 된다.
+ * TMDB provider 이름(Netflix, Disney Plus)과 type 코드는 원래 ASCII 라 그대로 쓸 수 있다.
+ *   월간 + 넷플릭스        → 2026-09-netflix
+ *   주간 + 티빙 + 드라마   → 2026-09-28-tving-drama
+ */
+export function buildSlug({ mode = 'month', from, ottName = '', type = '' }) {
+  const period = mode === 'week' ? from : String(from).slice(0, 7)
+  return [period, ottName ? slugify(ottName) : '', type ? slugify(type) : '']
+    .filter(Boolean).join('-')
+}
+
+/**
  * 초안 생성.
  *
  * @param contents  전체 작품 (앱 캐시의 목록 컬럼이면 충분)
@@ -57,7 +73,7 @@ export function slugify(s) {
  * @param type      'movie' | 'drama' | 'variety' | ... 없으면 전체
  * @param limit     최대 편수
  */
-export function buildDraft({ contents, from, to, ottName = '', ottLabel = '', type = '', limit = 12, periodLabel = '' }) {
+export function buildDraft({ contents, from, to, mode = 'month', ottName = '', ottLabel = '', type = '', limit = 12, periodLabel = '' }) {
   const picked = contents
     .filter(c => !c.hidden)
     .filter(c => !type || c.type === type)
@@ -80,7 +96,7 @@ export function buildDraft({ contents, from, to, ottName = '', ottLabel = '', ty
     : ''
 
   return {
-    id: slugify(`${label}-${ottLabel || 'all'}`),
+    id: buildSlug({ mode, from, ottName, type }),
     title,
     summary,
     // 본문·코멘트는 사람이 쓴다 (위 주석 참고)
