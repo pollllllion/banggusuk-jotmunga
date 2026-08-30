@@ -27,6 +27,12 @@ const PRECACHE = [OFFLINE_URL, '/icons/icon-192.png', '/manifest.webmanifest']
 
 const MAX_PAGES = 60
 const MAX_IMAGES = 300
+/**
+ * 자산(해시 박힌 js·css)은 cache-first 라 안전하지만 상한이 없으면 배포할 때마다
+ * 쌓인다 — 실측으로 한 브라우저에 번들 23개가 남아 있었다.
+ * 삽입 순서 = 오래된 순이라, 방금 받은 현재 번들은 잘려나가지 않는다.
+ */
+const MAX_ASSETS = 40
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -102,7 +108,7 @@ self.addEventListener('fetch', event => {
   const sameOrigin = url.origin === self.location.origin
 
   if (sameOrigin && url.pathname.startsWith('/assets/')) {
-    event.respondWith(cacheFirst(request, ASSETS))
+    event.respondWith(cacheFirst(request, ASSETS, MAX_ASSETS))
     return
   }
 
