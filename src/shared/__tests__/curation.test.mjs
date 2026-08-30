@@ -1,0 +1,144 @@
+import { describe, it, expect } from 'vitest'
+import { publishBlockers, bodyParagraphs, curationBodyLines, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
+import { buildDraft, monthRange, weekRange, slugify } from '../curationDraft.mjs'
+
+/** 발행 조건을 다 채운 글 */
+function full(over = {}) {
+  return {
+    id: '2026-09-netflix',
+    title: '2026년 9월 넷플릭스 공개작 정리',
+    summary: '9월 넷플릭스 공개작 5편을 공개일 순으로 정리했습니다.',
+    body: '가'.repeat(MIN_BODY),
+    items: [
+      { contentId: 'a', note: '나'.repeat(MIN_NOTE) },
+      { contentId: 'b', note: '다'.repeat(MIN_NOTE) },
+      { contentId: 'c', note: '라'.repeat(MIN_NOTE) },
+    ],
+    status: 'draft',
+    ...over,
+  }
+}
+
+describe('publishBlockers', () => {
+  it('다 채우면 통과', () => {
+    expect(publishBlockers(full())).toEqual([])
+  })
+
+  it('초안 생성 직후(본문·코멘트 빈 상태)는 막는다 — 이게 이 가드의 존재 이유', () => {
+    const draft = full({ body: '', items: [{ contentId: 'a', note: '' }, { contentId: 'b', note: '' }, { contentId: 'c', note: '' }] })
+    const b = publishBlockers(draft)
+    expect(b.length).toBe(2)
+    expect(b.join()).toMatch(/본문/)
+    expect(b.join()).toMatch(/코멘트/)
+  })
+
+  it('본문이 한 글자라도 모자라면 막는다', () => {
+    expect(publishBlockers(full({ body: '가'.repeat(MIN_BODY - 1) }))).toHaveLength(1)
+  })
+
+  it('코멘트가 짧은 작품이 하나만 있어도 막는다', () => {
+    const c = full()
+    c.items[1].note = '짧음'
+    expect(publishBlockers(c)).toHaveLength(1)
+  })
+
+  it('작품이 3편 미만이면 막는다', () => {
+    expect(publishBlockers(full({ items: full().items.slice(0, 2) }))).toHaveLength(1)
+  })
+
+  it('공백만 채운 본문은 통과하지 못한다', () => {
+    expect(publishBlockers(full({ body: ' '.repeat(MIN_BODY + 10) }))).toHaveLength(1)
+  })
+})
+
+describe('bodyParagraphs', () => {
+  it('빈 줄로 문단을 나눈다', () => {
+    expect(bodyParagraphs({ body: '첫째.\n\n둘째.\n\n\n셋째.' })).toEqual(['첫째.', '둘째.', '셋째.'])
+  })
+  it('본문이 없으면 빈 배열', () => {
+    expect(bodyParagraphs({})).toEqual([])
+  })
+})
+
+describe('curationBodyLines', () => {
+  const byId = new Map([['a', { id: 'a', title: '작품 A', posterUrl: 'p.jpg' }]])
+
+  it('문단 다음에 작품이 온다 (앱 화면·프리렌더 순서가 같아야 한다)', () => {
+    const lines = curationBodyLines({ body: '도입.', items: [{ contentId: 'a', note: '코멘트' }] }, byId)
+    expect(lines.map(l => l.kind)).toEqual(['p', 'item'])
+    expect(lines[1].title).toBe('작품 A')
+    expect(lines[1].href).toBe('/content/a')
+  })
+
+  it('캐시에 없는 작품도 죽지 않는다', () => {
+    const lines = curationBodyLines({ body: '', items: [{ contentId: 'zzz', note: 'n' }] }, byId)
+    expect(lines[0].exists).toBe(false)
+    expect(lines[0].title).toBe('zzz')
+  })
+})
+
+describe('monthRange / weekRange', () => {
+  it('윤년 2월 말일을 맞춘다', () => {
+    expect(monthRange('2028-02')).toEqual({ from: '2028-02-01', to: '2028-02-29' })
+  })
+  it('평년 2월', () => {
+    expect(monthRange('2026-02')).toEqual({ from: '2026-02-01', to: '2026-02-28' })
+  })
+  it('주간은 시작일 포함 7일', () => {
+    expect(weekRange('2026-09-28')).toEqual({ from: '2026-09-28', to: '2026-10-04' })
+  })
+})
+
+describe('slugify', () => {
+  it('한글·공백은 하이픈으로 떨어지고 앞뒤 하이픈은 없앤다', () => {
+    expect(slugify('2026년 9월 넷플릭스')).toBe('2026-9')
+  })
+  it('프리렌더 SAFE_ID 를 만족한다', () => {
+    expect(slugify('a b/../c')).toMatch(/^[A-Za-z0-9._~-]+$/)
+  })
+  it('전부 걸러지면 기본값', () => {
+    expect(slugify('한글만')).toBe('curation')
+  })
+})
+
+describe('buildDraft', () => {
+  const contents = [
+    { id: 'm1', title: '9월작 인기', type: 'movie', releaseDate: '2026-09-10', popularity: 100, providers: [{ providerName: 'Netflix' }] },
+    { id: 'm2', title: '9월작 앞날짜', type: 'movie', releaseDate: '2026-09-02', popularity: 50, providers: [{ providerName: 'Netflix' }] },
+    { id: 'm3', title: '10월작', type: 'movie', releaseDate: '2026-10-02', popularity: 90, providers: [{ providerName: 'Netflix' }] },
+    { id: 'd1', title: '9월 티빙 드라마', type: 'drama', releaseDate: '2026-09-05', popularity: 80, providers: [{ providerName: 'TVING' }] },
+    { id: 'h1', title: '숨김작', type: 'movie', releaseDate: '2026-09-06', popularity: 999, hidden: true, providers: [{ providerName: 'Netflix' }] },
+  ]
+  const { from, to } = monthRange('2026-09')
+
+  it('기간 밖·숨김 작품은 빠진다', () => {
+    const d = buildDraft({ contents, from, to, periodLabel: '2026년 9월' })
+    expect(d.items.map(i => i.contentId)).not.toContain('m3')
+    expect(d.items.map(i => i.contentId)).not.toContain('h1')
+  })
+
+  it('OTT 필터가 걸린다', () => {
+    const d = buildDraft({ contents, from, to, ottName: 'Netflix', ottLabel: '넷플릭스', periodLabel: '2026년 9월' })
+    expect(d.items.map(i => i.contentId)).toEqual(['m2', 'm1'])
+    expect(d.title).toBe('2026년 9월 넷플릭스 공개작 정리')
+  })
+
+  it('인기순으로 고르되 공개일 순으로 싣는다', () => {
+    const d = buildDraft({ contents, from, to, limit: 2, periodLabel: '2026년 9월' })
+    // 인기 100(m1) · 80(d1) 이 뽑히고, 실릴 땐 날짜순 d1(9/5) → m1(9/10)
+    expect(d.items.map(i => i.contentId)).toEqual(['d1', 'm1'])
+  })
+
+  it('본문과 코멘트는 비워서 준다 — 자동 문장을 발행하지 못하게', () => {
+    const d = buildDraft({ contents, from, to, periodLabel: '2026년 9월' })
+    expect(d.body).toBe('')
+    expect(d.items.every(i => i.note === '')).toBe(true)
+    expect(publishBlockers(d).length).toBeGreaterThan(0)
+  })
+
+  it('manualOverride 공개일을 우선한다', () => {
+    const c = [{ id: 'x', title: 'x', type: 'movie', releaseDate: '2026-10-01', manualOverride: true, manualReleaseDate: '2026-09-15', popularity: 1 }]
+    const d = buildDraft({ contents: c, from, to, periodLabel: '2026년 9월' })
+    expect(d.items.map(i => i.contentId)).toEqual(['x'])
+  })
+})

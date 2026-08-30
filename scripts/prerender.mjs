@@ -35,6 +35,9 @@ import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, schemaTypeOf,
 } from '../src/shared/contentSeo.mjs'
 import { contentBodyLines, isIndexableContent } from '../src/shared/contentIndexable.mjs'
+import {
+  buildCurationDescription, buildCurationJsonLd, curationBodyLines, publishBlockers,
+} from '../src/shared/curationSeo.mjs'
 import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -88,7 +91,7 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
 }
 
 /** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 (푸터 문서 포함) */
-const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a>`
+const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a> | <a href="/curation">공개작 정리</a>`
   + STATIC_PAGES.map(p => ` | <a href="${p.path}">${p.label}</a>`).join('')
   + `</nav>`
 
@@ -160,6 +163,7 @@ async function main() {
   let contents = []
   let discussions = []
   let profiles = []
+  let curations = []
   try {
     contents = await fetchAll('contents', '*', VISIBLE_CONTENTS)
     discussions = await fetchAll('discussions', 'id,contentId,title,body,rating,spoiler,createdAt,authorId,guestName')
@@ -169,6 +173,15 @@ async function main() {
     console.warn(`[prerender] DB 조회 실패, 작품·토론글 프리렌더를 건너뜁니다: ${e.message}`)
     console.log(`[prerender] 안내 문서 ${n}개만 생성됨`)
     return
+  }
+
+  // 큐레이션은 따로 잡는다 — 마이그레이션 전이라 테이블이 없어도 작품·토론글 프리렌더는 돌아야 한다.
+  // (같은 try 에 두면 404 하나로 2,000여 페이지가 통째로 안 만들어진다)
+  try {
+    // anon 키로 읽으므로 RLS 가 발행된 글만 준다(migration_curations.sql)
+    curations = await fetchAll('curations', '*')
+  } catch (e) {
+    console.warn(`[prerender] 큐레이션 조회 실패, 건너뜁니다: ${e.message}`)
   }
 
   const byId = new Map(contents.map(c => [c.id, c]))
@@ -269,6 +282,56 @@ async function main() {
   ].join('\n      ')))
   n++
 
+  // ── 큐레이션(기획 글) ──────────────────────────────────────
+  // 이 사이트만의 원본 콘텐츠라 색인 우선순위가 가장 높다.
+  // 발행 가드를 통과 못 한 글은 애초에 발행이 안 되지만, DB 를 직접 만진 경우를 대비해
+  // 여기서도 한 번 더 거른다 — 얇은 글을 색인에 밀어 넣으면 사이트 평가가 깎인다.
+  const pubCurations = curations
+    .filter(c => c.status === 'published' && c.publishedAt)
+    .filter(c => SAFE_ID.test(c.id))
+    .filter(c => !publishBlockers(c).length)
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)))
+
+  for (const c of pubCurations) {
+    const head = headBlock({
+      title: c.title,
+      description: buildCurationDescription(c),
+      canonicalPath: `/curation/${c.id}`,
+      ogType: 'article',
+      image: c.coverUrl,
+      jsonLd: buildCurationJsonLd(c, SITE_URL, SITE_NAME),
+    })
+    // 앱 화면(CurationDetailPage)과 같은 순서 — 문단들 다음에 작품 카드
+    const body = [
+      `<article>`,
+      `<h1>${esc(c.title)}</h1>`,
+      `<p>${esc(String(c.publishedAt).slice(0, 10))}</p>`,
+      ...curationBodyLines(c, byId).map(l => l.kind === 'p'
+        ? `<p>${esc(l.text)}</p>`
+        : [
+            `<section>`,
+            `<h2><a href="${esc(l.href)}">${esc(l.title)}</a></h2>`,
+            `<p>${esc(l.note)}</p>`,
+            `</section>`,
+          ].join('')),
+      `</article>`, NAV,
+    ].join('\n      ')
+    writePage(`curation/${c.id}`, render(template, head, body))
+    n++
+  }
+
+  writePage('curation', render(template, headBlock({
+    title: '공개작 정리',
+    description: `${SITE_NAME}가 직접 고르고 정리한 월간·주간 공개작 모음. 넷플릭스·디즈니+·티빙·웨이브 신작과 극장 개봉작을 공개일 순으로 묶었습니다.`,
+    canonicalPath: '/curation',
+  }), [
+    `<h1>공개작 정리</h1>`,
+    `<ul>`,
+    pubCurations.map(c => `<li><a href="/curation/${esc(c.id)}">${esc(c.title)}</a> — ${esc(c.summary)}</li>`).join('\n        '),
+    `</ul>`, NAV,
+  ].join('\n      ')))
+  n++
+
   writePage('talk', render(template, headBlock({
     title: '방구석토론방',
     description: '영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방.',
@@ -283,7 +346,7 @@ async function main() {
   n++
 
   console.log(`[prerender] ${n}개 정적 페이지 생성`)
-  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 목록 2 · 안내 문서 ${STATIC_PAGES.length}`)
+  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 큐레이션 ${pubCurations.length} · 목록 3 · 안내 문서 ${STATIC_PAGES.length}`)
   // 조용히 색인에서 빼지 않는다 — 몇 개가 왜 빠졌는지 로그로 남긴다
   console.log(`[prerender]   본문이 얇아 noindex 처리한 작품 ${thin}개 (색인 대상 ${contents.length - thin}개)`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다

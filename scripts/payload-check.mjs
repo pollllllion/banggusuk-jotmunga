@@ -29,11 +29,14 @@ const H = { apikey: key, Authorization: 'Bearer ' + key }
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 /** 실제 앱이 받는 컬럼 그대로 — contentColumns.ts 에서 읽어온다(둘이 어긋나면 측정이 거짓말이 된다) */
-function listCols() {
-  const src = readFileSync(resolve(__dirname, '../src/api/contentColumns.ts'), 'utf8')
-  const block = src.split('export const CONTENT_LIST_COLS = [')[1].split('].join')[0]
+function colsFrom(file, constName) {
+  const src = readFileSync(resolve(__dirname, `../src/api/${file}`), 'utf8')
+  const block = src.split(`export const ${constName} = [`)[1].split('].join')[0]
   return block.match(/'([^']+)'/g).map(s => s.replace(/'/g, '')).join(',')
 }
+
+function listCols() { return colsFrom('contentColumns.ts', 'CONTENT_LIST_COLS') }
+function curationCols() { return colsFrom('curationColumns.ts', 'CURATION_LIST_COLS') }
 
 async function measure(table, cols) {
   let raw = 0, gz = 0, rows = 0
@@ -55,6 +58,8 @@ const TABLES = [
   ['contents', listCols()],
   ['profiles', '*'], ['discussions', '*'], ['discussion_comments', '*'],
   ['reviews', '*'], ['comments', '*'], ['announcements', '*'],
+  // 큐레이션은 본문(body·items)을 상세에서 받는다 — 목록 컬럼만 시작 로드에 오른다
+  ['curations', curationCols()],
 ]
 
 let totalRaw = 0, totalGz = 0

@@ -14,12 +14,15 @@
  *   reviews.ts        리뷰 + 리뷰 댓글
  *   discussions.ts    토론글 + 그 댓글 + 유동닉 비번 RPC + 평점 재집계
  *   social.ts         찜·본작품·차단·알림·신고·공지
+ *   curations.ts      큐레이션(기획 글)
  */
 export { cache, load, store, loadAll, reloadUserScoped, seed, type Table } from './cache'
 export { CONTENT_LIST_COLS, CONTENT_DETAIL_COLS } from './contentColumns'
+export { CURATION_LIST_COLS, CURATION_DETAIL_COLS } from './curationColumns'
 export { setSession, getSession, currentUser } from './session'
 export * from './users'
 export * from './contents'
 export * from './reviews'
 export * from './discussions'
 export * from './social'
+export * from './curations'

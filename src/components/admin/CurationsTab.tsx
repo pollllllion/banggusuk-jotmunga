@@ -1,0 +1,321 @@
+import { useState, useEffect } from 'react'
+import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/components/ui/Toast'
+import * as DS from '@/api/dataService'
+import { OTT_FILTERS } from '@/utils/ott'
+import { CONTENT_TYPES } from '@/utils/constants'
+import { buildDraft, monthRange, weekRange, slugify } from '@/shared/curationDraft.mjs'
+import { publishBlockers, MIN_BODY, MIN_NOTE } from '@/shared/curationSeo.mjs'
+import type { Curation, CurationItem, ContentType } from '@/types'
+
+/**
+ * 관리자 큐레이션 탭 — 캘린더 데이터로 초안을 뽑고, 사람이 글을 채워 발행한다.
+ *
+ * 자동으로 채워지는 건 작품 목록·제목·요약뿐이다. 본문과 작품별 코멘트는 비어서 나오고,
+ * publishBlockers() 가 채우기 전엔 발행을 막는다 — 자동 문장만 있는 글은
+ * 구글·애드센스가 '자동 생성된 얇은 콘텐츠'로 본다. 그 가드가 이 기능의 핵심이다.
+ */
+
+interface Hint {
+  contentId: string; title: string; posterUrl?: string | null
+  day: string; genres: string; creators: string; providers: string
+}
+
+/** 'YYYY-MM' 현재 달 */
+function thisMonth(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** 오늘이 속한 주의 월요일 */
+function thisMonday(): string {
+  const d = new Date()
+  const diff = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - diff)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function CurationsTab({ rerender }: { rerender: () => void }) {
+  const { user } = useAuthStore()
+  const toast = useToastStore(s => s.show)
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  const list = [...DS.getCurations()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+
+  if (editingId) {
+    return <CurationEditor id={editingId} onDone={() => { setEditingId(null); rerender() }} />
+  }
+
+  return (
+    <>
+      <DraftMaker
+        authorId={user!.id}
+        onCreated={id => { toast('초안을 만들었습니다. 본문과 코멘트를 채워야 발행할 수 있어요.'); setEditingId(id) }}
+      />
+
+      {!list.length ? (
+        <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>아직 만든 글이 없습니다.</p>
+      ) : list.map(c => {
+        const blockers = publishBlockers(c)
+        return (
+          <div key={c.id} className="admin-card fade-in">
+            <div className="admin-card-body">
+              <div className="value" style={{ fontWeight: 700 }}>
+                {c.title}
+                <span className={`cur-status ${c.status}`}>{c.status === 'published' ? '발행됨' : '초안'}</span>
+              </div>
+              <div className="label" style={{ marginTop: 4 }}>/curation/{c.id} · 작품 {(c.items || []).length}편</div>
+              {c.status !== 'published' && (
+                <div className="label" style={{ color: blockers.length ? 'var(--danger, #d33)' : 'var(--subtext)' }}>
+                  {blockers.length ? `발행 조건 ${blockers.length}개 미충족` : '발행 준비 완료'}
+                </div>
+              )}
+            </div>
+            <div className="admin-card-actions">
+              <button className="btn btn-secondary btn-small" onClick={() => setEditingId(c.id)}>편집</button>
+              {c.status === 'published' && (
+                <a className="btn btn-secondary btn-small" href={`/curation/${c.id}`} target="_blank" rel="noreferrer">보기</a>
+              )}
+              <button
+                className="btn btn-danger btn-small"
+                onClick={() => {
+                  if (!confirm(`"${c.title}" 글을 삭제하시겠습니까?`)) return
+                  DS.deleteCuration(c.id); toast('삭제되었습니다.'); rerender()
+                }}
+              >삭제</button>
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+// ── 초안 뽑기 ───────────────────────────────────────────────
+function DraftMaker({ authorId, onCreated }: { authorId: string; onCreated: (id: string) => void }) {
+  const toast = useToastStore(s => s.show)
+  const [mode, setMode] = useState<'month' | 'week'>('month')
+  const [month, setMonth] = useState(thisMonth())
+  const [weekStart, setWeekStart] = useState(thisMonday())
+  const [ott, setOtt] = useState('')
+  const [type, setType] = useState<'' | ContentType>('')
+  const [limit, setLimit] = useState(12)
+  const [preview, setPreview] = useState<any>(null)
+
+  const make = () => {
+    const { from, to } = mode === 'month' ? monthRange(month) : weekRange(weekStart)
+    const periodLabel = mode === 'month'
+      ? `${month.split('-')[0]}년 ${Number(month.split('-')[1])}월`
+      : `${from.replace(/-/g, '. ')} 주`
+    const ottLabel = OTT_FILTERS.find(o => o.name === ott)?.label || ''
+    const draft = buildDraft({
+      contents: DS.getContents(), from, to, ottName: ott, ottLabel, type, limit, periodLabel,
+    })
+    if (!draft.items.length) { toast('그 기간에 걸리는 작품이 없습니다.'); return }
+    setPreview(draft)
+  }
+
+  const create = () => {
+    if (!preview) return
+    let id = slugify(preview.id)
+    // 같은 달·같은 OTT 로 두 번 뽑으면 슬러그가 겹친다 — 뒤에 번호를 붙인다
+    let n = 2
+    while (DS.getCurationById(id)) { id = `${slugify(preview.id)}-${n++}` }
+    DS.createCuration({
+      id, title: preview.title, summary: preview.summary, body: '',
+      items: preview.items as CurationItem[], authorId,
+    })
+    setPreview(null)
+    onCreated(id)
+  }
+
+  return (
+    <div className="settings-section" style={{ marginBottom: 16 }}>
+      <div className="form-group">
+        <label>기간</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select className="form-input" style={{ width: 90 }} value={mode} onChange={e => setMode(e.target.value as 'month' | 'week')}>
+            <option value="month">월간</option>
+            <option value="week">주간</option>
+          </select>
+          {mode === 'month'
+            ? <input type="month" className="form-input" style={{ width: 160 }} value={month} onChange={e => setMonth(e.target.value)} />
+            : <input type="date" className="form-input" style={{ width: 170 }} value={weekStart} onChange={e => setWeekStart(e.target.value)} />}
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>필터</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <select className="form-input" style={{ width: 150 }} value={ott} onChange={e => setOtt(e.target.value)}>
+            <option value="">OTT 전체</option>
+            {OTT_FILTERS.map(o => <option key={o.name} value={o.name}>{o.label}</option>)}
+          </select>
+          <select className="form-input" style={{ width: 130 }} value={type} onChange={e => setType(e.target.value as '' | ContentType)}>
+            <option value="">유형 전체</option>
+            {CONTENT_TYPES.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+          </select>
+          <select className="form-input" style={{ width: 110 }} value={limit} onChange={e => setLimit(Number(e.target.value))}>
+            {[5, 8, 10, 12, 15, 20].map(n => <option key={n} value={n}>{n}편</option>)}
+          </select>
+        </div>
+      </div>
+
+      <button className="btn btn-primary btn-small" onClick={make}>초안 뽑기</button>
+
+      {preview && (
+        <div className="cur-preview">
+          <div className="value" style={{ fontWeight: 700 }}>{preview.title}</div>
+          <div className="label" style={{ margin: '4px 0 8px' }}>{preview.summary}</div>
+          <ul className="cur-preview-list">
+            {(preview.hints as Hint[]).map(h => (
+              <li key={h.contentId}>{h.day} · {h.title}{h.providers ? ` (${h.providers})` : ''}</li>
+            ))}
+          </ul>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary btn-small" onClick={create}>이 목록으로 초안 만들기</button>
+            <button className="btn btn-secondary btn-small" onClick={() => setPreview(null)}>취소</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 편집 ────────────────────────────────────────────────────
+function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
+  const toast = useToastStore(s => s.show)
+  const [, setTick] = useState(0)
+  const cur = DS.getCurationById(id)
+
+  const [title, setTitle] = useState(cur?.title || '')
+  const [summary, setSummary] = useState(cur?.summary || '')
+  const [body, setBody] = useState(cur?.body || '')
+  const [coverUrl, setCoverUrl] = useState(cur?.coverUrl || '')
+  const [items, setItems] = useState<CurationItem[]>(cur?.items || [])
+  const [loaded, setLoaded] = useState(false)
+
+  // 본문·작품목록은 시작 로드에 없다 — 편집 화면에 들어올 때 채운다
+  useEffect(() => {
+    void DS.loadCurationDetail(id).then(() => {
+      const fresh = DS.getCurationById(id)
+      if (fresh) { setBody(fresh.body || ''); setItems(fresh.items || []) }
+      setLoaded(true); setTick(t => t + 1)
+    })
+  }, [id])
+
+  if (!cur) return <p style={{ color: 'var(--subtext)' }}>글을 찾을 수 없습니다.</p>
+
+  const draft: Curation = { ...cur, title, summary, body, items, coverUrl: coverUrl || null }
+  const blockers = publishBlockers(draft)
+
+  const save = () => {
+    DS.updateCuration(id, { title, summary, body, items, coverUrl: coverUrl || null })
+    toast('저장되었습니다.')
+  }
+
+  const publish = () => {
+    if (blockers.length) { toast('발행 조건을 먼저 채워주세요.'); return }
+    DS.updateCuration(id, { title, summary, body, items, coverUrl: coverUrl || null })
+    DS.publishCuration(id)
+    toast('발행되었습니다. 다음 배포 때 정적 페이지·sitemap 에 반영됩니다.')
+    onDone()
+  }
+
+  const setNote = (contentId: string, note: string) =>
+    setItems(items.map(i => i.contentId === contentId ? { ...i, note } : i))
+
+  const removeItem = (contentId: string) =>
+    setItems(items.filter(i => i.contentId !== contentId))
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...items]
+    const to = idx + dir
+    if (to < 0 || to >= next.length) return
+    ;[next[idx], next[to]] = [next[to], next[idx]]
+    setItems(next)
+  }
+
+  return (
+    <div className="settings-section">
+      <div className="form-group"><label>제목</label>
+        <input type="text" className="form-input" value={title} onChange={e => setTitle(e.target.value)} />
+      </div>
+      <div className="form-group"><label>URL</label>
+        <input type="text" className="form-input" value={`/curation/${id}`} disabled />
+      </div>
+      <div className="form-group"><label>요약 — 목록 카드와 검색결과 설명</label>
+        <textarea className="form-input" value={summary} onChange={e => setSummary(e.target.value)}
+          style={{ minHeight: 60, resize: 'vertical' }} />
+      </div>
+      <div className="form-group"><label>대표 이미지 URL (선택)</label>
+        <input type="text" className="form-input" value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="비우면 안 넣습니다" />
+      </div>
+      <div className="form-group">
+        <label>본문 — 왜 이 목록을 묶었는지 ({body.trim().length}/{MIN_BODY}자)</label>
+        <textarea
+          className="form-input" value={body} onChange={e => setBody(e.target.value)}
+          placeholder="이번 달 라인업의 흐름, 눈여겨볼 지점, 지난달과 뭐가 다른지 등. 빈 줄로 문단을 나눕니다."
+          style={{ minHeight: 180, resize: 'vertical' }}
+        />
+      </div>
+
+      <label style={{ display: 'block', margin: '16px 0 8px', fontWeight: 700 }}>
+        실린 작품 {items.length}편 — 각 {MIN_NOTE}자 이상 코멘트
+      </label>
+      {!loaded && <p className="label">불러오는 중...</p>}
+      {items.map((it, idx) => {
+        const c = DS.getContentById(it.contentId)
+        const short = (it.note || '').trim().length < MIN_NOTE
+        return (
+          <div key={it.contentId} className="cur-edit-item">
+            {c?.posterUrl && <img src={c.posterUrl} alt="" className="cur-edit-poster" />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="value" style={{ fontWeight: 700 }}>{c ? c.title : it.contentId}</div>
+              <div className="label">
+                {c ? [
+                  c.releaseDate, (c.genres || []).slice(0, 3).join('·'),
+                  [...new Set((c.providers || []).map(p => p.providerName))].slice(0, 3).join('·'),
+                ].filter(Boolean).join(' · ') : '캐시에 없는 작품'}
+              </div>
+              <textarea
+                className="form-input" value={it.note}
+                onChange={e => setNote(it.contentId, e.target.value)}
+                placeholder="이 작품을 왜 골랐는지, 뭘 기대할 만한지 직접 쓰세요."
+                style={{ minHeight: 64, resize: 'vertical', marginTop: 6, borderColor: short ? 'var(--danger, #d33)' : undefined }}
+              />
+              <div className="label" style={{ color: short ? 'var(--danger, #d33)' : 'var(--subtext)' }}>
+                {(it.note || '').trim().length}/{MIN_NOTE}자
+              </div>
+            </div>
+            <div className="cur-edit-actions">
+              <button className="btn btn-secondary btn-small" onClick={() => move(idx, -1)} disabled={idx === 0}>↑</button>
+              <button className="btn btn-secondary btn-small" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}>↓</button>
+              <button className="btn btn-danger btn-small" onClick={() => removeItem(it.contentId)}>빼기</button>
+            </div>
+          </div>
+        )
+      })}
+
+      {blockers.length > 0 && (
+        <div className="cur-blockers">
+          <strong>발행하려면</strong>
+          <ul>{blockers.map((b, i) => <li key={i}>{b}</li>)}</ul>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+        <button className="btn btn-secondary" onClick={onDone}>목록으로</button>
+        <button className="btn btn-secondary" onClick={save}>저장</button>
+        <button className="btn btn-primary" onClick={publish} disabled={blockers.length > 0}>
+          {cur.status === 'published' ? '저장하고 재발행' : '발행'}
+        </button>
+        {cur.status === 'published' && (
+          <button className="btn btn-danger" onClick={() => { DS.unpublishCuration(id); toast('비공개로 내렸습니다.'); onDone() }}>
+            비공개로
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}

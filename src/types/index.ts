@@ -239,3 +239,28 @@ export interface Announcement {
   content: string
   createdAt: string
 }
+
+// ── Curation (기획 글) ──────────────────────────────────────
+/** 큐레이션에 실린 작품 한 편 + 운영자가 붙인 코멘트 */
+export interface CurationItem {
+  contentId: string
+  /** 이 작품을 왜 골랐는지 — 비어 있으면 발행할 수 없다(자동생성 글 방지) */
+  note: string
+}
+
+export interface Curation {
+  /** 슬러그가 곧 id 이자 URL — /curation/{id} */
+  id: string
+  title: string
+  /** 목록 카드와 meta description 에 쓰는 한 문단 */
+  summary: string
+  /** 도입·마무리 본문. 빈 줄로 문단을 나눈다 */
+  body: string
+  items: CurationItem[]
+  coverUrl?: string | null
+  status: 'draft' | 'published'
+  publishedAt?: string | null
+  authorId?: string | null
+  createdAt: string
+  updatedAt: string
+}

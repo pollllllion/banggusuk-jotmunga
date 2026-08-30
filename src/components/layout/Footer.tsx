@@ -12,6 +12,7 @@ export function Footer() {
   return (
     <footer className="site-footer">
       <nav className="site-footer-links">
+        <a onClick={() => navigate('/curation')}>공개작 정리</a>
         {links.map(d => (
           <a key={d.slug} onClick={() => navigate(d.path)}>{d.label}</a>
         ))}

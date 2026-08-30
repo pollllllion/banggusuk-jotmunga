@@ -21,6 +21,8 @@ import { UserProfilePage } from '@/pages/UserProfilePage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
+import { CurationListPage } from '@/pages/CurationListPage'
+import { CurationDetailPage } from '@/pages/CurationDetailPage'
 import { AboutPage, TermsPage, PrivacyPage, AdsPage } from '@/pages/StaticPages'
 
 const queryClient = new QueryClient({
@@ -67,6 +69,8 @@ export default function App() {
               <Route path="/talk/write" element={<WriteDiscussionPage />} />
               <Route path="/talk/:id" element={<DiscussionDetailPage />} />
               <Route path="/browse" element={<BrowsePage />} />
+              <Route path="/curation" element={<CurationListPage />} />
+              <Route path="/curation/:id" element={<CurationDetailPage />} />
               <Route path="/board/:slug" element={<BoardPage />} />
               <Route path="/content/:id" element={<ContentDetailPage />} />
               {/* 리뷰는 토론글로 통합됨 — 옛 링크는 방구석토론방으로 보낸다 */}

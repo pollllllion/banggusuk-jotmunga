@@ -8,16 +8,17 @@
 import { supabase } from '@/lib/supabaseClient'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import { CONTENT_LIST_COLS } from './contentColumns'
+import { CURATION_LIST_COLS } from './curationColumns'
 
 export type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
-  | 'bookmarks' | 'content_alerts' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'discussion_comments' | 'profiles'
+  | 'bookmarks' | 'content_alerts' | 'watched' | 'blocks' | 'notifications' | 'reports' | 'announcements' | 'discussions' | 'discussion_comments' | 'profiles' | 'curations'
 
-const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'content_alerts', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'discussion_comments', 'profiles']
+const TABLES: Table[] = ['users', 'contents', 'reviews', 'comments', 'bookmarks', 'content_alerts', 'watched', 'blocks', 'notifications', 'reports', 'announcements', 'discussions', 'discussion_comments', 'profiles', 'curations']
 
 export const cache: Record<Table, any[]> = {
   users: [], contents: [], reviews: [], comments: [],
-  bookmarks: [], content_alerts: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [],
+  bookmarks: [], content_alerts: [], watched: [], blocks: [], notifications: [], reports: [], announcements: [], discussions: [], discussion_comments: [], profiles: [], curations: [],
 }
 
 /** 테이블별 기본키 컬럼. watched·bookmarks·content_alerts·blocks 는 복합키라 id 컬럼이 아예 없다. */
@@ -80,7 +81,10 @@ function dedupeRows(t: Table, rows: any[]): any[] {
 }
 
 function selectCols(t: Table): string {
-  return t === 'contents' ? CONTENT_LIST_COLS : '*'
+  if (t === 'contents') return CONTENT_LIST_COLS
+  // 큐레이션 본문은 한 편에 수백~수천 자다 — 목록 화면이 안 쓰는 body·items 는 상세에서 받는다
+  if (t === 'curations') return CURATION_LIST_COLS
+  return '*'
 }
 
 /**
