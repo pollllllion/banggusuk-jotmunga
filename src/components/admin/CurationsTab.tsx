@@ -40,8 +40,19 @@ export function CurationsTab({ rerender }: { rerender: () => void }) {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [, setTick] = useState(0)
 
   const list = [...DS.getCurations()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+
+  // body·items 는 시작 로드에서 빠져 있다(curationColumns.ts). 그대로 두면 목록 카드가
+  // 늘 "작품 0편 · 발행 조건 미충족"으로 보인다 — 이미 다 채운 글까지 그렇게 나온다.
+  // 관리자 화면이고 글 수가 수십 단위라 여기서 전부 채워 온다.
+  useEffect(() => {
+    const ids = DS.getCurations().map(c => c.id)
+    if (!ids.length) return
+    void Promise.all(ids.map(id => DS.loadCurationDetail(id)))
+      .then(res => { if (res.some(Boolean)) setTick(t => t + 1) })
+  }, [list.length])
 
   if (editingId) {
     return <CurationEditor id={editingId} onDone={() => { setEditingId(null); rerender() }} />
