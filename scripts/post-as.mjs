@@ -73,8 +73,26 @@ async function login(key) {
   return body.access_token
 }
 
-const contents = await get('contents?select=id,title,type&limit=5000')
-const discussions = await get('discussions?select=id,contentId,authorId,title,body,rating')
+/**
+ * 한 테이블을 끝까지 읽는다.
+ * PostgREST 는 한 번에 1000행만 준다 — limit=5000 을 적어도 조용히 1000행에서 잘린다.
+ * 작품이 2,000편을 넘은 뒤로는 그냥 두면 뒤쪽 작품이 통째로 "작품을 못 찾음" 이 된다.
+ */
+const getAll = async (table, select) => {
+  const out = []
+  for (let from = 0; ; from += 1000) {
+    const r = await fetch(`${URL}/rest/v1/${table}?select=${select}&order=id.asc`, {
+      headers: { ...svcH, Range: `${from}-${from + 999}` },
+    })
+    if (!r.ok) throw new Error(`GET ${table} → ${r.status} ${(await r.text()).slice(0, 200)}`)
+    const rows = await r.json()
+    out.push(...rows)
+    if (rows.length < 1000) return out
+  }
+}
+
+const contents = await getAll('contents', 'id,title,type')
+const discussions = await getAll('discussions', 'id,contentId,authorId,title,body,rating')
 
 function resolveContent(needle) {
   const byId = contents.find(c => c.id === needle)
