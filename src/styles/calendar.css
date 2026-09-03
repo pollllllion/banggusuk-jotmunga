@@ -147,8 +147,6 @@
 .cal-modal-date .cal-src { font-weight: 500; color: var(--subtext); }
 .cal-modal-pattern { font-size: 13px; font-weight: 600; color: var(--primary); margin: -4px 0 8px; }
 .cal-modal-just { font-size: 11px; color: var(--subtext); padding: 0 20px 16px; margin: 0; }
-.cal-attribution { font-size: 11px; color: var(--subtext); text-align: center; margin-top: 16px; line-height: 1.7; }
-.cal-attribution a { color: var(--text-secondary); text-decoration: underline; }
 .cal-modal-syn { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
 
 /* ── 상세 정보 (네이버 검색 스타일) ── */

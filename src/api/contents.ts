@@ -14,7 +14,8 @@ import { getReviews, saveReviews, getComments, saveComments } from './reviews'
 
 export function getContents(): Content[] { return load('contents') }
 export function saveContents(contents: Content[]) { store('contents', contents) }
-export function getContentById(id: string) { return getContents().find(c => c.id === id) }
+/** 자유방 글처럼 contentId 가 없는 경우도 그대로 받는다 — 호출부마다 널 검사를 두지 않으려고. */
+export function getContentById(id: string | null | undefined) { return id ? getContents().find(c => c.id === id) : undefined }
 
 // 상세 컬럼을 이미 받아온 작품 (같은 작품을 다시 열어도 재요청하지 않게)
 const detailLoaded = new Set<string>()

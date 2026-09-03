@@ -7,12 +7,13 @@ import { GuestCred } from '@/components/ui/GuestCred'
 import { TalkBodyEditor, cleanBodyHtml } from '@/components/content/TalkBodyEditor'
 import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
+import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { PosterUploader } from '@/components/content/PosterUploader'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { normalizeTitle, scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
 import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
-import type { Content } from '@/types'
+import type { Content, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
 
 /** 방구석토론방 글쓰기(통합) — 한 화면에서 작품 선택 + 본문 + 별점 + 스포일러.
@@ -23,7 +24,7 @@ export function WriteDiscussionPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
-  const { user, isAccount } = useAuthStore()
+  const { user, isAccount, initialized } = useAuthStore()
   const toast = useToastStore(s => s.show)
 
   const editing = searchParams.get('edit')
@@ -33,6 +34,15 @@ export function WriteDiscussionPage() {
   const [guestPwForEdit, setGuestPwForEdit] = useState<string>((location.state as any)?.guestPw || '')
 
   const preselected = searchParams.get('contentId')
+
+  // 자유방(?board=relay) 글은 작품에 묶이지 않는다 — 작품 선택과 별점을 통째로 뺀다.
+  // 고쳐 쓸 때는 URL 이 아니라 글 자신의 게시판을 따른다(다른 게시판으로 옮겨지면 안 된다).
+  const board: DiscussionBoard = editing ? (editing.board || 'talk')
+    : searchParams.get('board') === 'relay' ? 'relay' : 'talk'
+  const isFree = board === 'relay'
+  /** 목록으로 돌아갈 곳 */
+  const boardPath = isFree ? '/board/relay' : '/talk'
+  const boardLabel = isFree ? '자유방' : '방구석토론방'
   const [picked, setPicked] = useState<Content | null>(
     editing ? DS.getContentById(editing.contentId) ?? null
       : preselected ? DS.getContentById(preselected) ?? null : null
@@ -56,6 +66,12 @@ export function WriteDiscussionPage() {
   const [guestName, setGuestName] = useState('')
   const [guestPw, setGuestPw] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // 글쓰기에 들어오면 로그인 창을 한 번 띄운다. '비회원으로 글쓰기'를 고르면 유동닉으로 계속 쓴다.
+  // 이미 쓴 글을 고치러 온 경우(?edit=)는 막지 않는다 — 유동닉 글 수정은 비번으로 따로 확인한다.
+  // editing 이 아니라 쿼리스트링을 보는 이유: 목록이 아직 안 실려 있으면 editing 이 잠깐 null 이다.
+  const [guestChosen, setGuestChosen] = useState(false)
+  const showLoginGate = initialized && !isAccount && !searchParams.get('edit') && !guestChosen
 
   const [tmdbHits, setTmdbHits] = useState<TmdbResult[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
@@ -174,7 +190,7 @@ export function WriteDiscussionPage() {
   }
 
   const submit = async () => {
-    if (!picked) { toast('작품을 먼저 선택하세요.'); return }
+    if (!isFree && !picked) { toast('작품을 먼저 선택하세요.'); return }
     const head = title.trim()
     if (!head) { toast('제목을 입력하세요.'); return }
     if (head.length > 80) { toast('제목은 80자 이내로 입력해주세요.'); return }
@@ -193,7 +209,13 @@ export function WriteDiscussionPage() {
         await saveEdit({ title: head, body: text, bodyHtml: safeHtml, rating: useRating, spoiler, images: safeImages })
         return
       }
-      const base = { contentId: picked.id, title: head, body: text, bodyHtml: safeHtml, rating: useRating, spoiler, images: safeImages }
+      const base = {
+        contentId: isFree ? null : picked!.id,
+        board,
+        title: head, body: text, bodyHtml: safeHtml,
+        rating: isFree ? null : useRating,
+        spoiler, images: safeImages,
+      }
       let created
       if (isAccount && user) {
         created = DS.createDiscussion({ ...base, authorId: user.id })
@@ -212,17 +234,18 @@ export function WriteDiscussionPage() {
 
   return (
     <>
-      <Seo title={editing ? '방구석토론방 글 수정' : '방구석토론방 글쓰기'} noindex />
-      <div className="back-btn" onClick={() => navigate(editing ? `/talk/${editing.id}` : '/talk')}>
-        <BackIcon /> {editing ? '글로 돌아가기' : '방구석토론방'}
+      <Seo title={`${boardLabel} 글 ${editing ? '수정' : '쓰기'}`} noindex />
+      <div className="back-btn" onClick={() => navigate(editing ? `/talk/${editing.id}` : boardPath)}>
+        <BackIcon /> {editing ? '글로 돌아가기' : boardLabel}
       </div>
 
       <div className="feed-header">
-        <h2 className="feed-title">{editing ? '✏️ 방구석토론방 글 수정' : '✍️ 방구석토론방 글쓰기'}</h2>
+        <h2 className="feed-title">{editing ? '✏️' : '✍️'} {boardLabel} 글 {editing ? '수정' : '쓰기'}</h2>
       </div>
 
       <div className="disc-write-page fade-in">
-        {/* 작품 선택 (필수) */}
+        {/* 작품 선택 (필수) — 자유방은 작품이 없으므로 통째로 뺀다 */}
+        {!isFree && (
         <div className="form-group">
           <label>작품 <span className="req">*</span></label>
           {picked ? (
@@ -322,12 +345,11 @@ export function WriteDiscussionPage() {
             </>
           )}
         </div>
+        )}
 
         {!isAccount && !editing && (
           <div className="form-group">
-            <label>유동닉 (닉네임 + 삭제용 비밀번호)</label>
-            <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} />
-            <p className="write-notice">※ 쉬운 비밀번호를 쓰면 남이 글을 지울 수 있어요.</p>
+            <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="글" />
           </div>
         )}
 
@@ -343,7 +365,8 @@ export function WriteDiscussionPage() {
           <TalkBodyEditor html={bodyHtml} onHtml={setBodyHtml} />
         </div>
 
-        {/* 별점 (선택 · 1작품 1회) */}
+        {/* 별점 (선택 · 1작품 1회) — 매길 작품이 없는 자유방에는 안 그린다 */}
+        {!isFree && (
         <div className="form-group">
           <label>별점 <span className="opt">선택</span></label>
           {alreadyRated ? (
@@ -364,6 +387,7 @@ export function WriteDiscussionPage() {
             </>
           )}
         </div>
+        )}
 
         {/* 스포일러 (선택) */}
         <div className="form-group">
@@ -378,12 +402,20 @@ export function WriteDiscussionPage() {
         </p>
 
         <div className="write-actions">
-          <button className="btn btn-secondary" onClick={() => navigate(editing ? `/talk/${editing.id}` : '/talk')}>취소</button>
-          <button className="btn btn-primary" onClick={submit} disabled={saving || !picked || !title.trim() || (!body.trim() && !images.length)}>
+          <button className="btn btn-secondary" onClick={() => navigate(editing ? `/talk/${editing.id}` : boardPath)}>취소</button>
+          <button className="btn btn-primary" onClick={submit} disabled={saving || (!isFree && !picked) || !title.trim() || (!body.trim() && !images.length)}>
             {saving ? (editing ? '고치는 중…' : '올리는 중…') : (editing ? '수정 완료' : '글 올리기')}
           </button>
         </div>
       </div>
+
+      {showLoginGate && (
+        <LoginGateModal
+          next={location.pathname + location.search}
+          onGuest={() => setGuestChosen(true)}
+          onCancel={() => navigate(boardPath)}
+        />
+      )}
     </>
   )
 }

@@ -47,10 +47,14 @@
 .disc-item-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .disc-author { font-size: 13.5px; font-weight: 700; color: var(--text); }
 .disc-time { font-size: 12px; color: var(--subtext); }
+/* 수정·삭제·신고. 셋을 오른쪽 끝에 한 덩어리로 붙인다.
+   margin-left:auto 를 전부에 걸면 버튼끼리 서로 밀어내서 화면 폭만큼 사이가 벌어진다 —
+   맨 앞 하나만 밀고, 뒤따르는 것들은 부모의 gap 만큼만 띄운다. */
 .disc-del {
   margin-left: auto; background: none; border: none; cursor: pointer;
   font-size: 12px; color: var(--subtext);
 }
+.disc-del ~ .disc-del { margin-left: 0; }
 .disc-del:hover { color: var(--danger); }
 .disc-body { font-size: 14px; line-height: 1.65; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
 .disc-item-foot { margin-top: 10px; }
@@ -238,6 +242,12 @@
 .disc-comment-composer {
   margin-top: 14px; background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius-md); padding: 10px;
+}
+/* 유동닉일 때만 뜨는 줄. 창은 눌러야 열린다 — 글 읽으러 온 사람 앞을 막지 않으려고.
+   아래 비회원 상자(.guest-cred-head)와 같은 배치 — 누를 것이 왼쪽, 설명이 오른쪽. */
+.disc-comment-login {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 8px; font-size: 12px; color: var(--subtext);
 }
 
 /* 방구석토론방 글쓰기 페이지 (팝업 대체) */

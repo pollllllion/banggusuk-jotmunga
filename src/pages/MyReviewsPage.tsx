@@ -11,8 +11,9 @@ export function MyReviewsPage() {
   if (!user) return null
 
   const posts = DS.getDiscussionsByAuthor(user.id)
+    // 자유방 글은 작품이 없다 — 예전처럼 content 없는 줄을 걸러내면 내 글이 목록에서 사라진다.
+    // DiscussionRow 가 작품 없는 줄을 그릴 수 있으므로 그대로 둔다.
     .map(p => ({ post: p, content: DS.getContentById(p.contentId) }))
-    .filter((x): x is { post: typeof x.post; content: NonNullable<typeof x.content> } => Boolean(x.content))
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime())
 
   return (

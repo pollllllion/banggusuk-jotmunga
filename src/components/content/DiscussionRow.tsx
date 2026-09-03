@@ -4,10 +4,11 @@ import { LevelTag } from '@/components/profile/LevelTag'
 import { boardDate } from '@/utils/helpers'
 import type { Content, Discussion } from '@/types'
 
-/** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판). */
+/** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판).
+ *  자유방 글은 작품이 없어 content 가 없다 — 그때는 작품 열을 통째로 뺀다. */
 export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   post: Discussion
-  content: Content
+  content?: Content
   showContent?: boolean
   /** 인기글 섹션에서 매기는 순위 (1부터). 없으면 순위 배지를 안 그린다 */
   rank?: number
@@ -18,7 +19,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   const author = isGuest ? post.guestName : (DS.getUserById(post.authorId || '')?.nickname || '탈퇴한 사용자')
   const commentCount = DS.countDiscussionComments(post.id)
 
-  const goWork = (e: React.MouseEvent) => { e.stopPropagation(); navigate(`/content/${content.id}?tab=talk`) }
+  const goWork = (e: React.MouseEvent) => { e.stopPropagation(); if (content) navigate(`/content/${content.id}?tab=talk`) }
   // 고정닉(계정)만 강조·프로필 링크. 유동닉과 레거시 방문객 글은 회색 일반 표기.
   const isAccount = DS.isAccountId(post.authorId)
   const canProfile = isAccount
@@ -40,7 +41,9 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
           {commentCount > 0 && <span className="disc-row-cc">[{commentCount}]</span>}
         </span>
         <span className="disc-rank-meta">
-          <span className="disc-rank-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
+          {content && (
+            <span className="disc-rank-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>{content.title}</span>
+          )}
         </span>
       </div>
     )
@@ -53,7 +56,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   // 작품방(showContent=false)에서는 전부 같은 작품이라 말머리 열을 뺀다.
   return (
     <div className={`disc-row ${showContent ? 'has-tag' : ''}`} onClick={onOpen}>
-      {showContent && (
+      {showContent && content && (
         <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>
           {content.title}
         </span>

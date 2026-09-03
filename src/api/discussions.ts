@@ -6,11 +6,16 @@
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
-import type { Discussion, DiscussionComment } from '@/types'
+import type { Discussion, DiscussionBoard, DiscussionComment } from '@/types'
 import { cache, load, store } from './cache'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
 export function saveDiscussions(d: Discussion[]) { store('discussions', d) }
+
+/** 게시판별 글 — board 컬럼이 없던 시절 글(undefined)은 전부 방구석토론방 글로 친다. */
+export function getDiscussionsByBoard(board: DiscussionBoard): Discussion[] {
+  return getDiscussions().filter(d => (d.board || 'talk') === board)
+}
 
 export function getDiscussionsByContent(contentId: string): Discussion[] {
   return getDiscussions()
@@ -28,8 +33,10 @@ export function getUserRatingForContent(userId: string, contentId: string): Disc
 }
 
 /** 평점 재집계 — 별점 단 토론글에서 집계한다. 캐시만 갱신(즉시 표시용).
- *  avgRating = 별점 평균, reviewCount = 별점 단 글 수. (DB 는 트리거가 맞춘다) */
-export function recomputeContentRating(contentId: string) {
+ *  avgRating = 별점 평균, reviewCount = 별점 단 글 수. (DB 는 트리거가 맞춘다)
+ *  자유방 글은 작품이 없어 null 이 들어온다 — DB 쪽 함수와 마찬가지로 조용히 넘긴다. */
+export function recomputeContentRating(contentId: string | null | undefined) {
+  if (!contentId) return
   const rated = getDiscussions().filter(d => d.contentId === contentId && d.rating != null)
   const count = rated.length
   const avg = count ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / count) * 10) / 10 : 0

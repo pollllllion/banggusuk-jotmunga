@@ -91,7 +91,7 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
 }
 
 /** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 (푸터 문서 포함) */
-const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a> | <a href="/curation">공개작 정리</a>`
+const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a> | <a href="/board/relay">자유방</a> | <a href="/curation">공개작 정리</a>`
   + STATIC_PAGES.map(p => ` | <a href="${p.path}">${p.label}</a>`).join('')
   + `</nav>`
 
@@ -349,21 +349,36 @@ async function main() {
   ].join('\n      ')))
   n++
 
+  // 게시판별로 나눠 싣는다. board 컬럼 대신 contentId 유무로 가른다 —
+  // migration_free_board 적용 전에 board 를 select 하면 조회가 통째로 실패해서
+  // 작품 2,000여 페이지 프리렌더가 같이 죽는다. 작품 없는 글 = 자유방 글이다.
+  const listItems = rows => rows.filter(d => SAFE_ID.test(d.id))
+    .map(d => `<li><a href="/talk/${esc(d.id)}">${esc(d.title || '(제목 없음)')}</a></li>`).join('\n        ')
+  const talkPosts = discussions.filter(d => d.contentId != null)
+  const freePosts = discussions.filter(d => d.contentId == null)
+
   writePage('talk', render(template, headBlock({
     title: '방구석토론방',
     description: '영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방.',
     canonicalPath: '/talk',
   }), [
     `<h1>방구석토론방</h1>`,
-    `<ul>`,
-    discussions.filter(d => SAFE_ID.test(d.id))
-      .map(d => `<li><a href="/talk/${esc(d.id)}">${esc(d.title || '(제목 없음)')}</a></li>`).join('\n        '),
-    `</ul>`, NAV,
+    `<ul>`, listItems(talkPosts), `</ul>`, NAV,
+  ].join('\n      ')))
+  n++
+
+  writePage('board/relay', render(template, headBlock({
+    title: '자유방',
+    description: '작품 얘기가 아니어도 괜찮은 방구석좋문가 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳.',
+    canonicalPath: '/board/relay',
+  }), [
+    `<h1>자유방</h1>`,
+    `<ul>`, listItems(freePosts), `</ul>`, NAV,
   ].join('\n      ')))
   n++
 
   console.log(`[prerender] ${n}개 정적 페이지 생성`)
-  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${discussions.length} · 큐레이션 ${pubCurations.length} · 목록 3 · 안내 문서 ${STATIC_PAGES.length}`)
+  console.log(`[prerender]   작품 ${contents.length} · 토론글 ${talkPosts.length} · 자유방 ${freePosts.length} · 큐레이션 ${pubCurations.length} · 목록 4 · 안내 문서 ${STATIC_PAGES.length}`)
   // 조용히 색인에서 빼지 않는다 — 몇 개가 왜 빠졌는지 로그로 남긴다
   console.log(`[prerender]   본문이 얇아 noindex 처리한 작품 ${thin}개 (색인 대상 ${contents.length - thin}개)`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다

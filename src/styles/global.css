@@ -367,6 +367,32 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .auth-switch a:hover { text-decoration: underline; }
 .auth-error { background: var(--danger-light); color: var(--danger); padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 12px; }
 
+/* 글쓰기 로그인 창 — 로그인 폼(.auth-*)을 모달 안에 그대로 재사용한다 */
+.login-gate { position: relative; }
+.login-gate h3 { margin-bottom: 6px; }
+.login-gate-desc { font-size: 13px; color: var(--subtext); line-height: 1.7; margin-bottom: 18px; }
+.login-gate-or {
+  display: flex; align-items: center; gap: 10px;
+  margin: 20px 0 14px; font-size: 12px; color: var(--subtext);
+}
+.login-gate-or::before, .login-gate-or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+/* 로그인 버튼(.auth-btn)과 같은 색을 쓴다 — 클래스를 같이 달아 색을 한 곳에서만 정한다 */
+.login-gate-guest { margin-top: 0; }
+.login-gate-note { font-size: 12px; color: var(--subtext); text-align: center; line-height: 1.6; margin-top: 10px; }
+
+/* 비회원 작성 칸 — 입력칸 두 개만 있으면 이게 뭔지 모른다. 점선으로 묶고 '비회원' 을 붙인다.
+   글쓰기 페이지(--card)와 댓글 입력칸(--bg) 양쪽에 얹히므로 배경은 깔지 않는다. */
+.guest-cred { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 10px; }
+.guest-cred-head {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 12px; color: var(--subtext); margin-bottom: 8px;
+}
+.guest-badge {
+  display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
+  background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: -0.2px;
+}
+.guest-cred-note { font-size: 11.5px; color: var(--subtext); line-height: 1.5; margin-top: 8px; }
+
 /* ============================================================
    Feed / Home
    ============================================================ */
@@ -1073,11 +1099,19 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* ============================================================
    Site Footer (홈 피드 하단) + 안내 문서 (소개·약관·개인정보·광고)
    ============================================================ */
+/* 위쪽 경계선은 없다 — 출처 표기 아래(.site-footer-attr)의 선 하나로 충분하다 */
 .site-footer {
   margin-top: 40px; padding: 22px 4px 8px;
-  border-top: 1px solid var(--border);
   text-align: center;
 }
+/* 데이터 출처 표기 — 링크 줄 위에 작게. 원래 캘린더에만 있었으나 전 페이지 공통으로 옮겼다.
+   아래 선은 옮기기 전 모습을 지킨다 — 예전엔 이 문단이 푸터 밖에 있어서
+   푸터의 border-top 이 출처와 서비스 소개를 갈라 주고 있었다. */
+.site-footer-attr {
+  font-size: 11px; color: var(--subtext); line-height: 1.7;
+  padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--border);
+}
+.site-footer-attr a { color: var(--text-secondary); text-decoration: underline; }
 .site-footer-links {
   display: flex; flex-wrap: wrap; justify-content: center;
   gap: 8px 18px; margin-bottom: 12px;

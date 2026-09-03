@@ -136,9 +136,15 @@ export interface Comment {
 }
 
 // ── Discussion (출시 전 수다방 · 작품 단위 기대평) ──────────
+/** 글이 속한 게시판 — 'talk' 방구석토론방(작품 필수) · 'relay' 자유방(작품 없음) */
+export type DiscussionBoard = 'talk' | 'relay'
+
 export interface Discussion {
   id: string
-  contentId: string
+  /** 자유방 글은 작품이 없다(null). 토론방 글은 DB 제약상 반드시 있다. */
+  contentId: string | null
+  /** migration_free_board 미적용이면 undefined — 그때는 전부 토론방 글로 친다 */
+  board?: DiscussionBoard
   authorId: string | null    // 로그인 글이면 auth uid, 유동닉이면 null
   guestName?: string | null  // 유동닉 표시명
   guestPwHash?: string | null // 유동닉 비번 SHA-256 hex

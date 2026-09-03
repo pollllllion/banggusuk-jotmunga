@@ -12,6 +12,7 @@ import { TYPE_EMOJIS } from '@/utils/constants'
 import { timeAgo, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
+import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import '@/styles/discussion.css'
 
 /** 방구석토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
@@ -28,6 +29,9 @@ export function DiscussionDetailPage() {
   const [guestName, setGuestName] = useState('')
   const [guestPw, setGuestPw] = useState('')
   const [revealSpoiler, setRevealSpoiler] = useState(false)
+  // 댓글 입력칸의 '로그인' 버튼으로 여는 창. 글쓰기와 달리 저절로 뜨지 않는다 —
+  // 글을 읽으러 온 사람 앞을 막지 않으려고. 눌러서 열고, 로그인하면 저절로 닫힌다.
+  const [loginOpen, setLoginOpen] = useState(false)
   // 댓글 인라인 수정 — 고치는 중인 댓글 id / 입력값 / (유동닉이면) 확인된 비번
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingBody, setEditingBody] = useState('')
@@ -42,8 +46,13 @@ export function DiscussionDetailPage() {
   }, [id])
 
   const post = DS.getDiscussions().find(d => d.id === id)
+  // 자유방 글은 작품이 없다 — content 가 없다고 튕기면 그 글은 아예 못 연다.
+  // 작품이 있어야 하는 건 토론방 글뿐이고, 그건 DB 제약이 지킨다.
   const content = post ? DS.getContentById(post.contentId) : undefined
-  if (!post || !content) { navigate('/talk'); return null }
+  const isFree = (post?.board || 'talk') === 'relay'
+  if (!post || (!isFree && !content)) { navigate('/talk'); return null }
+  /** 목록으로 돌아갈 곳 */
+  const boardPath = isFree ? '/board/relay' : '/talk'
 
   const isGuest = !!post.guestName
   const author = isGuest ? post.guestName : (DS.getUserById(post.authorId || '')?.nickname || '탈퇴한 사용자')
@@ -159,12 +168,12 @@ export function DiscussionDetailPage() {
     <div className="disc-page fade-in">
       <Seo
         path={`/talk/${post.id}`}
-        title={`${post.title || '(제목 없음)'} - ${content.title}`}
+        title={content ? `${post.title || '(제목 없음)'} - ${content.title}` : (post.title || '(제목 없음)')}
         description={post.body}
-        image={(!post.spoiler && post.images?.[0]) || content.posterUrl}
+        image={(!post.spoiler && post.images?.[0]) || content?.posterUrl}
         type="article"
       />
-      <div className="back-btn" onClick={() => navigate('/talk')}><BackIcon /> 목록으로</div>
+      <div className="back-btn" onClick={() => navigate(boardPath)}><BackIcon /> 목록으로</div>
 
       <div className="disc-detail-titlerow">
         {post.rating != null && (
@@ -218,12 +227,14 @@ export function DiscussionDetailPage() {
         <button className={`disc-like ${liked ? 'on' : ''}`} onClick={likePost}>
           <HeartIcon filled={liked} size={14} /> 공감 {post.likes.length || 0}
         </button>
-        <span
-          className="disc-detail-work"
-          onClick={() => navigate(`/content/${content.id}?tab=talk`)}
-          title="이 작품방으로 이동">
-          {TYPE_EMOJIS[content.type]} {content.title} <span className="disc-detail-work-go">작품방 ›</span>
-        </span>
+        {content && (
+          <span
+            className="disc-detail-work"
+            onClick={() => navigate(`/content/${content.id}?tab=talk`)}
+            title="이 작품방으로 이동">
+            {TYPE_EMOJIS[content.type]} {content.title} <span className="disc-detail-work-go">작품방 ›</span>
+          </span>
+        )}
       </div>
 
       <div className="disc-comments">
@@ -270,7 +281,13 @@ export function DiscussionDetailPage() {
         })}
 
         <div className="disc-comment-composer">
-          {!isAccount && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} />}
+          {!isAccount && (
+            <div className="disc-comment-login">
+              <button className="btn btn-primary btn-small" onClick={() => setLoginOpen(true)}>로그인</button>
+              <span>고정닉으로 남기면 내 댓글 관리·알림·레벨이 쌓여요.</span>
+            </div>
+          )}
+          {!isAccount && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="댓글" />}
           <textarea
             className="disc-input" style={{ minHeight: 54, marginTop: !isAccount ? 8 : 0 }}
             placeholder="댓글을 남겨보세요" maxLength={1000}
@@ -282,6 +299,15 @@ export function DiscussionDetailPage() {
           </div>
         </div>
       </div>
+
+      {loginOpen && (
+        <LoginGateModal
+          kind="comment"
+          next={`/talk/${post.id}`}
+          onGuest={() => setLoginOpen(false)}
+          onCancel={() => setLoginOpen(false)}
+        />
+      )}
     </div>
   )
 }

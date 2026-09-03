@@ -78,7 +78,9 @@ export function DiscussionRoomPage() {
     : null
 
   // 전체 작품 글(discussions) + 작품 정보 결합 → 타입/검색 필터 → 최신순
-  const rows = DS.getDiscussions()
+  // getDiscussionsByBoard 로 자유방 글을 걸러낸다. 작품이 없어 아래 content 결합에서도
+  // 어차피 빠지지만, 목록의 뜻을 코드에 남겨 둔다.
+  const rows = DS.getDiscussionsByBoard('talk')
     .filter(p => !blockedIds.includes(p.authorId || ''))
     .map(p => ({ post: p, content: DS.getContentById(p.contentId) }))
     .filter((x): x is { post: typeof x.post; content: NonNullable<typeof x.content> } => Boolean(x.content))
@@ -107,7 +109,7 @@ export function DiscussionRoomPage() {
 
   // 인기글 — 필터·검색과 무관하게 게시판 전체에서 뽑는다(상단 고정 섹션).
   // 글이 몇 개 없을 땐 아래 최신순 목록과 똑같아 보이므로 숨긴다.
-  const allRows = DS.getDiscussions()
+  const allRows = DS.getDiscussionsByBoard('talk')
     .filter(p => !blockedIds.includes(p.authorId || ''))
     .map(p => ({ post: p, content: DS.getContentById(p.contentId) }))
     .filter((x): x is { post: typeof x.post; content: NonNullable<typeof x.content> } => Boolean(x.content))

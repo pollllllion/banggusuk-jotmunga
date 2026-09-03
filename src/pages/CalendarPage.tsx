@@ -15,7 +15,6 @@ import {
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
-import { Footer } from '@/components/layout/Footer'
 import { SITE_NAME, SITE_URL } from '@/utils/seo'
 import { getPushState, enablePush } from '@/utils/push'
 import '@/styles/calendar.css'
@@ -385,11 +384,6 @@ export function CalendarPage() {
         </section>
       )}
 
-      <p className="cal-attribution">
-        영화·드라마 정보 및 OTT 제공 여부: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a> · OTT 제공 정보 <a href="https://www.justwatch.com/" target="_blank" rel="noreferrer">JustWatch</a> 제공 · 웹툰/웹소설은 직접 큐레이션<br />
-        This product uses the TMDB API but is not endorsed or certified by TMDB.
-      </p>
-
       {dayList && (
         <div className="cal-modal-back" onClick={() => setDayList(null)}>
           <div className="cal-daylist" onClick={e => e.stopPropagation()}>
@@ -419,7 +413,6 @@ export function CalendarPage() {
         </div>
       )}
 
-      <Footer />
 
       {selected && (
         <div className="cal-modal-back" onClick={() => setSelected(null)}>

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { MobileNav } from './MobileNav'
+import { Footer } from './Footer'
 import { ReportModal } from '@/components/report/ReportModal'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { useUIStore } from '@/stores/uiStore'
@@ -30,6 +31,7 @@ export function AppLayout() {
         {navDrawerOpen && <div className="nav-scrim" onClick={closeNavDrawer} />}
         <main className="main">
           <Outlet />
+          <Footer />
         </main>
       </div>
       <MobileNav />

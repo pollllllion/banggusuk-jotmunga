@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabaseClient'
@@ -7,11 +7,24 @@ import { isRemember } from '@/lib/authStorage'
 import { isPasswordValid, getPasswordRules, isValidEmail } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
 
+/**
+ * ?next= 로 돌아갈 곳을 받는다 — 글쓰기 로그인 창에서 '회원가입'으로 나온 사람을
+ * 홈이 아니라 쓰던 화면으로 돌려보내기 위한 것.
+ * URL 로 들어오는 값이라 같은 사이트 안의 경로만 받는다(`//evil.com` 같은 외부 튕김 방지).
+ */
+const safeNext = (v: string | null) => (v && v.startsWith('/') && !v.startsWith('//') ? v : '/')
+
 export function AuthPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const next = safeNext(searchParams.get('next'))
   const { login, register, isAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login')
+  // ?mode=register 로 들어오면 가입 폼부터 연다 (글쓰기 로그인 창의 '회원가입' 링크)
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>(() => {
+    const m = searchParams.get('mode')
+    return m === 'register' || m === 'reset' ? m : 'login'
+  })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -29,8 +42,8 @@ export function AuthPage() {
   // reset
   const [resetEmail, setResetEmail] = useState('')
 
-  // 로그인 계정 상태면 홈으로 (게스트는 통과 — /auth 직접 접근 허용)
-  if (isAccount) { navigate('/'); return null }
+  // 로그인 계정 상태면 돌아갈 곳으로 (게스트는 통과 — /auth 직접 접근 허용)
+  if (isAccount) { navigate(next); return null }
 
   const handleLogin = async () => {
     setError('')
@@ -39,7 +52,7 @@ export function AuthPage() {
     const result = await login(loginEmail, loginPw, remember)
     setBusy(false)
     if (!result.ok) { setError(result.error || '로그인 실패'); return }
-    navigate('/')
+    navigate(next)
   }
 
   const handleRegister = async () => {
@@ -58,7 +71,7 @@ export function AuthPage() {
       return
     }
     toast('가입 완료! 이제 고정닉으로 활동할 수 있어요.')
-    navigate('/')
+    navigate(next)
   }
 
   const handleReset = async () => {

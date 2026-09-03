@@ -47,6 +47,7 @@ async function main() {
   const entries = [
     urlEntry('/', today),
     urlEntry('/talk', today),
+    urlEntry('/board/relay', today),
     urlEntry('/browse', today),
     urlEntry('/curation', today),
     // 안내 문서 (소개·약관·개인정보·광고) — 원문은 src/shared/staticPages.mjs
