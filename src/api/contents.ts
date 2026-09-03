@@ -17,29 +17,55 @@ export function saveContents(contents: Content[]) { store('contents', contents) 
 /** 자유방 글처럼 contentId 가 없는 경우도 그대로 받는다 — 호출부마다 널 검사를 두지 않으려고. */
 export function getContentById(id: string | null | undefined) { return id ? getContents().find(c => c.id === id) : undefined }
 
-// 상세 컬럼을 이미 받아온 작품 (같은 작품을 다시 열어도 재요청하지 않게)
+// 상세 컬럼을 **실제로 캐시에 채운** 작품 (같은 작품을 다시 열어도 재요청하지 않게).
+// ⚠️ '요청을 보냈다'가 아니라 '반영에 성공했다'만 넣는다. 실패까지 여기 넣으면
+//    그 세션 내내 재시도가 막혀, 새로고침 전까지 줄거리·출연진이 빈 채로 남는다.
 const detailLoaded = new Set<string>()
+
+// 진행 중인 요청 — 캘린더 모달과 작품 상세가 같은 작품을 잇달아 열어도 요청은 한 번만.
+const detailInFlight = new Map<string, Promise<DetailLoad>>()
+
+/** 이 작품의 상세 컬럼이 캐시에 들어와 있나 — 화면이 '로딩 중'과 '정보 없음'을 가르는 기준 */
+export function isContentDetailLoaded(id: string | null | undefined): boolean {
+  return !!id && detailLoaded.has(id)
+}
+
+/** ready = 화면을 그려도 되는 상태(성공, 또는 재시도해도 같은 결과) · error = 재시도할 값어치가 있음 */
+export type DetailLoad = 'ready' | 'error'
 
 /**
  * 작품 상세 전용 컬럼(줄거리·출연진 등)만 뒤늦게 채운다.
  * 시작 로드에서는 이 컬럼들을 빼기 때문에(CONTENT_DETAIL_COLS) 상세 화면·캘린더 모달·
  * 관리자 편집처럼 실제로 필요한 곳에서 이걸 부른 뒤 화면을 갱신해야 한다.
- * @returns 캐시가 바뀌었으면 true (호출한 쪽에서 리렌더)
+ *
+ * 호출부는 반환값으로 '아직 안 온 것'과 '정말 없는 것'을 구분해야 한다 —
+ * 구분하지 않으면 요청이 도는 동안(실측 0.6초, 모바일에선 더) 멀쩡한 작품이
+ * "등록된 줄거리가 없습니다"로 보인다. 실제로 그렇게 보였다(2026-09-03).
  */
-export async function loadContentDetail(id: string): Promise<boolean> {
-  if (!id || detailLoaded.has(id)) return false
+export function loadContentDetail(id: string): Promise<DetailLoad> {
+  if (!id || detailLoaded.has(id)) return Promise.resolve<DetailLoad>('ready')
+  const running = detailInFlight.get(id)
+  if (running) return running
+  const p = fetchContentDetail(id).finally(() => { detailInFlight.delete(id) })
+  detailInFlight.set(id, p)
+  return p
+}
+
+async function fetchContentDetail(id: string): Promise<DetailLoad> {
   const { data, error } = await supabase
     .from('contents')
     .select(['id', ...CONTENT_DETAIL_COLS].join(','))
     .eq('id', id)
     .maybeSingle()
-  if (error) { console.error('[loadContentDetail]', error.message); return false }
-  detailLoaded.add(id)
-  if (!data) return false
+  // 네트워크·권한 오류는 다음 진입에서 다시 시도한다(= detailLoaded 에 넣지 않는다)
+  if (error) { console.error('[loadContentDetail]', error.message); return 'error' }
+  // 행이 없거나 캐시에 그 작품이 없으면 재시도해도 결과가 같다 — 화면은 '정보 없음'으로 그려도 된다
+  if (!data) return 'ready'
   const idx = cache.contents.findIndex((c: any) => c.id === id)
-  if (idx < 0) return false
+  if (idx < 0) return 'ready'
   cache.contents[idx] = { ...cache.contents[idx], ...(data as any) }
-  return true
+  detailLoaded.add(id)
+  return 'ready'
 }
 
 /**

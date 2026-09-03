@@ -1311,3 +1311,27 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .cur-card-posters { padding: 14px 14px 0; }
   .cur-card-posters img { width: 46px; margin-right: -14px; }
 }
+
+/* ── 지연 로드 자리표시(스켈레톤) ─────────────────────────────
+   작품 상세 컬럼(줄거리·출연진·채널)은 화면을 연 뒤에 온다.
+   그동안 빈칸으로 두면 '정보 없는 작품'으로 보여서, 오는 중임을 형태로 알린다. */
+.sk {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--border) 25%, var(--card) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+}
+.sk-line { height: 12px; margin: 4px 0; vertical-align: middle; }
+p.content-synopsis .sk-line { display: block; }
+.cal-cast-photo.sk { border-radius: 50%; }
+
+@keyframes sk-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+}
+
+.content-synopsis.detail-error { color: var(--subtext); display: flex; align-items: center; gap: 8px; }

@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
 import { ContentInfo } from '@/components/content/ContentInfo'
+import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
+import { useContentDetail } from '@/hooks/useContentDetail'
 import { BellIcon, BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
@@ -103,18 +105,16 @@ export function CalendarPage() {
   const [airPattern, setAirPattern] = useState<string | null>(null)
 
   // 모달이 쓰는 상세 컬럼(줄거리 등)은 용량 때문에 시작 로드에서 빠져 있다 — 열 때 그 행만 채운다.
-  // 캐시가 갱신되면 새 객체가 되므로 selected 를 다시 집어와야 화면에 반영된다.
+  // 다 오기 전을 '없음'으로 그리지 않도록 상태를 들고 있는다(useContentDetail).
+  const { state: detail, retry: retryDetail } = useContentDetail(selected?.id)
+
+  // 캐시가 채워지면 새 객체가 되므로 selected 를 다시 집어와야 화면에 반영된다.
   useEffect(() => {
     const id = selected?.id
-    if (!id) return
-    let alive = true
-    DS.loadContentDetail(id).then(changed => {
-      if (!alive || !changed) return
-      const fresh = DS.getContentById(id)
-      if (fresh) setSelected(fresh)
-    })
-    return () => { alive = false }
-  }, [selected?.id])
+    if (!id || detail !== 'ready') return
+    const fresh = DS.getContentById(id)
+    if (fresh && fresh !== selected) setSelected(fresh)
+  }, [selected, detail])
 
   // 선택된 작품의 공개 패턴(매주 수목/한번에 등)을 TMDB 회차 데이터로 조회. alive 로 경쟁 조건 방지.
   useEffect(() => {
@@ -454,8 +454,10 @@ export function CalendarPage() {
 
             {/* 상세 정보 (네이버 검색 스타일) */}
             <div className="cal-detail">
-              <ContentInfo content={selected} />
-              <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
+              <ContentInfo content={selected} detail={detail} />
+              {detail === 'ready'
+                ? <p className="cal-modal-syn">{selected.synopsis || '아직 등록된 소개가 없어요.'}</p>
+                : <div className="cal-modal-syn"><ContentDetailFallback state={detail} onRetry={retryDetail} /></div>}
             </div>
             <div className="cal-modal-actions">
               <button className={`cal-act ${bookmarked ? 'on' : ''}`} onClick={toggleBookmark}>

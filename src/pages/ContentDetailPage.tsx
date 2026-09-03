@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -20,6 +20,8 @@ import {
 } from '@/shared/contentSeo.mjs'
 import { isIndexableContent } from '@/shared/contentIndexable.mjs'
 import { getPushState, enablePush } from '@/utils/push'
+import { useContentDetail } from '@/hooks/useContentDetail'
+import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -30,8 +32,9 @@ export function ContentDetailPage() {
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
-  // 출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다
-  useEffect(() => { if (id) DS.loadContentDetail(id).then(changed => { if (changed) rerender() }) }, [id])
+  // 줄거리·출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다.
+  // 다 오기 전(loading)·못 받았을 때(error)를 구분해야 '정보 없는 작품'으로 오해받지 않는다.
+  const { state: detail, retry: retryDetail } = useContentDetail(id)
 
   const content = DS.getContentById(id!)
   if (!content) { navigate('/browse'); return null }
@@ -133,7 +136,9 @@ export function ContentDetailPage() {
             {relDate ? <span>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</span> : content.releaseYear && <span>{content.releaseYear}년</span>}
             {statusLabel && !relDate && <span> · {statusLabel}</span>}
           </div>
-          <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
+          {detail === 'ready'
+            ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
+            : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
 
           <div className="review-detail-actions" style={{ marginTop: 14, marginBottom: 0 }}>
             {!isUpcoming && (
@@ -154,7 +159,7 @@ export function ContentDetailPage() {
         </div>
       </div>
 
-      <ContentInfo content={content} />
+      <ContentInfo content={content} detail={detail} />
 
       {/* 별점 요약 + 분포 (출시된 작품만) */}
       {!isUpcoming && (

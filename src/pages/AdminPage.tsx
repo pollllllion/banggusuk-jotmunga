@@ -11,6 +11,7 @@ import { PosterUploader } from '@/components/content/PosterUploader'
 import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
 import type { Content, ContentType } from '@/types'
+import { useContentDetail } from '@/hooks/useContentDetail'
 
 const REASON_LABELS: Record<string, string> = {
   spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', copyright: '저작권 침해', other: '기타',
@@ -451,14 +452,17 @@ type ContentFormProps = { content: Content | null; authorId: string; onDone: () 
  */
 function ContentFormGate(props: ContentFormProps) {
   const id = props.content?.id
-  const [ready, setReady] = useState(!id)
-  useEffect(() => {
-    if (!id) { setReady(true); return }
-    let alive = true
-    DS.loadContentDetail(id).finally(() => { if (alive) setReady(true) })
-    return () => { alive = false }
-  }, [id])
-  if (!ready) return <div className="empty-state fade-in"><p>작품 정보를 불러오는 중…</p></div>
+  const { state, retry } = useContentDetail(id)
+  if (state === 'loading') return <div className="empty-state fade-in"><p>작품 정보를 불러오는 중…</p></div>
+  // 못 받아온 채로 폼을 열면 빈 줄거리·출연진을 그대로 저장해 DB 값을 지운다 — 열지 않는다.
+  if (state === 'error') {
+    return (
+      <div className="empty-state fade-in">
+        <p>작품 정보를 불러오지 못했어요. 이대로 저장하면 줄거리·출연진이 지워질 수 있어 폼을 열지 않았습니다.</p>
+        <button type="button" className="btn btn-small" onClick={retry}>다시 시도</button>
+      </div>
+    )
+  }
   return <ContentForm {...props} content={id ? DS.getContentById(id) ?? props.content : null} />
 }
 
