@@ -29,14 +29,14 @@ describe('normName / provider 이름 매칭', () => {
     for (const name of ['Apple TV', 'Apple TV+', 'Apple TV Plus']) {
       const out = matchTargetProviders([{ provider_id: 350, provider_name: name }])
       expect(out).toHaveLength(1)
-      expect(out[0].providerName).toBe('Apple TV Plus')
+      expect(out[0].providerName).toBe('Apple TV')
     }
   })
 
   it('작품별 flatrate 추출에도 같은 별칭이 걸린다', () => {
     const wp = { results: { KR: { flatrate: [{ provider_id: 350, provider_name: 'Apple TV', logo_path: '/a.jpg' }] } } }
     const out = extractKrFlatrate(wp)
-    expect(out.map(p => p.providerName)).toEqual(['Apple TV Plus'])
+    expect(out.map(p => p.providerName)).toEqual(['Apple TV'])
   })
 
   it('중복 provider_id는 한 번만', () => {

@@ -13,7 +13,7 @@ export const TARGET_PROVIDER_NAMES = [
   'Wavve',
   'Coupang Play',
   'Watcha',
-  'Apple TV Plus',   // 2025-10 'Apple TV' 로 리브랜딩 — 별칭으로 신·구 이름 모두 매칭
+  'Apple TV',        // 2025-10 'Apple TV+' → 'Apple TV' 리브랜딩. 별칭으로 옛 이름도 함께 매칭
   'Amazon Prime Video',
   'U+ Mobile TV',
 ]
@@ -93,14 +93,14 @@ export function extractKrFlatrate(watchProviders, targetNames = TARGET_PROVIDER_
 
 // TMDB 이름 → 대상 OTT 정규 키 별칭.
 // 네트워크명·watch-provider명이 서로 다르거나(예: "Prime Video" → "Amazon Prime Video"),
-// 서비스가 개명했을 때(2025-10 "Apple TV+" → "Apple TV") 양쪽을 같은 OTT로 묶는다.
+// 서비스가 개명했을 때(2025-10 "Apple TV+" → "Apple TV") 옛 이름을 새 이름으로 흡수한다.
 // ⚠️ watch-provider 조회·작품별 flatrate 추출도 이 맵을 쓴다 — 여기 빠지면 그 OTT가 통째로 누락된다.
 const PROVIDER_NAME_ALIASES = {
   primevideo: 'amazonprimevideo',
   amazon: 'amazonprimevideo',
   amazonprime: 'amazonprimevideo',
   disney: 'disneyplus',
-  appletv: 'appletvplus',
+  appletvplus: 'appletv',
 }
 
 /**
