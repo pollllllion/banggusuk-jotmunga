@@ -13,7 +13,7 @@ export const TARGET_PROVIDER_NAMES = [
   'Wavve',
   'Coupang Play',
   'Watcha',
-  'Apple TV Plus',
+  'Apple TV Plus',   // 2025-10 'Apple TV' 로 리브랜딩 — 별칭으로 신·구 이름 모두 매칭
   'Amazon Prime Video',
   'U+ Mobile TV',
 ]
@@ -31,24 +31,37 @@ export function normName(s) {
 }
 
 /**
+ * 정규화 + 별칭까지 적용한 정규 키.
+ * "Apple TV" · "Apple TV+" · "Apple TV Plus" → 모두 "appletvplus".
+ */
+export function canonicalKey(name) {
+  const k = normName(name)
+  return PROVIDER_NAME_ALIASES[k] || k
+}
+
+/** 대상 OTT: 정규 키 → 정규명 */
+function targetMap(targetNames) {
+  return new Map(targetNames.map(n => [canonicalKey(n), n]))
+}
+
+/**
  * TMDB provider 목록에서 대상 OTT만 골라 정규화된 형태로 반환.
  * 대소문자·공백·'+' 차이를 무시하고 이름으로 매칭한다.
  * @returns {{providerId:number, providerName:string, logoPath:string|null}[]}
  */
 export function matchTargetProviders(list, targetNames = TARGET_PROVIDER_NAMES) {
-  const targets = new Set(targetNames.map(normName))
+  const targets = targetMap(targetNames)
   const seen = new Set()
   const out = []
   for (const p of list || []) {
-    const key = normName(p.provider_name)
-    if (targets.has(key) && !seen.has(p.provider_id)) {
-      seen.add(p.provider_id)
-      out.push({
-        providerId: p.provider_id,
-        providerName: p.provider_name,
-        logoPath: p.logo_path ?? null,
-      })
-    }
+    const canonical = targets.get(canonicalKey(p.provider_name))
+    if (!canonical || seen.has(p.provider_id)) continue
+    seen.add(p.provider_id)
+    out.push({
+      providerId: p.provider_id,
+      providerName: canonical,   // 앱의 필터·정렬이 쓰는 정규명으로 통일 (TMDB 개명에 흔들리지 않게)
+      logoPath: p.logo_path ?? null,
+    })
   }
   return out
 }
@@ -61,16 +74,16 @@ export function matchTargetProviders(list, targetNames = TARGET_PROVIDER_NAMES) 
 export function extractKrFlatrate(watchProviders, targetNames = TARGET_PROVIDER_NAMES) {
   const kr = watchProviders?.results?.KR
   const flat = kr?.flatrate || []
-  const targets = new Set(targetNames.map(normName))
+  const targets = targetMap(targetNames)
   const seen = new Set()
   const out = []
   for (const p of flat) {
-    if (!targets.has(normName(p.provider_name))) continue
-    if (seen.has(p.provider_id)) continue
+    const canonical = targets.get(canonicalKey(p.provider_name))
+    if (!canonical || seen.has(p.provider_id)) continue
     seen.add(p.provider_id)
     out.push({
       providerId: p.provider_id,
-      providerName: p.provider_name,
+      providerName: canonical,
       logoPath: p.logo_path ?? null,
       monetizationType: 'flatrate',
     })
@@ -78,9 +91,11 @@ export function extractKrFlatrate(watchProviders, targetNames = TARGET_PROVIDER_
   return out
 }
 
-// TMDB 네트워크 이름 → 대상 OTT 정규명 별칭
-// (네트워크명과 watch-provider명이 다른 경우 보정. 예: "Prime Video" → "Amazon Prime Video")
-const NETWORK_NAME_ALIASES = {
+// TMDB 이름 → 대상 OTT 정규 키 별칭.
+// 네트워크명·watch-provider명이 서로 다르거나(예: "Prime Video" → "Amazon Prime Video"),
+// 서비스가 개명했을 때(2025-10 "Apple TV+" → "Apple TV") 양쪽을 같은 OTT로 묶는다.
+// ⚠️ watch-provider 조회·작품별 flatrate 추출도 이 맵을 쓴다 — 여기 빠지면 그 OTT가 통째로 누락된다.
+const PROVIDER_NAME_ALIASES = {
   primevideo: 'amazonprimevideo',
   amazon: 'amazonprimevideo',
   amazonprime: 'amazonprimevideo',
@@ -97,12 +112,11 @@ const NETWORK_NAME_ALIASES = {
  * @returns {{providerId:number, providerName:string, logoPath:string|null, monetizationType:'flatrate'}[]}
  */
 export function networksToProviders(networks, providerDir = null, targetNames = TARGET_PROVIDER_NAMES) {
-  const targets = new Map(targetNames.map(n => [normName(n), n]))
+  const targets = targetMap(targetNames)
   const seen = new Set()
   const out = []
   for (const net of networks || []) {
-    let key = normName(net.name)
-    key = NETWORK_NAME_ALIASES[key] || key
+    const key = canonicalKey(net.name)
     const canonical = targets.get(key)
     if (!canonical || seen.has(canonical)) continue
     seen.add(canonical)

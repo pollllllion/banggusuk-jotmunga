@@ -24,6 +24,21 @@ describe('normName / provider 이름 매칭', () => {
     expect(m[0]).toHaveProperty('logoPath')
   })
 
+  // 2025-10 Apple TV+ → Apple TV 개명. 이걸 놓쳐서 애플TV+ 작품이 통째로 누락된 적이 있다.
+  it('개명된 Apple TV 를 애플TV+ 로 매칭하고 정규명으로 저장한다', () => {
+    for (const name of ['Apple TV', 'Apple TV+', 'Apple TV Plus']) {
+      const out = matchTargetProviders([{ provider_id: 350, provider_name: name }])
+      expect(out).toHaveLength(1)
+      expect(out[0].providerName).toBe('Apple TV Plus')
+    }
+  })
+
+  it('작품별 flatrate 추출에도 같은 별칭이 걸린다', () => {
+    const wp = { results: { KR: { flatrate: [{ provider_id: 350, provider_name: 'Apple TV', logo_path: '/a.jpg' }] } } }
+    const out = extractKrFlatrate(wp)
+    expect(out.map(p => p.providerName)).toEqual(['Apple TV Plus'])
+  })
+
   it('중복 provider_id는 한 번만', () => {
     const list = [
       { provider_id: 8, provider_name: 'Netflix' },
