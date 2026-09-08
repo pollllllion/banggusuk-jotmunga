@@ -12,7 +12,9 @@ import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
 import {
   effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
-  OTT_FILTERS, hasProvider, releaseSourceLabel, platformSortRank, posterThumb,
+  hasProvider, releaseSourceLabel, platformSortRank, posterThumb,
+  THEATER_FILTER, isTheatricalRelease,
+  CALENDAR_OTT_FILTERS, OTHER_FILTER, hasMinorProvider,
 } from '@/utils/ott'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import type { Content, ContentType, ContentProvider } from '@/types'
@@ -141,7 +143,11 @@ export function CalendarPage() {
         const match = filter === 'drama' ? (c.type === 'drama' || c.type === 'variety') : c.type === filter
         if (!match) continue
       }
-      if (ott !== 'all' && !hasProvider(c, ott)) continue
+      if (ott === THEATER_FILTER) {
+        if (!isTheatricalRelease(c)) continue
+      } else if (ott === OTHER_FILTER) {
+        if (!hasMinorProvider(c)) continue
+      } else if (ott !== 'all' && !hasProvider(c, ott)) continue
       ;(map[date] ||= []).push(c)
     }
     // 플랫폼 순서(넷플릭스→티빙→디즈니→극장→웨이브) 우선, 동일 플랫폼은 화제도 내림차순
@@ -282,9 +288,11 @@ export function CalendarPage() {
       <div className="cal-subfilters">
         <div className="cal-filters cal-ott-filters">
           <button className={`cal-chip sm ${ott === 'all' ? 'active' : ''}`} onClick={() => setOtt('all')}>OTT 전체</button>
-          {OTT_FILTERS.map(o => (
+          <button className={`cal-chip sm ${ott === THEATER_FILTER ? 'active' : ''}`} onClick={() => setOtt(THEATER_FILTER)}>극장</button>
+          {CALENDAR_OTT_FILTERS.map(o => (
             <button key={o.name} className={`cal-chip sm ${ott === o.name ? 'active' : ''}`} onClick={() => setOtt(o.name)}>{o.label}</button>
           ))}
+          <button className={`cal-chip sm ${ott === OTHER_FILTER ? 'active' : ''}`} onClick={() => setOtt(OTHER_FILTER)}>기타</button>
         </div>
       </div>
 

@@ -50,7 +50,7 @@ const PLATFORM_SPECS: Record<string, LogoSpec> = {
   disneyplus:       { bg: '#0E1A4C', fg: '#FFFFFF', label: 'D+' },
   wavve:            { bg: '#1731C8', fg: '#FFFFFF', label: 'W' },
   watcha:           { bg: '#000000', fg: '#FF0558', label: 'W' },
-  appletvplus:      { bg: '#000000', fg: '#FFFFFF', label: 'tv+' },
+  appletv:          { bg: '#000000', fg: '#FFFFFF', label: 'tv' },
   amazonprimevideo: { bg: '#0F171E', fg: '#1F9FEF', label: 'P' },
   uplusmobiletv:    { bg: '#E6007E', fg: '#FFFFFF', label: 'U+' },
   // ── 방송 채널 ──
@@ -71,7 +71,7 @@ const FALLBACK_BG = ['#3B4252', '#4C566A', '#5E6472', '#556270', '#41505E']
 
 /** 이름 → 커스텀 로고(이미지/앱아이콘/배지). TMDB 사용 플랫폼은 여기서 처리하지 않음. */
 function customLogo(name: string): string {
-  const key = normName(name)
+  const key = provKey(name)
   const base = key.replace(/[0-9]+$/, '') // 'ebs1'→'ebs', 'kbs2'→'kbs'
   if (IMAGE_LOGOS[key] || IMAGE_LOGOS[base]) return IMAGE_LOGOS[key] || IMAGE_LOGOS[base]
   const spec = PLATFORM_SPECS[key] || PLATFORM_SPECS[base]
@@ -91,7 +91,7 @@ function customLogo(name: string): string {
  */
 export function providerLogoUrl(logoPath: string | null | undefined, providerName?: string): string | null {
   if (providerName) {
-    const key = normName(providerName)
+    const key = provKey(providerName)
     if (TMDB_LOGO_PLATFORMS.has(key)) return logoPath ? IMG_LOGO + logoPath : customLogo(providerName)
     return customLogo(providerName)
   }
@@ -123,22 +123,44 @@ export const OTT_FILTERS: { name: string; label: string }[] = [
   { name: 'Wavve', label: '웨이브' },
   { name: 'Coupang Play', label: '쿠팡플레이' },
   { name: 'Watcha', label: '왓챠' },
-  { name: 'Apple TV Plus', label: '애플TV+' },
+  // 2025-10 애플이 '+' 를 완전히 뗐다 — 이름·라벨 모두 'Apple TV'.
+  { name: 'Apple TV', label: '애플TV' },
   { name: 'Amazon Prime Video', label: '프라임비디오' },
   { name: 'U+ Mobile TV', label: 'U+모바일tv' },
 ]
+
+/**
+ * '극장' 칩의 값. OTT_FILTERS 는 실제 provider 이름 목록이라(관리자·큐레이션이 그대로 쓴다)
+ * 극장을 그 배열에 섞지 않고 별도 값으로 둔다. provider 이름과는 겹칠 수 없는 형태.
+ */
+export const THEATER_FILTER = '__theater__'
 
 function normName(s: string): string {
   return String(s ?? '').toLowerCase().replace(/\+/g, 'plus').replace(/[^a-z0-9]/g, '')
 }
 
+/**
+ * 옛 provider 이름 → 현재 이름의 정규 키.
+ * 서비스가 개명하면 DB 에는 재동기화 전까지 옛 이름이 남으므로, 표시·필터는 양쪽을 같게 봐야 한다.
+ * 2025-10 "Apple TV+" → "Apple TV" 리브랜딩. (scripts/tmdb-lib.mjs 의 PROVIDER_NAME_ALIASES 와 짝)
+ */
+const PROVIDER_NAME_ALIASES: Record<string, string> = {
+  appletvplus: 'appletv',
+}
+
+/** provider 이름 비교·조회용 키 (정규화 + 별칭 흡수) */
+function provKey(name: string): string {
+  const k = normName(name)
+  return PROVIDER_NAME_ALIASES[k] || k
+}
+
 /** 개별 OTT 표시 우선순위: 넷플릭스 > 티빙 > 디즈니 > 웨이브 > 쿠팡 > 그 외 > 미상 */
 const PROVIDER_ORDER = ['netflix', 'tving', 'disneyplus', 'wavve', 'coupangplay']
 function providerRank(name: string): number {
-  const n = normName(name)
+  const n = provKey(name)
   const i = PROVIDER_ORDER.indexOf(n)
   if (i >= 0) return i
-  const fi = OTT_FILTERS.findIndex(o => normName(o.name) === n)
+  const fi = OTT_FILTERS.findIndex(o => provKey(o.name) === n)
   return fi >= 0 ? PROVIDER_ORDER.length + fi : 999
 }
 
@@ -149,8 +171,42 @@ export function sortProviders(list: ContentProvider[]): ContentProvider[] {
 
 /** 작품이 특정 OTT(이름)에서 제공되는가 */
 export function hasProvider(c: Content, providerName: string): boolean {
-  const target = normName(providerName)
-  return providersOf(c).some(p => normName(p.providerName) === target)
+  const target = provKey(providerName)
+  return providersOf(c).some(p => provKey(p.providerName) === target)
+}
+
+/**
+ * 칩을 따로 주지 않고 '기타'로 묶는 OTT — 작품 수가 미미해 칩 한 칸이 아까운 것들.
+ * 필터에서 빠지는 게 아니라 '기타' 칩 안에서 걸린다.
+ *
+ * ⚠️ OTT_FILTERS 에서 지우면 안 된다. 그 배열은 관리자 작품편집의 OTT 태깅과
+ *    큐레이션 후보 드롭다운이 provider 이름 목록으로 그대로 쓴다.
+ * 2026-09-08 기준 작품 수: U+모바일tv 1건. (애플TV 는 33건이라 칩 유지)
+ */
+export const MINOR_OTT_NAMES: string[] = ['U+ Mobile TV']
+
+/** '기타' 칩의 값 */
+export const OTHER_FILTER = '__other__'
+
+/** 캘린더에 칩으로 노출할 OTT (기타로 묶인 것 제외) */
+export const CALENDAR_OTT_FILTERS = OTT_FILTERS.filter(o => !MINOR_OTT_NAMES.includes(o.name))
+
+/** 기타로 묶인 OTT 중 하나라도 제공하는 작품인가 */
+export function hasMinorProvider(c: Content): boolean {
+  return MINOR_OTT_NAMES.some(name => hasProvider(c, name))
+}
+
+/**
+ * 캘린더에 찍힌 그 날짜가 '극장 개봉일'인 작품인가.
+ *
+ * kr_ott_post_theatrical 은 극장 개봉작이지만 날짜는 OTT 공개일이라 제외한다 —
+ * 그 셀에서 일어나는 사건은 극장 개봉이 아니라 OTT 공개다.
+ * releaseDateSource 가 비어 있는 행만 eventType 으로 보완한다.
+ */
+export function isTheatricalRelease(c: Content): boolean {
+  const src = c.releaseDateSource
+  if (src) return src === 'kr_theatrical' || src === 'tmdb_release_date'
+  return c.eventType === 'movie_release'
 }
 
 /**
@@ -161,7 +217,7 @@ export function hasProvider(c: Content, providerName: string): boolean {
 export function platformSortRank(c: Content): number {
   let best = Infinity
   for (const p of providersOf(c)) {
-    const n = normName(p.providerName)
+    const n = provKey(p.providerName)
     if (n === 'netflix') best = Math.min(best, 0)
     else if (n === 'tving') best = Math.min(best, 1)
     else if (n === 'disneyplus') best = Math.min(best, 2)
@@ -171,8 +227,8 @@ export function platformSortRank(c: Content): number {
   }
   if (best !== Infinity) return best
   // OTT 정보가 없는 작품 — 극장 개봉작이면 극장(5), 그 외는 미상(7)
-  const src = c.releaseDateSource
-  if (src === 'kr_theatrical' || src === 'tmdb_release_date' || c.eventType === 'movie_release') return 5
+  // 정렬은 필터보다 느슨하다 — 소스가 kr_digital 이어도 movie_release 면 극장으로 본다
+  if (isTheatricalRelease(c) || c.eventType === 'movie_release') return 5
   return 7
 }
 
