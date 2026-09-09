@@ -157,7 +157,7 @@ export function SettingsPage() {
         <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
           권리자(배급사·제작사 등)께서 게시 중단을 원하시면 해당 작품 페이지의 <b>신고 → '저작권 침해 (권리자 삭제요청)'</b> 를 이용하시거나, 아래 이메일로 요청해 주시면 확인 후 신속히 삭제 조치합니다.
         </p>
-        <div className="settings-row"><label>삭제요청 접수</label><span className="val"><a href="mailto:ttcal.help@gmail.com">ttcal.help@gmail.com</a></span></div>
+        <div className="settings-row"><label>삭제요청 접수</label><span className="val"><a href="mailto:ottcal.help@gmail.com">ottcal.help@gmail.com</a></span></div>
       </div>
 
       {isAccount && (
