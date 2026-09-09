@@ -33,9 +33,17 @@ comment on table public.page_views is
 -- ── RLS: 누구나 쌓고, 읽는 건 관리자만 ──────────────────────
 alter table public.page_views enable row level security;
 
+-- 기록은 누구나 남길 수 있어야 한다 — 방문자 대부분이 비로그인(anon)이다.
+-- ⚠️ 대상 role 을 명시한다. 생략하면 PUBLIC 이라 되는 게 맞지만, 실제로 한 번
+--    막힌 적이 있어(2026-09-09) 의도를 코드에 박아 둔다.
 drop policy if exists page_views_insert on public.page_views;
 create policy page_views_insert on public.page_views
-  for insert with check (true);
+  for insert to anon, authenticated with check (true);
+
+-- 정책이 통과해도 테이블·시퀀스 권한이 없으면 INSERT 는 실패한다.
+-- bigserial 은 시퀀스 USAGE 가 따로 필요하다.
+grant insert on public.page_views to anon, authenticated;
+grant usage, select on sequence public.page_views_id_seq to anon, authenticated;
 
 -- 원본 행은 관리자도 화면에서 직접 읽지 않는다(집계 함수만 쓴다). 그래도 점검용으로 열어 둔다.
 drop policy if exists page_views_select on public.page_views;
