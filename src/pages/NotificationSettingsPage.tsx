@@ -13,6 +13,16 @@ import { clickable } from '@/utils/a11y'
 /** 폰 알림 스위치 한 줄 — profiles 의 한 칸에 대응한다 */
 type ActivityPref = { key: 'notifyComment' | 'notifyReply' | 'notifyLike'; label: string; hint: string }
 
+/**
+ * 댓글·추천의 폰 푸시 발송 장치가 연결됐나.
+ *
+ * 알림 행을 만드는 건 댓글 단 사람의 브라우저라, 실제 발송은 서버(Supabase Edge
+ * Function)가 해야 한다. 그게 아직 배포·연결되지 않았다 — 붙이는 절차는
+ * supabase/README-push.md 에 있다. **연결한 뒤 이 값을 true 로 바꿀 것.**
+ * (클라이언트가 연결 여부를 알아낼 방법이 없어서 손으로 든다)
+ */
+const ACTIVITY_PUSH_READY = false
+
 const ACTIVITY_PREFS: ActivityPref[] = [
   { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남겼을 때' },
   { key: 'notifyReply', label: '내가 댓글 단 글에 새 댓글', hint: '대화가 이어질 때. 알림이 잦다면 이것부터 끄세요.' },
@@ -116,14 +126,25 @@ export function NotificationSettingsPage() {
       <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
       <h2 className="settings-title">알림 설정</h2>
 
-      {/* ── 폰 알림: 무엇을 받을지 (계정을 따라다닌다) ── */}
+      {/* ── 폰 알림: 무엇을 받을지 (계정을 따라다닌다) ──
+          ⚠️ 발송 장치(Edge Function)가 아직 연결되지 않았다. 연결 전까지는 이 스위치가
+             아무 효과도 없으므로 그 사실을 화면에 그대로 밝힌다 — 켜 놓고 왜 안 오냐가
+             되는 것보다, 아직 안 된다고 말하는 게 낫다.
+             연결이 끝나면 아래 ACTIVITY_PUSH_READY 를 true 로 바꾸면 안내가 사라진다.
+             (supabase/README-push.md) */}
       <div className="settings-section">
         <h3>폰 알림으로 받을 것</h3>
+        {!ACTIVITY_PUSH_READY && (
+          <p className="settings-note danger" style={{ marginBottom: 12 }}>
+            🚧 댓글·추천의 <b>폰 알림은 아직 준비 중</b>이에요. 지금은 사이트 안
+            <b> 종 아이콘</b>에만 쌓입니다. 아래 설정은 미리 저장해 두면 준비되는 대로 적용돼요.
+          </p>
+        )}
         <p className="settings-desc">
           아래를 꺼도 <b>사이트 안 종 아이콘에는 그대로 쌓여요.</b> 여기서 끄는 건 휴대폰·PC 화면에
           울리는 알림뿐이에요. 계정에 저장돼서 어느 기기에서든 똑같이 적용돼요.
         </p>
-        {pushState !== 'on' && (
+        {ACTIVITY_PUSH_READY && pushState !== 'on' && (
           <p className="settings-note" style={{ marginBottom: 12 }}>
             ⚠️ 아직 이 기기에서 알림을 켜지 않았어요. 아래 <b>‘이 기기에서 알림 받기’</b>를 눌러야
             실제로 울립니다.
@@ -156,8 +177,8 @@ export function NotificationSettingsPage() {
       <div className="settings-section">
         <h3>이 기기에서 알림 받기</h3>
         <p className="settings-desc">
-          위의 활동 알림과 <b>개봉일 알림</b>이 이 기기로 옵니다. 브라우저 구독이라
-          <b> 기기마다 따로 켜야 해요</b> — 폰에서 켰다고 노트북에도 오지는 않아요.
+          <b>개봉일 알림</b>이 이 기기로 옵니다{ACTIVITY_PUSH_READY ? ' (위의 활동 알림도 함께)' : ''}.
+          브라우저 구독이라 <b>기기마다 따로 켜야 해요</b> — 폰에서 켰다고 노트북에도 오지는 않아요.
         </p>
 
         {iosNeedsInstall ? (
