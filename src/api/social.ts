@@ -237,6 +237,9 @@ export type AnalyticsSummary = {
   daily: { day: string; views: number; visitors: number }[]
   topPaths: { path: string; views: number; visitors: number }[]
   topRefs: { ref: string; views: number }[]
+  /** 밖에서 검색해 들어온 말 (네이버·다음 등. 구글은 검색어를 안 넘긴다) */
+  topRefQueries: { q: string; ref: string | null; count: number }[]
+  /** 우리 사이트 검색창에 친 말 */
   topQueries: { q: string; count: number }[]
 }
 

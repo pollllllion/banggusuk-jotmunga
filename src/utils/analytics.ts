@@ -2,15 +2,18 @@
  * 방문 통계 기록 — 관리자 화면(통계 탭)이 읽는 원자료.
  *
  * 무엇을 남기고 무엇을 안 남기나:
- *   남긴다   경로(쿼리 제외) · 유입 **도메인만** · 사이트 안 검색어 · 하루짜리 세션 id · 로그인 계정 id
+ *   남긴다   경로(쿼리 제외) · 유입 도메인 · **유입 검색어**(검색엔진이 넘겨줄 때만) ·
+ *            사이트 안 검색어 · 하루짜리 세션 id · 로그인 계정 id
  *   안 남긴다 IP · User-Agent · 전체 referrer URL · 유동닉 신원
  * 개인을 따라다니지 않는 게 목적이라 세션 id 를 **날마다 새로** 만든다.
  *
- * ⚠️ 구글에서 뭘 검색해 들어왔는지는 **여기서 알 수 없다.** 구글이 리퍼러에서
- *    검색어를 지운 지 오래다(ref 에는 'google.com' 만 남는다). 그건 Search Console 몫이다.
- *    여기 q 에 담기는 건 **우리 사이트 검색창**에 친 말이다.
+ * 검색어 칸이 둘이라 헷갈리지 말 것:
+ *   refq  **밖에서** 검색해 들어온 말 — 네이버·다음은 referrer 에 남긴다.
+ *         구글은 2011년부터 지우므로 **구글 검색어는 여기 영원히 안 잡힌다**(Search Console 몫).
+ *   q     **우리 사이트** 검색창에 친 말.
  */
 import { supabase } from '@/lib/supabaseClient'
+import { referrerHost, searchQueryFromReferrer } from '@/utils/searchReferrer'
 
 const SID_KEY = 'bangjot_sid'
 
@@ -40,16 +43,16 @@ function sessionId(): string {
   }
 }
 
-/** 유입 도메인만 뽑는다. 전체 URL 은 남기지 않는다(남의 사이트 경로가 딸려 온다). */
-function referrerHost(): string | null {
+/** 유입 도메인 + 유입 검색어. 전체 URL 은 남기지 않는다(남의 사이트 사정이 딸려 온다). */
+function referrerInfo(): { ref: string | null; refq: string | null } {
   try {
     const r = document.referrer
-    if (!r) return null
-    const host = new URL(r).hostname.replace(/^www\./, '')
-    if (host === location.hostname.replace(/^www\./, '')) return null   // 사이트 안 이동은 유입이 아니다
-    return host
+    return {
+      ref: referrerHost(r, location.hostname),
+      refq: searchQueryFromReferrer(r),
+    }
   } catch {
-    return null
+    return { ref: null, refq: null }
   }
 }
 
@@ -71,14 +74,16 @@ export function trackPageView(path: string, opts: { q?: string | null; uid?: str
   if (key === lastKey && now - lastAt < DEDUPE_MS) return
   lastKey = key; lastAt = now
 
+  const { ref, refq } = referrerInfo()
   void supabase.from('page_views').insert({
     path: path.slice(0, 300),
-    ref: referrerHost(),
+    ref,
+    refq,
     q,
     sid: sessionId(),
     uid: opts.uid || null,
   }).then(({ error }) => {
-    // 마이그레이션 전이면 테이블이 없다 — 그때는 조용히 아무 일도 안 한 셈이 된다
+    // 마이그레이션 전이면 테이블·컬럼이 없다 — 그때는 조용히 아무 일도 안 한 셈이 된다
     if (error && error.code !== '42P01') console.debug('[analytics]', error.message)
   })
 }
