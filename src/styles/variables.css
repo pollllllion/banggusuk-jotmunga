@@ -10,7 +10,12 @@
      바꿀 때 --primary 가 이 값이 되면 이 토큰은 그쪽을 가리키게 하면 된다. */
   --link: #1B54D6;
   --link-dark: #1442A8;
-  --dark: #18181B;
+  /* --dark 를 쪼갠 두 토큰.
+     예전엔 --dark 하나가 ① 강한 글자색(24곳) ② 강조 배경 + 흰 글자(8곳) 을 겸했다.
+     다크모드에서 ①은 밝아져야 하고 ②는 반대로 뒤집혀야 해서, 한 토큰으로는 안 된다. */
+  --heading: #18181B;        /* 제목·강조 글자 */
+  --emphasis: #18181B;       /* 선택된 칩·D-DAY 배지 같은 강조 '배경' */
+  --on-emphasis: #FFFFFF;    /* 그 배경 위의 글자 */
   --warm: #6B7280;
   --bg: #F7F7F8;
   --card: #FFFFFF;
@@ -44,4 +49,92 @@
   --radius-round: 50%;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --duration: 0.15s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   다크 테마
+   ──────────────────────────────────────────────────────────────
+   표면(배경·글자·테두리)만 뒤집는다. --primary/--danger/--success 같은
+   '의미 색'은 거의 그대로 둔다 — 그 위의 흰 글자가 33곳에 박혀 있어서
+   색을 뒤집으면 그것들이 전부 안 보이게 된다.
+
+   적용 규칙은 세 겹이다:
+     1) 아무 설정도 안 한 사람          → OS 설정을 따른다(prefers-color-scheme)
+     2) 사이트에서 '라이트'를 고른 사람  → OS 가 다크여도 라이트 (:not([data-theme="light"]) 로 제외)
+     3) 사이트에서 '다크'를 고른 사람    → OS 가 라이트여도 다크 ([data-theme="dark"])
+   두 블록의 값은 반드시 같이 고쳐야 한다. (CSS 라 미디어쿼리 안팎을 공유할 수 없다)
+   ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --primary: #6E6E7A;
+    --primary-dark: #82828E;
+    --primary-light: #3F3F46;
+    --primary-50: rgba(190, 190, 200, 0.12);
+
+    --heading: #F4F4F5;
+    --emphasis: #E4E4E7;      /* 강조 배경은 뒤집힌다 — 어두운 화면에 어두운 칩은 안 보인다 */
+    --on-emphasis: #18181B;
+
+    --bg: #131316;
+    --card: #1C1C20;
+    --text: #E8E8EA;
+    --text-secondary: #B4B4BC;
+    --subtext: #8A8A93;
+    --border: #34343B;
+    --border-light: #26262C;
+
+    --link: #7EA8FF;          /* 코발트(#1B54D6)는 어두운 바탕에서 거의 안 읽힌다 */
+    --link-dark: #A3C0FF;
+
+    --success-light: #14331F;
+    --danger-light: #3A1B1B;
+    --info-light: #16233D;
+    --accent-light: #3A2E12;
+
+    /* 검은 그림자는 어두운 바탕에서 사라진다 — 진하게 해야 층이 구분된다 */
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.35);
+    --shadow-xl: 0 16px 48px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4);
+  }
+}
+
+/* 위 블록과 값이 같아야 한다 — 사이트에서 직접 '다크'를 고른 경우 */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --primary: #6E6E7A;
+  --primary-dark: #82828E;
+  --primary-light: #3F3F46;
+  --primary-50: rgba(190, 190, 200, 0.12);
+
+  --heading: #F4F4F5;
+  --emphasis: #E4E4E7;
+  --on-emphasis: #18181B;
+
+  --bg: #131316;
+  --card: #1C1C20;
+  --text: #E8E8EA;
+  --text-secondary: #B4B4BC;
+  --subtext: #8A8A93;
+  --border: #34343B;
+  --border-light: #26262C;
+
+  --link: #7EA8FF;
+  --link-dark: #A3C0FF;
+
+  --success-light: #14331F;
+  --danger-light: #3A1B1B;
+  --info-light: #16233D;
+  --accent-light: #3A2E12;
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.35);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.7), 0 4px 12px rgba(0,0,0,0.4);
 }

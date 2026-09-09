@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -6,6 +6,13 @@ import { supabase } from '@/lib/supabaseClient'
 import { isPasswordValid, getPasswordRules } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
+import { readTheme, applyTheme, watchSystemTheme, type Theme } from '@/utils/theme'
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
+  { value: 'system', label: '시스템', icon: '🖥️' },
+  { value: 'light', label: '라이트', icon: '☀️' },
+  { value: 'dark', label: '다크', icon: '🌙' },
+]
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -15,6 +22,12 @@ export function SettingsPage() {
   const [newPw, setNewPw] = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
   const [busy, setBusy] = useState(false)
+  const [theme, setTheme] = useState<Theme>(readTheme)
+
+  // '시스템'을 고른 동안 OS 설정이 바뀌면 주소창 색도 따라가야 한다
+  useEffect(() => watchSystemTheme(), [])
+
+  const pickTheme = (t: Theme) => { applyTheme(t); setTheme(t) }
 
   if (!user) return null
 
@@ -57,7 +70,7 @@ export function SettingsPage() {
   return (
     <>
       <Seo title="계정 설정" noindex />
-      <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--dark)', marginBottom: 16 }}>계정 설정</h2>
+      <h2 className="settings-title">계정 설정</h2>
 
       {!isAccount && (
         <div className="settings-section">
@@ -112,6 +125,27 @@ export function SettingsPage() {
           </span>
           <span className="chev">›</span>
         </button>
+      </div>
+
+      <div className="settings-section">
+        <h3>화면</h3>
+        <p className="settings-desc">
+          이 브라우저에만 저장돼요. '시스템'은 휴대폰·PC 의 다크모드 설정을 그대로 따릅니다.
+        </p>
+        <div className="theme-picker" role="radiogroup" aria-label="화면 테마">
+          {THEME_OPTIONS.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={theme === o.value}
+              className={theme === o.value ? 'theme-opt on' : 'theme-opt'}
+              onClick={() => pickTheme(o.value)}>
+              <span className="theme-opt-icon" aria-hidden="true">{o.icon}</span>
+              {o.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="settings-section">

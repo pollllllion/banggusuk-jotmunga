@@ -69,7 +69,7 @@ export function AdminPage() {
   return (
     <>
       <Seo title="관리자 대시보드" noindex />
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--dark)', marginBottom: 20 }}>관리자 대시보드</h2>
+      <h2 className="settings-title" style={{ fontSize: 22, marginBottom: 20 }}>관리자 대시보드</h2>
       <div className="admin-stat">
         <div className="admin-stat-item"><div className="admin-stat-num">{contents.length}</div><div className="admin-stat-label">작품</div></div>
         <div className="admin-stat-item"><div className="admin-stat-num">{reviews.length}</div><div className="admin-stat-label">리뷰</div></div>
