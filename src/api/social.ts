@@ -230,6 +230,27 @@ export function markAllRead(userId: string) {
   saveNotifications(getNotifications().map(n => n.userId === userId ? { ...n, read: true } : n))
 }
 
+// ── 방문 통계 (관리자) ──────────────────────────────────────
+export type AnalyticsSummary = {
+  days: number
+  totals: { views: number; visitors: number; members: number }
+  daily: { day: string; views: number; visitors: number }[]
+  topPaths: { path: string; views: number; visitors: number }[]
+  topRefs: { ref: string; views: number }[]
+  topQueries: { q: string; count: number }[]
+}
+
+/**
+ * 방문 통계 — 집계는 **DB 함수**가 한다(migration_analytics.sql).
+ * 원본 행을 브라우저로 내려받아 세면 행이 늘수록 화면이 무거워지고,
+ * 그 자체가 개인정보를 옮기는 일이 된다. 함수는 관리자만 부를 수 있다.
+ */
+export async function fetchAnalytics(days: number): Promise<AnalyticsSummary | null> {
+  const { data, error } = await supabase.rpc('analytics_summary', { p_days: days })
+  if (error) { console.error('[analytics_summary]', error.message); return null }
+  return data as AnalyticsSummary
+}
+
 // ── Reports ─────────────────────────────────────────────────
 export function getReports(): Report[] { return load('reports') }
 export function saveReports(reports: Report[]) { store('reports', reports) }

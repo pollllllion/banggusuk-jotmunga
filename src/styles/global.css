@@ -1437,3 +1437,32 @@ p.content-synopsis .sk-line { display: block; }
 
 /* 작품 둘러보기 — 총 개수/쪽 표시 */
 .browse-count { font-size: 12px; color: var(--subtext); margin: 0 0 10px; }
+
+/* ── 관리자 통계 탭 ────────────────────────────────────────── */
+.admin-range { display: flex; gap: 6px; margin-bottom: 14px; }
+
+.stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 2px;
+}
+.stat-card-label { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+.stat-card b { font-size: 24px; font-weight: 800; color: var(--heading); line-height: 1.2; }
+.stat-card small { font-size: 11px; color: var(--subtext); }
+
+.stat-list { display: flex; flex-direction: column; }
+.stat-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 90px auto;
+  align-items: center; gap: 10px; padding: 6px 0; font-size: 13px;
+}
+.stat-label {
+  color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.stat-bar { display: block; height: 6px; border-radius: var(--radius-full); background: var(--border-light); overflow: hidden; }
+.stat-bar-fill { display: block; height: 100%; background: var(--primary); border-radius: var(--radius-full); }
+.stat-value { font-weight: 700; color: var(--heading); text-align: right; white-space: nowrap; }
+.stat-value small { font-weight: 500; color: var(--subtext); margin-left: 6px; font-size: 11px; }
+
+@media (max-width: 720px) {
+  .stat-row { grid-template-columns: minmax(0, 1fr) 56px auto; gap: 8px; font-size: 12px; }
+}

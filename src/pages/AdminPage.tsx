@@ -10,6 +10,7 @@ import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/
 import { PosterUploader } from '@/components/content/PosterUploader'
 import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
+import { AnalyticsTab } from '@/components/admin/AnalyticsTab'
 import type { Content, ContentType, User } from '@/types'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { clickable } from '@/utils/a11y'
@@ -40,7 +41,7 @@ export function AdminPage() {
   // 캘린더의 '+ 신작 등록' 바로가기로 진입 → 등록 폼, '이 작품 정보 수정' → 해당 작품 편집 폼.
   const openNewContent = Boolean(navState?.newContent)
   const editContentId = navState?.editContentId
-  const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce'>('contents')
+  const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce' | 'stats'>('contents')
   const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
@@ -83,6 +84,7 @@ export function AdminPage() {
         <button className={`admin-tab ${tab === 'reports' ? 'active' : ''}`} onClick={() => setTab('reports')}>신고 관리</button>
         <button className={`admin-tab ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>사용자</button>
         <button className={`admin-tab ${tab === 'announce' ? 'active' : ''}`} onClick={() => setTab('announce')}>공지</button>
+        <button className={`admin-tab ${tab === 'stats' ? 'active' : ''}`} onClick={() => setTab('stats')}>통계</button>
       </div>
 
       {tab === 'contents' && <ContentsTab rerender={rerender} tick={tick} openNew={openNewContent} editId={editContentId} />}
@@ -132,6 +134,7 @@ export function AdminPage() {
       ))}
 
       {tab === 'announce' && <AnnounceTab rerender={rerender} />}
+      {tab === 'stats' && <AnalyticsTab />}
     </>
   )
 }
