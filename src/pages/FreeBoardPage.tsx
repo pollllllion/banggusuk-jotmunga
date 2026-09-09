@@ -5,35 +5,12 @@ import * as DS from '@/api/dataService'
 import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import { BOARDS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
+import { Pager, usePageParam } from '@/components/ui/Pager'
 import '@/styles/discussion.css'
 
 /** 한 페이지에 보여줄 글 수 — 방구석토론방과 같게 */
 const PER_PAGE = 30
-const PAGER_WINDOW = 5
 
-/** 게시판 페이지 번호. 총 1쪽이면 아무것도 안 그린다. */
-function Pager({ page, total, onGo }: { page: number; total: number; onGo: (p: number) => void }) {
-  if (total <= 1) return null
-  const half = Math.floor(PAGER_WINDOW / 2)
-  let from = Math.max(1, page - half)
-  const to = Math.min(total, from + PAGER_WINDOW - 1)
-  from = Math.max(1, to - PAGER_WINDOW + 1)
-  const nums = Array.from({ length: to - from + 1 }, (_, i) => from + i)
-
-  return (
-    <nav className="disc-pager" aria-label="게시판 페이지">
-      <button disabled={page === 1} onClick={() => onGo(page - 1)} aria-label="이전 페이지">‹</button>
-      {from > 1 && <><button onClick={() => onGo(1)}>1</button>{from > 2 && <span className="disc-pager-gap">…</span>}</>}
-      {nums.map(n => (
-        <button key={n} className={n === page ? 'on' : ''} aria-current={n === page ? 'page' : undefined} onClick={() => onGo(n)}>
-          {n}
-        </button>
-      ))}
-      {to < total && <>{to < total - 1 && <span className="disc-pager-gap">…</span>}<button onClick={() => onGo(total)}>{total}</button></>}
-      <button disabled={page === total} onClick={() => onGo(page + 1)} aria-label="다음 페이지">›</button>
-    </nav>
-  )
-}
 
 /**
  * 자유방 — 작품에 묶이지 않는 게시판.
@@ -59,14 +36,8 @@ export function FreeBoardPage() {
 
   // 쪽 번호는 URL(?p=)에 둔다 — 글을 읽고 뒤로 와도 보던 쪽이 유지된다.
   const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE))
-  const page = Math.min(Math.max(1, Number(searchParams.get('p')) || 1), totalPages)
+  const { page, goPage } = usePageParam(searchParams, setSearchParams, totalPages)
   const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
-  const goPage = (p: number) => {
-    const next = new URLSearchParams(searchParams)
-    if (p <= 1) next.delete('p'); else next.set('p', String(p))
-    setSearchParams(next)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
 
   // 로그인 강제는 하지 않는다 — 글쓰기 화면이 유동닉을 받는다(비회원 상자).
   const openWrite = () => navigate('/talk/write?board=relay')
