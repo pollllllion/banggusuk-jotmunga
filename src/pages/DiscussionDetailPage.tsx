@@ -90,16 +90,21 @@ export function DiscussionDetailPage() {
     navigate(`/talk/write?edit=${post.id}`)
   }
 
+  /** 서버까지 저장이 못 간 경우. api 계층이 캐시를 이미 되돌렸으므로 알리기만 하면 된다. */
+  const failToast = (e: unknown) => toast(e instanceof Error ? e.message : '처리하지 못했어요. 잠시 후 다시 시도해주세요.')
+
   const removePost = async () => {
     if (canDeleteAccount) {
       if (!confirm('이 글을 삭제할까요? 댓글도 함께 삭제됩니다.')) return
-      DS.deleteDiscussion(post.id); toast('삭제했습니다.'); navigate('/talk')
+      try { await DS.deleteDiscussion(post.id) } catch (e) { failToast(e); return }
+      toast('삭제했습니다.'); navigate('/talk')
     } else if (isGuest) {
       const pw = prompt('글 작성 시 입력한 비밀번호를 입력하세요.')
       if (pw === null) return
       const ok = await DS.deleteGuestPost('discussions', post.id, pw)
       toast(ok ? '삭제했습니다.' : '비밀번호가 일치하지 않습니다.')
-      if (ok) { DS.deleteDiscussion(post.id); navigate('/talk') }
+      // RPC 가 서버에서 이미 지웠다 — 여기서는 딸린 댓글까지 캐시를 맞추는 뒷정리다
+      if (ok) { await DS.deleteDiscussion(post.id).catch(() => {}); navigate('/talk') }
     }
   }
 
@@ -107,16 +112,19 @@ export function DiscussionDetailPage() {
     const text = cbody.trim()
     if (!text) { toast('댓글을 입력하세요.'); return }
     if (text.length > 1000) { toast('댓글은 1000자 이내로 입력해주세요.'); return }
+
+    let payload: Parameters<typeof DS.createDiscussionComment>[0]
     if (isAccount && user) {
-      DS.createDiscussionComment({ discussionId: post.id, authorId: user.id, body: text })
+      payload = { discussionId: post.id, authorId: user.id, body: text }
     } else {
       if (!guestName.trim()) { toast('닉네임을 입력하세요.'); return }
       if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
       const hash = await sha256hex(guestPw)
-      DS.createDiscussionComment({ discussionId: post.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text })
-      setGuestPw('')
+      payload = { discussionId: post.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text }
     }
-    setCbody(''); rerender()
+    // 저장이 서버까지 간 걸 확인한 뒤에 입력칸을 비운다 — 실패했는데 쓴 글이 사라지면 안 된다
+    try { await DS.createDiscussionComment(payload) } catch (e) { failToast(e); return }
+    setGuestPw(''); setCbody(''); rerender()
   }
 
   const likeComment = (cid: string) => {
@@ -145,7 +153,7 @@ export function DiscussionDetailPage() {
       const ok = await DS.updateGuestDiscussionComment(c.id, editingPw, text)
       if (!ok) { toast('비밀번호가 일치하지 않습니다.'); return }
     } else {
-      DS.updateDiscussionComment(c.id, text)
+      try { await DS.updateDiscussionComment(c.id, text) } catch (e) { failToast(e); return }
     }
     setEditingId(null); setEditingPw(''); toast('댓글을 고쳤어요!'); rerender()
   }
@@ -154,13 +162,15 @@ export function DiscussionDetailPage() {
     const cGuest = !!c.guestName
     if (user && isAccount && !cGuest && (user.id === c.authorId || user.role === 'admin')) {
       if (!confirm('이 댓글을 삭제할까요?')) return
-      DS.deleteDiscussionComment(c.id); toast('삭제했습니다.'); rerender()
+      try { await DS.deleteDiscussionComment(c.id) } catch (e) { failToast(e); return }
+      toast('삭제했습니다.'); rerender()
     } else if (cGuest) {
       const pw = prompt('댓글 작성 시 입력한 비밀번호를 입력하세요.')
       if (pw === null) return
       const ok = await DS.deleteGuestPost('discussion_comments', c.id, pw)
       toast(ok ? '삭제했습니다.' : '비밀번호가 일치하지 않습니다.')
-      if (ok) { DS.deleteDiscussionComment(c.id); rerender() }
+      // RPC 가 서버에서 이미 지웠고 캐시에서도 뺐다 — 화면만 다시 그리면 된다
+      if (ok) rerender()
     }
   }
 

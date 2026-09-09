@@ -7,13 +7,13 @@
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
 import type { Discussion, DiscussionBoard, DiscussionComment, NotificationType } from '@/types'
-import { cache, load, store } from './cache'
+import { cache, load, store, SaveFailedError } from './cache'
 import { buildNotification, insertNotifications } from './social'
 import { getUserById } from './users'
 import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notify'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
-export function saveDiscussions(d: Discussion[]) { store('discussions', d) }
+export function saveDiscussions(d: Discussion[]) { return store('discussions', d) }
 
 /** 게시판별 글 — board 컬럼이 없던 시절 글(undefined)은 전부 방구석토론방 글로 친다. */
 export function getDiscussionsByBoard(board: DiscussionBoard): Discussion[] {
@@ -51,9 +51,18 @@ export function recomputeContentRating(contentId: string | null | undefined) {
   }
 }
 
-export function createDiscussion(data: Partial<Discussion>): Discussion {
+/**
+ * 토론글 작성.
+ *
+ * **서버 저장을 기다린다.** 예전엔 캐시에만 넣고 바로 돌려줘서, 저장이 실패해도
+ * "글을 올렸어요!" 가 뜨고 사용자는 새로고침하고 나서야 글이 없어진 걸 알았다.
+ * 실패하면 낙관적으로 넣었던 캐시를 되돌리고 SaveFailedError 를 던진다.
+ */
+export async function createDiscussion(data: Partial<Discussion>): Promise<Discussion> {
   const d: Discussion = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as Discussion
-  saveDiscussions([d, ...getDiscussions()])
+  const prev = getDiscussions()
+  const res = await saveDiscussions([d, ...prev])
+  if (!res.ok) { cache.discussions = prev; throw new SaveFailedError(res.error) }
   if (d.rating != null) recomputeContentRating(d.contentId)
   return d
 }
@@ -86,9 +95,13 @@ export async function toggleDiscussionLike(id: string, userId: string): Promise<
   catch (e) { console.error('[toggle_discussion_like]', e) }
 }
 
-export function deleteDiscussion(id: string): void {
-  const post = getDiscussions().find(d => d.id === id)
-  saveDiscussions(getDiscussions().filter(d => d.id !== id))
+/** 토론글 삭제. 서버에서 지워진 걸 확인한 뒤에야 캐시에서 뺀다 —
+ *  "지웠습니다" 를 띄웠는데 새로고침하면 되살아나는 일이 없게. */
+export async function deleteDiscussion(id: string): Promise<void> {
+  const prev = getDiscussions()
+  const post = prev.find(d => d.id === id)
+  const res = await saveDiscussions(prev.filter(d => d.id !== id))
+  if (!res.ok) { cache.discussions = prev; throw new SaveFailedError(res.error) }
   // 딸린 댓글도 캐시에서 제거(서버는 FK on delete cascade)
   cache.discussion_comments = cache.discussion_comments.filter((c: any) => c.discussionId !== id)
   if (post && post.rating != null) recomputeContentRating(post.contentId)
@@ -96,13 +109,14 @@ export function deleteDiscussion(id: string): void {
 
 /** 토론글 수정 (본문·제목·별점·스포일러·첨부). 별점 바뀌면 작품 평점 재집계.
  *  고정닉(계정) 글 전용 — RLS 상 본인/관리자만 update 가 통과한다. */
-export function updateDiscussion(id: string, updates: Partial<Discussion>): Discussion | null {
+export async function updateDiscussion(id: string, updates: Partial<Discussion>): Promise<Discussion | null> {
   const ds = getDiscussions()
   const idx = ds.findIndex(d => d.id === id)
   if (idx < 0) return null
   const updated = { ...ds[idx], ...updates, updatedAt: new Date().toISOString() }
   const next = [...ds]; next[idx] = updated
-  saveDiscussions(next)
+  const res = await saveDiscussions(next)
+  if (!res.ok) { cache.discussions = ds; throw new SaveFailedError(res.error) }
   recomputeContentRating(updated.contentId)
   return updated
 }
@@ -193,7 +207,7 @@ function notifyLike(targetAuthorId: string | null | undefined, actorId: string, 
 
 // ── Discussion Comments (게시글 댓글) ───────────────────────
 export function getDiscussionComments(): DiscussionComment[] { return load('discussion_comments') }
-export function saveDiscussionComments(c: DiscussionComment[]) { store('discussion_comments', c) }
+export function saveDiscussionComments(c: DiscussionComment[]) { return store('discussion_comments', c) }
 
 export function getDiscussionCommentsByPost(discussionId: string): DiscussionComment[] {
   return getDiscussionComments()
@@ -205,26 +219,32 @@ export function countDiscussionComments(discussionId: string): number {
   return getDiscussionComments().filter(c => c.discussionId === discussionId).length
 }
 
-export function createDiscussionComment(data: Partial<DiscussionComment>): DiscussionComment {
+/** 댓글 작성 — 글과 같은 이유로 서버 저장을 기다린다(실패 시 롤백 + throw). */
+export async function createDiscussionComment(data: Partial<DiscussionComment>): Promise<DiscussionComment> {
   const c: DiscussionComment = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as DiscussionComment
-  saveDiscussionComments([...getDiscussionComments(), c])
+  const prev = getDiscussionComments()
+  const res = await saveDiscussionComments([...prev, c])
+  if (!res.ok) { cache.discussion_comments = prev; throw new SaveFailedError(res.error) }
   const post = getDiscussions().find(d => d.id === c.discussionId)
   if (post) notifyDiscussionComment(post, c)
   return c
 }
 
-export function deleteDiscussionComment(id: string): void {
-  saveDiscussionComments(getDiscussionComments().filter(c => c.id !== id))
+export async function deleteDiscussionComment(id: string): Promise<void> {
+  const prev = getDiscussionComments()
+  const res = await saveDiscussionComments(prev.filter(c => c.id !== id))
+  if (!res.ok) { cache.discussion_comments = prev; throw new SaveFailedError(res.error) }
 }
 
 /** 댓글 수정 (본문만) — 고정닉 글 전용. RLS 상 본인/관리자만 통과한다. */
-export function updateDiscussionComment(id: string, body: string): void {
+export async function updateDiscussionComment(id: string, body: string): Promise<void> {
   const cs = getDiscussionComments()
   const idx = cs.findIndex(c => c.id === id)
   if (idx < 0) return
   const next = [...cs]
   next[idx] = { ...cs[idx], body, updatedAt: new Date().toISOString() }
-  saveDiscussionComments(next)
+  const res = await saveDiscussionComments(next)
+  if (!res.ok) { cache.discussion_comments = cs; throw new SaveFailedError(res.error) }
 }
 
 /** 유동닉 댓글 수정 — 서버에서 비번 검증. 성공 시 캐시만 직접 손본다. */

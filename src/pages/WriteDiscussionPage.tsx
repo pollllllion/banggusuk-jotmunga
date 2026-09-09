@@ -183,7 +183,7 @@ export function WriteDiscussionPage() {
       const ok = await DS.updateGuestDiscussion(editing.id, pw, patch)
       if (!ok) { setGuestPwForEdit(''); toast('비밀번호가 일치하지 않습니다.'); return }
     } else {
-      DS.updateDiscussion(editing.id, patch)
+      await DS.updateDiscussion(editing.id, patch)
     }
     toast('글을 고쳤어요!')
     navigate(`/talk/${editing.id}`)
@@ -218,15 +218,19 @@ export function WriteDiscussionPage() {
       }
       let created
       if (isAccount && user) {
-        created = DS.createDiscussion({ ...base, authorId: user.id })
+        created = await DS.createDiscussion({ ...base, authorId: user.id })
       } else {
         if (!guestName.trim()) { toast('닉네임을 입력하세요.'); setSaving(false); return }
         if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); setSaving(false); return }
         const hash = await sha256hex(guestPw)
-        created = DS.createDiscussion({ ...base, authorId: null, guestName: guestName.trim(), guestPwHash: hash })
+        created = await DS.createDiscussion({ ...base, authorId: null, guestName: guestName.trim(), guestPwHash: hash })
       }
       toast('글을 올렸어요!')
       navigate(`/talk/${created.id}`)
+    } catch (e) {
+      // 저장이 서버까지 못 갔다 — 입력 내용은 화면에 그대로 두고 다시 시도하게 한다.
+      // (예전엔 실패해도 "올렸어요!" 가 뜨고 빈 글 페이지로 넘어갔다)
+      toast(e instanceof Error ? e.message : '저장하지 못했어요. 잠시 후 다시 시도해주세요.')
     } finally {
       setSaving(false)
     }

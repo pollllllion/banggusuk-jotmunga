@@ -41,22 +41,53 @@ function conflictCols(t: Table): string {
 // ── Cache primitives ────────────────────────────────────────
 export function load<T>(key: Table): T[] { return cache[key] as T[] }
 
-export function store(key: Table, val: any[]) {
-  const prev = cache[key] || []
-  cache[key] = val
-  void persist(key, prev, val)
+/** 쓰기 결과. ok=false 면 캐시에는 들어갔지만 서버에는 안 들어갔다는 뜻이다. */
+export type PersistResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * 서버까지 저장이 가지 못했을 때 던진다. 화면은 이걸 잡아 message 를 그대로 보여준다.
+ * detail 에는 원인(RLS 거부·네트워크 등)이 들어 있다 — 사용자에겐 안 보여준다.
+ */
+export class SaveFailedError extends Error {
+  detail: string
+  constructor(detail: string) {
+    super('저장하지 못했어요. 연결을 확인하고 다시 시도해주세요.')
+    this.name = 'SaveFailedError'
+    this.detail = detail
+  }
 }
 
-async function persist(t: Table, prev: any[], next: any[]) {
+/**
+ * 캐시 갱신 + 서버 동기화.
+ *
+ * 반환하는 Promise 를 **무시해도 되지만**, 사용자가 만든 콘텐츠(글·댓글)를 쓰는
+ * 자리에서는 반드시 await 해서 실패를 화면에 알려야 한다. 안 그러면 저장이 실패해도
+ * "올렸어요!" 가 뜨고, 사용자는 새로고침하고 나서야 글이 없어진 걸 안다.
+ */
+export function store(key: Table, val: any[]): Promise<PersistResult> {
+  const prev = cache[key] || []
+  cache[key] = val
+  return persist(key, prev, val)
+}
+
+/**
+ * ⚠️ supabase-js 는 RLS 거부·제약 위반을 **throw 하지 않고** { error } 로 돌려준다.
+ *    예전엔 그 error 를 아무도 안 봐서 try/catch 가 네트워크 예외만 잡았고,
+ *    권한 문제로 글이 안 써져도 조용히 성공한 척했다. 이제 매 호출의 error 를 본다.
+ */
+async function persist(t: Table, prev: any[], next: any[]): Promise<PersistResult> {
   try {
     const prevByKey = new Map(prev.map(r => [rowKey(t, r), r]))
     const nextKeys = new Set(next.map(r => rowKey(t, r)))
     // 삭제된 행
     const removed = prev.filter(r => !nextKeys.has(rowKey(t, r)))
     for (const r of removed) {
-      if (t === 'bookmarks' || t === 'content_alerts') await supabase.from(t).delete().eq('userId', r.userId).eq('contentId', r.contentId)
-      else if (t === 'blocks') await supabase.from(t).delete().eq('blockerId', r.blockerId).eq('blockedId', r.blockedId)
-      else await supabase.from(t).delete().eq('id', r.id)
+      const del = supabase.from(t).delete()
+      const q = (t === 'bookmarks' || t === 'content_alerts') ? del.eq('userId', r.userId).eq('contentId', r.contentId)
+        : t === 'blocks' ? del.eq('blockerId', r.blockerId).eq('blockedId', r.blockedId)
+        : del.eq('id', r.id)
+      const { error } = await q
+      if (error) return fail(t, 'delete', error.message)
     }
     // 새로/바뀐 행만 upsert (RLS: 남의 행 통짜 upsert 방지 — 본인이 바꾼 것만 씀)
     const changed = next.filter(r => {
@@ -65,11 +96,18 @@ async function persist(t: Table, prev: any[], next: any[]) {
     })
     if (changed.length) {
       const rows = t === 'users' ? changed.map(({ password, ...u }: any) => u) : changed
-      await supabase.from(t).upsert(rows, { onConflict: conflictCols(t) })
+      const { error } = await supabase.from(t).upsert(rows, { onConflict: conflictCols(t) })
+      if (error) return fail(t, 'upsert', error.message)
     }
-  } catch (e) {
-    console.error('[supabase persist]', t, e)
+    return { ok: true }
+  } catch (e: any) {
+    return fail(t, 'exception', e?.message || String(e))
   }
+}
+
+function fail(t: Table, op: string, message: string): PersistResult {
+  console.error('[supabase persist]', t, op, message)
+  return { ok: false, error: message }
 }
 
 // ── Load all (앱 시작 시) ────────────────────────────────────
