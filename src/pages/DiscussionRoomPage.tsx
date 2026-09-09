@@ -5,7 +5,6 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import { pickTrending } from '@/utils/trending'
-import { TYPE_EMOJIS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import '@/styles/discussion.css'
@@ -102,13 +101,13 @@ export function DiscussionRoomPage() {
         description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방."
       />
       <div className="feed-header">
-        <h2 className="feed-title">{'\u{1F5E3}\u{FE0F}'} 방구석토론방</h2>
-        <button className="btn btn-primary btn-small" onClick={openWrite}>✍️ 토론하기</button>
+        <h2 className="feed-title">방구석토론방</h2>
+        <button className="btn btn-primary btn-small" onClick={openWrite}>토론하기</button>
       </div>
 
       {trending.length > 0 && (
         <section className="disc-trending fade-in">
-          <h3 className="disc-trending-head">🔥 지금 뜨는 글</h3>
+          <h3 className="disc-trending-head">지금 뜨는 글</h3>
           <div className="disc-board">
             {trending.map(({ post, content }, i) => (
               <DiscussionRow
@@ -127,7 +126,7 @@ export function DiscussionRoomPage() {
       <div className="feed-typefilter">
         {SUBS.map(s => (
           <button key={s.key} className={sub === s.key ? 'active' : ''} onClick={() => setSub(s.key)}>
-            {s.key !== 'all' && TYPE_EMOJIS[s.key] ? `${TYPE_EMOJIS[s.key]} ` : ''}{s.label}
+            {s.label}
           </button>
         ))}
       </div>
@@ -140,10 +139,11 @@ export function DiscussionRoomPage() {
       {!rows.length ? (
         <div className="empty-state fade-in">
           <p>{query ? '검색 결과가 없어요.' : '아직 글이 없어요. 첫 글을 남겨보세요!'}</p>
-          {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>✍️ 토론하기</button>}
+          {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>토론하기</button>}
         </div>
       ) : (
-        <>
+        <section className="disc-all">
+          <h3 className="disc-trending-head">전체 글</h3>
           <div className="disc-board fade-in">
             <DiscussionRowHead showContent />
             {pageRows.map(({ post, content }) => (
@@ -151,7 +151,7 @@ export function DiscussionRoomPage() {
             ))}
           </div>
           <Pager page={page} total={totalPages} onGo={goPage} />
-        </>
+        </section>
       )}
     </>
   )

@@ -52,7 +52,7 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
           <><dt>장르</dt><dd>{content.genres.join(' · ')}</dd></>
         )}
         {hasRating && (
-          <><dt>평점</dt><dd>⭐ {content.voteAverage!.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
+          <><dt>평점</dt><dd>{content.voteAverage!.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
         )}
       </dl>
 

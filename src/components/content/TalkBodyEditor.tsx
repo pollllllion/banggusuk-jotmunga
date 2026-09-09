@@ -206,10 +206,10 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
         {/* 첨부 */}
         <div className="talk-toolbar">
           <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => fileRef.current?.click()}>
-            🖼 이미지·움짤
+            이미지·움짤
           </button>
           <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => setUrlOpen(o => !o)}>
-            🔗 주소로 넣기
+            주소로 넣기
           </button>
           <span className="talk-toolbar-hint">
             {busy ? '올리는 중…' : `커서 자리에 들어감 · 붙여넣기(Ctrl+V)·드래그&드롭 · ${shots}/${MAX_FILES}`}

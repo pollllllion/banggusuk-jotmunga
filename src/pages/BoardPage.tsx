@@ -17,11 +17,11 @@ export function BoardPage() {
       <Seo title={board ? board.label : '게시판'} noindex />
       <div className="feed-header">
         <h2 className="feed-title">
-          {board ? `${board.emoji} ${board.label}` : '게시판'}
+          {board ? board.label : '게시판'}
         </h2>
       </div>
       <div className="empty-state fade-in">
-        <p>이 게시판은 준비 중입니다. 곧 오픈해요! 🚧</p>
+        <p>이 게시판은 준비 중입니다. 곧 오픈해요!</p>
       </div>
     </>
   )

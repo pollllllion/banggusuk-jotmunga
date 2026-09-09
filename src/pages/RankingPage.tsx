@@ -39,11 +39,11 @@ export function RankingPage() {
     <>
       <Seo title="방구석 레벨" noindex />
       <div className="feed-header">
-        <h2 className="feed-title">🏅 방구석 레벨</h2>
+        <h2 className="feed-title">방구석 레벨</h2>
       </div>
 
       {/* 이달의 랭킹 */}
-      <div className="ranking-section-title">🔥 이달의 랭킹</div>
+      <div className="ranking-section-title">이달의 랭킹</div>
       <p className="ranking-sub">최근 {season.days}일간의 활동 점수예요. 매달 새로 겨뤄서 신규 회원에게도 기회가 열려 있어요.</p>
       {!season.entries.length ? (
         <div className="empty-state fade-in"><p>아직 이번 시즌 활동이 없어요.</p></div>
@@ -54,7 +54,7 @@ export function RankingPage() {
       )}
 
       {/* 전체 랭킹 */}
-      <div className="ranking-section-title" style={{ marginTop: 28 }}>🏆 전체 랭킹</div>
+      <div className="ranking-section-title" style={{ marginTop: 28 }}>전체 랭킹</div>
       <p className="ranking-sub">누적 활동 XP 기준 영구 순위예요.</p>
       {!overall.entries.length ? (
         <div className="empty-state fade-in"><p>아직 활동 기록이 없어요.</p></div>

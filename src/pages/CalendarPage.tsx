@@ -8,7 +8,7 @@ import { ContentInfo } from '@/components/content/ContentInfo'
 import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { BellIcon, BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
-import { TYPE_LABELS, TYPE_EMOJIS } from '@/utils/constants'
+import { TYPE_LABELS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
 import {
   effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
@@ -270,7 +270,7 @@ export function CalendarPage() {
     <div className="cal-wrap">
       <Seo path="/" jsonLd={WEBSITE_JSONLD} />
       <div className="cal-hero">
-        <h1>🗓️ 개봉·공개 캘린더</h1>
+        <h1>개봉·공개 캘린더</h1>
         <p>앞으로 나올 영화·드라마·예능·웹툰·웹소설의 출시일을 한눈에. 찜해두면 공개일에 알려드려요.</p>
       </div>
 
@@ -360,14 +360,11 @@ export function CalendarPage() {
                           <span
                             className={thumb ? 'cal-thumb' : 'cal-thumb none'}
                             style={thumb ? { backgroundImage: `url(${thumb})` } : undefined}>
-                            {!thumb && <span className="cal-thumb-emoji">{TYPE_EMOJIS[c.type]}</span>}
-                            {provs.length > 0 && (
+                                                        {provs.length > 0 && (
                               <span className="cal-thumb-ott"><ProviderLogos providers={provs.slice(0, 1)} size={13} /></span>
                             )}
                           </span>
-                          {provs.length > 0
-                            ? <ProviderLogos providers={provs.slice(0, 1)} size={14} />
-                            : <span className="emoji">{TYPE_EMOJIS[c.type]}</span>}
+                          {provs.length > 0 && <ProviderLogos providers={provs.slice(0, 1)} size={14} />}
                           <span className="t">{c.title}</span>
                         </div>
                       )
@@ -399,7 +396,6 @@ export function CalendarPage() {
                   <span
                     className={thumb ? 'cal-up-thumb' : 'cal-up-thumb none'}
                     style={thumb ? { backgroundImage: `url(${thumb})` } : undefined}>
-                    {!thumb && TYPE_EMOJIS[c.type]}
                   </span>
                   <span className="cal-up-body">
                     <span className="cal-up-t">{c.title}</span>
@@ -425,7 +421,7 @@ export function CalendarPage() {
           <div className="cal-daylist" onClick={e => e.stopPropagation()}>
             <button className="cal-modal-close" onClick={() => setDayList(null)}>×</button>
             <h3 className="cal-daylist-title">
-              📅 {dayList.key.replace(/-/g, '. ')}
+              {dayList.key.replace(/-/g, '. ')}
               <span className="cal-daylist-count">공개 {dayList.items.length}개</span>
             </h3>
             <div className="cal-daylist-items">
@@ -436,9 +432,7 @@ export function CalendarPage() {
                     key={c.id}
                     className={`cal-daylist-item type-${c.type}`}
                     onClick={() => { setDayList(null); openItem(c) }}>
-                    {provs.length > 0
-                      ? <ProviderLogos providers={provs.slice(0, 3)} size={18} />
-                      : <span className="emoji">{TYPE_EMOJIS[c.type]}</span>}
+                    {provs.length > 0 && <ProviderLogos providers={provs.slice(0, 3)} size={18} />}
                     <span className="cal-daylist-t">{c.title}</span>
                     <span className="cal-daylist-type">{TYPE_LABELS[c.type]}</span>
                   </button>
@@ -466,7 +460,7 @@ export function CalendarPage() {
                   {selDate && isUpcoming(selected, todayKey) && (
                     <span className="cal-badge upcoming">공개 예정</span>
                   )}
-                  <span className="cal-badge type">{TYPE_EMOJIS[selected.type]} {TYPE_LABELS[selected.type]}</span>
+                  <span className="cal-badge type">{TYPE_LABELS[selected.type]}</span>
                   {selected.releaseDateSource === 'kr_ott_post_theatrical' && (
                     <span className="cal-badge ott-release">극장 개봉작 · OTT 공개</span>
                   )}
@@ -480,11 +474,11 @@ export function CalendarPage() {
                 )}
                 {selDate && (
                   <div className="cal-modal-date">
-                    📅 {fmtDateKo(selDate)} {isUpcoming(selected, todayKey) ? '공개 예정' : '공개'}
+                    {fmtDateKo(selDate)} {isUpcoming(selected, todayKey) ? '공개 예정' : '공개'}
                     {selSource && <span className="cal-src"> · {selSource}</span>}
                   </div>
                 )}
-                {(selected.releasePattern || airPattern) && <div className="cal-modal-pattern">📺 {selected.releasePattern || airPattern}</div>}
+                {(selected.releasePattern || airPattern) && <div className="cal-modal-pattern">{selected.releasePattern || airPattern}</div>}
               </div>
             </div>
 
@@ -517,7 +511,7 @@ export function CalendarPage() {
             </div>
             {user?.role === 'admin' && (
               <button className="cal-admin-edit" onClick={() => navigate('/admin', { state: { editContentId: selected.id } })}>
-                ✏️ 관리자 · 이 작품 정보 수정
+                관리자 · 이 작품 정보 수정
               </button>
             )}
             {selProviders.length > 0 && (

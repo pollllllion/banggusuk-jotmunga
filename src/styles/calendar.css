@@ -93,7 +93,6 @@
   transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
 }
 .cal-item:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
-.cal-item .emoji { font-size: 12px; flex-shrink: 0; }
 .cal-item .t {
   min-width: 0; flex: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;
@@ -228,7 +227,6 @@
   font-size: 13.5px; cursor: pointer; transition: background var(--duration) var(--ease);
 }
 .cal-daylist-item:hover { background: var(--primary-50); }
-.cal-daylist-item .emoji { font-size: 15px; flex-shrink: 0; }
 .cal-daylist-t {
   flex: 1; min-width: 0; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -288,7 +286,7 @@
      같은 자리에 포스터를 넣으면 무슨 작품인지 한눈에 읽힌다. OTT 로고는 포스터
      좌하단에 겹쳐 남긴다 — 어디서 공개되는지가 이 캘린더의 핵심 정보라서. */
   .cal-item { padding: 0; background: none !important; border: 0; }
-  .cal-item .ott-logos, .cal-item .emoji { display: none; }
+  .cal-item .ott-logos { display: none; }
   .cal-thumb {
     display: block; position: relative; width: 100%; aspect-ratio: 2 / 3; max-height: 62px;
     margin: 0 auto; border-radius: 5px; background-size: cover; background-position: center;

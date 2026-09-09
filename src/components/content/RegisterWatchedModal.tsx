@@ -202,7 +202,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal" style={{ maxWidth: 460, width: '92vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>👀 본 작품 등록</h3>
+        <h3>본 작품 등록</h3>
 
         {/* 검색으로 등록 (기본) */}
         {!manual && (
@@ -277,7 +277,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
                   className={manualType === t.code ? 'on' : ''}
                   onClick={() => setManualType(t.code)}
                 >
-                  {t.emoji} {t.label}
+                  {t.label}
                 </button>
               ))}
             </div>

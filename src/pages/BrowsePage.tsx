@@ -86,7 +86,7 @@ export function BrowsePage() {
         <button className={`filter-btn ${!type ? 'active' : ''}`} onClick={() => setParam('type', '')}>전체</button>
         {CONTENT_TYPES.map(t => (
           <button key={t.code} className={`filter-btn ${type === t.code ? 'active' : ''}`} onClick={() => setParam('type', t.code)}>
-            {t.emoji} {t.label}
+            {t.label}
           </button>
         ))}
       </div>

@@ -152,7 +152,7 @@ export function ContentDetailPage() {
 
           <div className="review-detail-actions" style={{ marginTop: 14, marginBottom: 0 }}>
             {!isUpcoming && (
-              <button className="btn btn-primary" onClick={goWrite}>✍️ 토론하기</button>
+              <button className="btn btn-primary" onClick={goWrite}>토론하기</button>
             )}
             <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
               <BookmarkIcon filled={bookmarked} /> 찜

@@ -225,9 +225,9 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
     <>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={startNew}>+ 새 작품 등록</button>
-        {tmdbEnabled && <button className="btn btn-secondary" onClick={() => setShowTmdb(true)}>📥 TMDB 검색 등록</button>}
+        {tmdbEnabled && <button className="btn btn-secondary" onClick={() => setShowTmdb(true)}>TMDB 검색 등록</button>}
         <button className="btn btn-secondary" onClick={() => setShowDedup(true)}>
-          🔁 중복 정리{dupGroupCount > 0 && <b style={{ color: 'var(--danger)', marginLeft: 4 }}>{dupGroupCount}</b>}
+          중복 정리{dupGroupCount > 0 && <b style={{ color: 'var(--danger)', marginLeft: 4 }}>{dupGroupCount}</b>}
         </button>
         <input
           className="form-input"
@@ -327,12 +327,12 @@ function DedupPanel({ onDone }: { onDone: () => void }) {
   return (
     <div className="fade-in">
       <button className="btn-text btn-small" onClick={onDone} style={{ marginBottom: 8 }}>‹ 작품 관리로</button>
-      <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>🔁 중복 작품 정리</h3>
+      <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>중복 작품 정리</h3>
       <p style={{ color: 'var(--subtext)', fontSize: 13, marginBottom: 14 }}>
         같은 작품이 여러 개로 등록된 그룹이에요. 병합하면 <b>대표 작품(★)</b>으로 합쳐지고 나머지는 삭제됩니다.
       </p>
 
-      {groups.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>중복된 작품이 없어요. 👍</p>}
+      {groups.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>중복된 작품이 없어요.</p>}
 
       {groups.map((group, gi) => {
         const survivor = pickSurvivor(group)
@@ -404,7 +404,7 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
 
   return (
     <div className="settings-section" style={{ marginBottom: 16 }}>
-      <h3>📥 TMDB 검색 등록</h3>
+      <h3>TMDB 검색 등록</h3>
       <p style={{ fontSize: 12, color: 'var(--subtext)', margin: '2px 0 12px', lineHeight: 1.5 }}>
         제목으로 검색해 정식 TMDB id로 등록합니다(중복 안전). 등록 후 공개일·OTT를 이어서 채워주세요.
       </p>
@@ -413,7 +413,7 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
         <div className="tag-chips">
           {TMDB_TYPES.map(t => (
             <span key={t.code} className={`tag-chip ${type === t.code ? 'active' : ''}`}
-              onClick={() => { setType(t.code); setResults([]); setSearched(false) }}>{t.emoji} {t.label}</span>
+              onClick={() => { setType(t.code); setResults([]); setSearched(false) }}>{t.label}</span>
           ))}
         </div>
       </div>

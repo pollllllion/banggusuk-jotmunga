@@ -245,7 +245,7 @@ export function WriteDiscussionPage() {
       </div>
 
       <div className="feed-header">
-        <h2 className="feed-title">{editing ? '✏️' : '✍️'} {boardLabel} 글 {editing ? '수정' : '쓰기'}</h2>
+        <h2 className="feed-title">{boardLabel} 글 {editing ? '수정' : '쓰기'}</h2>
       </div>
 
       <div className="disc-write-page fade-in">
@@ -278,7 +278,7 @@ export function WriteDiscussionPage() {
                   <div className="cat-chips">
                     {CONTENT_TYPES.filter(t => t.code === 'webtoon' || t.code === 'webnovel').map(t => (
                       <button key={t.code} className={mType === t.code ? 'on' : ''} onClick={() => setMType(t.code as 'webtoon' | 'webnovel')}>
-                        {t.emoji} {t.label}
+                        {t.label}
                       </button>
                     ))}
                   </div>

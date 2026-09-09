@@ -35,7 +35,7 @@ export function TasteProfile({ user, editable }: { user: User; editable: boolean
   return (
     <div className="taste-card fade-in">
       <div className="taste-head">
-        <h3>🎬 내 취향</h3>
+        <h3>내 취향</h3>
         {editable && <button className="btn-text btn-small" onClick={() => setEditing(true)}>{isEmpty ? '+ 등록' : '편집'}</button>}
       </div>
 
@@ -51,7 +51,7 @@ export function TasteProfile({ user, editable }: { user: User; editable: boolean
 
           {works.length > 0 && (
             <section className="taste-sec">
-              <div className="taste-label">🏆 인생작품</div>
+              <div className="taste-label">인생작품</div>
               <div className="taste-works">
                 {works.map(c => <TasteWork key={c.id} content={c} />)}
               </div>
@@ -60,14 +60,14 @@ export function TasteProfile({ user, editable }: { user: User; editable: boolean
 
           {genres.length > 0 && (
             <section className="taste-sec">
-              <div className="taste-label">🎭 선호 장르</div>
+              <div className="taste-label">선호 장르</div>
               <div className="taste-chips">{genres.map(g => <span key={g} className="taste-chip">{g}</span>)}</div>
             </section>
           )}
 
           {directors.length > 0 && (
             <section className="taste-sec">
-              <div className="taste-label">🎥 좋아하는 감독·작가</div>
+              <div className="taste-label">좋아하는 감독·작가</div>
               <div className="taste-chips">{directors.map(d => <span key={d} className="taste-chip">{d}</span>)}</div>
             </section>
           )}
@@ -76,7 +76,7 @@ export function TasteProfile({ user, editable }: { user: User; editable: boolean
 
       {topWatchedGenres.length > 0 && (
         <section className="taste-sec">
-          <div className="taste-label">📊 많이 본 장르 <span className="taste-auto">자동</span></div>
+          <div className="taste-label">많이 본 장르 <span className="taste-auto">자동</span></div>
           <div className="taste-chips">
             {topWatchedGenres.map(([g, n]) => <span key={g} className="taste-chip ghost">{g} <b>{n}</b></span>)}
           </div>
@@ -204,7 +204,7 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal taste-modal" style={{ maxWidth: 520, width: '94vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>🎬 내 취향 편집</h3>
+        <h3>내 취향 편집</h3>
         <p className="taste-modal-sub">공개 프로필이에요. 취향이 비슷한 사람들이 회원님 평을 더 신뢰하게 됩니다.</p>
 
         <div className="form-group">
@@ -214,7 +214,7 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
         </div>
 
         <div className="form-group">
-          <label>🏆 인생작품 <span className="opt">최대 {MAX_WORKS}</span></label>
+          <label>인생작품 <span className="opt">최대 {MAX_WORKS}</span></label>
           {works.length > 0 && (
             <div className="taste-works edit">
               {works.map(id => {
@@ -258,7 +258,7 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
         </div>
 
         <div className="form-group">
-          <label>🎭 선호 장르</label>
+          <label>선호 장르</label>
           <div className="taste-chips">
             {GENRES.map(g => (
               <span key={g} className={`taste-chip selectable ${genres.includes(g) ? 'on' : ''}`} onClick={() => toggleGenre(g)}>{g}</span>
@@ -267,7 +267,7 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
         </div>
 
         <div className="form-group">
-          <label>🎥 좋아하는 감독·작가 <span className="opt">최대 {MAX_DIRECTORS}</span></label>
+          <label>좋아하는 감독·작가 <span className="opt">최대 {MAX_DIRECTORS}</span></label>
           {directors.length > 0 && (
             <div className="taste-chips" style={{ marginBottom: 8 }}>
               {directors.map(d => (

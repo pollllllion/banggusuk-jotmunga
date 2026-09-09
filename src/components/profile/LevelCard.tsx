@@ -33,12 +33,12 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
           </div>
           <div className="level-xp-sub">
             {expert
-              ? <>관리자가 인정한 좋문가예요 👑</>
+              ? <>관리자가 인정한 좋문가예요</>
               : level.next
                 ? (isAdmin
                     ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
                     : <>다음 단계는 <b>{level.next.name}</b></>)
-                : <>활동 레벨 최고 단계 🎉</>}
+                : <>활동 레벨 최고 단계</>}
           </div>
         </div>
         {/* 일반 사용자에게는 XP 수치를 일절 안 보여준다 — 진행 상황은 아래 진행바로만 */}

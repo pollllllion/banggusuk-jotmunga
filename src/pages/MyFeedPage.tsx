@@ -123,7 +123,7 @@ export function MyFeedPage() {
       <div className="feed-summary">
         <span><b>{items.length}</b>편 봤어요</span>
         <div className="feed-quicklinks">
-          {user.role === 'admin' && <button className="btn-text btn-small" onClick={() => navigate('/ranking')}>🏅 방구석 레벨 ›</button>}
+          {user.role === 'admin' && <button className="btn-text btn-small" onClick={() => navigate('/ranking')}>방구석 레벨 ›</button>}
           <button className="btn-text btn-small" onClick={() => navigate('/my-reviews')}>내 토론글 ›</button>
           <button className="btn-text btn-small" onClick={() => navigate('/bookmarks')}>찜 ›</button>
         </div>
@@ -141,7 +141,7 @@ export function MyFeedPage() {
             <button className={filter === 'all' ? 'active' : ''} onClick={() => setFilter('all')}>전체</button>
             {CONTENT_TYPES.filter(t => typesPresent.has(t.code)).map(t => (
               <button key={t.code} className={filter === t.code ? 'active' : ''} onClick={() => setFilter(t.code)}>
-                {t.emoji} {t.label}
+                {t.label}
               </button>
             ))}
           </div>
@@ -178,7 +178,7 @@ export function MyFeedPage() {
                         {c.releaseYear ? ` · ${c.releaseYear}` : ''}
                       </div>
                       <button className="watched-year-tag" onClick={e => editWatchedYear(e, it)} title="시청 연도 수정">
-                        {it.watchedYear ? `👀 ${it.watchedYear}년 봄` : '👀 본 연도 입력'}
+                        {it.watchedYear ? `${it.watchedYear}년 봄` : '본 연도 입력'}
                       </button>
                     </div>
                   )

@@ -344,6 +344,9 @@
 
 /* ── 인기글 섹션 (지금 뜨는 글) ───────────────────────────── */
 .disc-trending { margin-bottom: 22px; }
+/* 아래 전체 목록도 같은 머리를 쓴다 — 한쪽에만 머리가 있으면
+   그 아래 목록이 '뜨는 글의 연장'처럼 읽힌다. */
+.disc-all { display: block; }
 .disc-trending-head {
   font-size: 13px; font-weight: 800; color: var(--text-secondary);
   letter-spacing: -0.01em; margin-bottom: 8px;

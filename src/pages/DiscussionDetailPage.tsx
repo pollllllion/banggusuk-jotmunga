@@ -10,7 +10,6 @@ import { GuestCred } from '@/components/ui/GuestCred'
 import { ExpertTag } from '@/components/profile/ExpertTag'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
-import { TYPE_EMOJIS } from '@/utils/constants'
 import { timeAgo, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
@@ -257,7 +256,7 @@ export function DiscussionDetailPage() {
             className="disc-detail-work"
             onClick={() => navigate(`/content/${content.id}?tab=talk`)}
             title="이 작품방으로 이동">
-            {TYPE_EMOJIS[content.type]} {content.title} <span className="disc-detail-work-go">작품방 ›</span>
+            {content.title} <span className="disc-detail-work-go">작품방 ›</span>
           </span>
         )}
       </div>

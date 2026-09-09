@@ -71,7 +71,7 @@ export function EditContentModal({ content, onClose, onSaved }: {
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal" style={{ maxWidth: 460, width: '92vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>✏️ 작품 정보 수정</h3>
+        <h3>작품 정보 수정</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input className="form-input" placeholder="제목 *" value={title} onChange={e => setTitle(e.target.value)} />
           <input className="form-input" placeholder="플랫폼 (예: 네이버웹툰, 카카오페이지) — 선택" value={platform} onChange={e => setPlatform(e.target.value)} />

@@ -27,7 +27,7 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal level-guide" style={{ maxWidth: 480, width: '94vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>🏅 방좋 레벨 시스템</h3>
+        <h3>방좋 레벨 시스템</h3>
         <p className="lg-sub">
           <b>백수 → 한량 → 여포</b>까지는 활동으로 오르고, 마지막 <b>좋문가</b>는 관리자가 직접 줍니다.
           많이 하는 사람보다 <b>다른 사람에게 가치 있는 활동</b>을 꾸준히 하는 사람이 높이 올라가요.
@@ -59,7 +59,7 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
           <p className="lg-note">
             {level.next
               ? <>지금은 <b>{level.tier.name}</b>. 다음 단계는 <b>{level.next.name}</b>예요. 진행 상황은 프로필의 막대로 확인할 수 있어요.</>
-              : <>활동 레벨 최고 단계예요 🎉</>}
+              : <>활동 레벨 최고 단계예요</>}
           </p>
         )}
 
@@ -76,7 +76,7 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
               <li>출석 <b>+{XP_RULE.attendanceEach}</b>/일 (상한 {XP_RULE.attendanceCap})</li>
             </ul>
             <p className="lg-note">
-              ⚖️ 공정성: 추천은 <b>추천자당 최대 {ANTIABUSE.perLikerCap}</b>까지만 인정되고,
+              공정성: 추천은 <b>추천자당 최대 {ANTIABUSE.perLikerCap}</b>까지만 인정되고,
               서로 반복 추천(품앗이)하면 크게 깎여요. 글이 삭제되면 XP도 자동 회수됩니다.
               시청·댓글·출석은 상한이 있어서, <b>여포부터는 글을 써야</b> 닿습니다.
             </p>

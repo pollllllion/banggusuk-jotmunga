@@ -7,13 +7,13 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 /** 글이냐 댓글이냐에 따라 문구만 바뀐다 — 동작은 같다 */
 const COPY = {
   post: {
-    title: '✍️ 글쓰기',
+    title: '글쓰기',
     desc: '내 글 관리·알림·레벨이 쌓여요.',
     guest: '비회원으로 글쓰기',
     note: '닉네임과 비밀번호만 정하면 돼요. 그 비밀번호로 나중에 글을 고치거나 지울 수 있어요.',
   },
   comment: {
-    title: '💬 댓글 남기기',
+    title: '댓글 남기기',
     desc: '내 댓글 관리·알림·레벨이 쌓여요.',
     guest: '비회원으로 댓글 쓰기',
     note: '닉네임과 비밀번호만 정하면 돼요. 그 비밀번호로 나중에 댓글을 고치거나 지울 수 있어요.',
