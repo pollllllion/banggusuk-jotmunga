@@ -49,10 +49,12 @@ function Table({ title, rows, empty, note }: {
 /**
  * 방문 통계 — 방문자·페이지뷰·유입 경로·사이트 안 검색어.
  *
- * 검색어 표가 둘이다. 헷갈리지 말 것:
- *   '검색 유입 검색어'  밖에서 검색해 들어온 말. 네이버·다음은 referrer 에 남겨서 잡힌다.
- *                      **구글은 2011년부터 지우므로 여기 안 나온다** — Search Console 몫.
- *   '사이트 안 검색어'  우리 검색창에 친 말. "들어와서 뭘 찾다 못 찾았나"를 본다.
+ * ⚠️ **밖에서 뭘 검색해 들어왔는지는 여기 없다.** 브라우저가 referrer 에서 검색어를
+ *    지우고 도메인만 넘긴다(2026-09-09 실측 — 네이버도 'https://search.naver.com/' 만 온다).
+ *    구글·네이버 검색어는 Search Console / 서치어드바이저 에서 봐야 하고,
+ *    아래 안내에 연결 방법을 적어 뒀다.
+ *    '사이트 안 검색어'는 우리 검색창에 친 말이라 성격이 다르다 —
+ *    "들어와서 뭘 찾다가 못 찾았나"를 본다.
  */
 export function AnalyticsTab() {
   const [days, setDays] = useState(7)
@@ -145,13 +147,6 @@ export function AnalyticsTab() {
             note="어디서 눌러 들어왔는지(도메인만). 구글·네이버에서 무엇을 검색했는지는 검색엔진이 알려주지 않아요 — 아래 안내 참고."
             rows={data.topRefs.map(r => ({ label: r.ref, value: r.views }))}
             empty="아직 기록이 없어요."
-          />
-
-          <Table
-            title="검색 유입 검색어"
-            note="밖에서 무엇을 검색해 들어왔는지. 네이버·다음은 검색어를 넘겨줘서 잡히지만, 구글은 넘기지 않아 여기 안 나옵니다 — 구글 검색어는 Search Console 에서 보세요."
-            rows={(data.topRefQueries || []).map(r => ({ label: r.q, value: r.count, sub: r.ref || undefined }))}
-            empty="아직 검색으로 들어온 기록이 없어요. (구글 유입은 여기 잡히지 않습니다)"
           />
 
           <Table
