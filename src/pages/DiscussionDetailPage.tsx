@@ -274,7 +274,12 @@ export function DiscussionDetailPage() {
           return (
             <div key={c.id} className="disc-comment">
               <div className="disc-comment-head">
-                <span className="disc-author">{cName}</span>
+                {DS.isAccountId(c.authorId)
+                  ? <span
+                      className="disc-author linkable"
+                      {...clickable(() => navigate(`/u/${c.authorId}`), `${cName} 프로필 보기`)}
+                    >{cName}</span>
+                  : <span className="disc-author guest">{cName}</span>}
                 <span className="disc-time">{timeAgo(c.createdAt)}{c.updatedAt ? ' · 수정됨' : ''}</span>
                 {cCanEdit && !cEditing && <button className="disc-del" onClick={() => startEditComment(c)}>수정</button>}
                 {cCanDel && !cEditing && <button className="disc-del" onClick={() => removeComment(c)}>삭제</button>}

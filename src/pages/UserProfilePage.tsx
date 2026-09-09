@@ -1,18 +1,46 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { LevelCard } from '@/components/profile/LevelCard'
 import { TasteProfile } from '@/components/profile/TasteProfile'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
+import { ContentCard } from '@/components/content/ContentCard'
 import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
 import { clickable } from '@/utils/a11y'
+import type { Content } from '@/types'
 
-/** 공개 유저 프로필 — 레벨 + 취향 + 작성 토론글. 다른 유저가 취향을 보고 신뢰를 판단. */
+/** 프로필에서 보여줄 '본 작품' 최대 개수 — 프로필이 작품 목록에 잡아먹히지 않게 */
+const MAX_WATCHED = 12
+
+/** 공개 유저 프로필 — 레벨 + 취향 + 작성 토론글 + 본 작품.
+ *  다른 유저가 취향을 보고 신뢰를 판단하는 화면이다. */
 export function UserProfilePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const me = useAuthStore(s => s.user)
+
+  /**
+   * 본 작품(watched)은 캐시에 **내 행만** 있다(RLS + 시작 로드 용량).
+   * 그래서 프로필을 열 때 그 사람 것만 따로 물어본다.
+   * watched 의 select 가 "본인만"이면 남의 것은 빈 배열로 오고, 이 칸은 그냥 안 뜬다
+   * (공개하려면 supabase/migration_watched_public.sql).
+   */
+  const [watched, setWatched] = useState<Content[] | null>(null)
+  useEffect(() => {
+    if (!id) return
+    let alive = true
+    DS.fetchUserWatched(id).then(rows => {
+      if (!alive) return
+      const items = rows
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map(w => DS.getContentById(w.contentId))
+        .filter((c): c is Content => !!c)
+      setWatched(items)
+    })
+    return () => { alive = false }
+  }, [id])
 
   const u = id ? DS.getUserById(id) : undefined
   if (!u) {
@@ -50,6 +78,21 @@ export function UserProfilePage() {
             <DiscussionRow key={post.id} post={post} content={content} showContent onOpen={() => navigate(`/talk/${post.id}`)} />
           ))}
         </div>
+      )}
+
+      {/* 본 작품 — 볼 수 있을 때만 그린다(빈 배열이면 통째로 숨김) */}
+      {watched && watched.length > 0 && (
+        <>
+          <div className="feed-header" style={{ marginTop: 24 }}>
+            <h3 className="feed-title" style={{ fontSize: 16 }}>본 작품 {watched.length}</h3>
+            {isMe && (
+              <button className="btn btn-text btn-small" onClick={() => navigate('/feed')}>내 피드 전체</button>
+            )}
+          </div>
+          <div className="content-grid">
+            {watched.slice(0, MAX_WATCHED).map(c => <ContentCard key={c.id} content={c} />)}
+          </div>
+        </>
       )}
     </>
   )

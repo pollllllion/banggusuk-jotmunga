@@ -134,12 +134,6 @@ export function NotificationSettingsPage() {
              (supabase/README-push.md) */}
       <div className="settings-section">
         <h3>폰 알림으로 받을 것</h3>
-        {!ACTIVITY_PUSH_READY && (
-          <p className="settings-note danger" style={{ marginBottom: 12 }}>
-            🚧 댓글·추천의 <b>폰 알림은 아직 준비 중</b>이에요. 지금은 사이트 안
-            <b> 종 아이콘</b>에만 쌓입니다. 아래 설정은 미리 저장해 두면 준비되는 대로 적용돼요.
-          </p>
-        )}
         {ACTIVITY_PUSH_READY && pushState !== 'on' && (
           <p className="settings-note" style={{ marginBottom: 12 }}>
             ⚠️ 아직 이 기기에서 알림을 켜지 않았어요. 아래 <b>‘이 기기에서 알림 받기’</b>를 눌러야

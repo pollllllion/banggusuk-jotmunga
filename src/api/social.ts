@@ -56,6 +56,22 @@ export function getUserContentAlerts(userId: string): ContentAlert[] {
 // ── Watched (내가 본 작품 — 내 피드) ────────────────────────
 export function getWatched(): Watched[] { return load('watched') }
 
+/**
+ * 남의 '본 작품' 목록을 서버에서 직접 받아온다 (프로필 화면용).
+ *
+ * 캐시(cache.watched)에는 **내 행만** 들어 있다 — RLS 가 그렇게 좁히고, 전부 받으면
+ * 시작 로드가 사용자 수만큼 커진다. 그래서 프로필을 열 때 그 사람 것만 물어본다.
+ *
+ * ⚠️ watched 의 select 정책이 "본인만"이면 남의 것은 **빈 배열**로 돌아온다.
+ *    공개하려면 migration_watched_public.sql 을 적용해야 한다.
+ *    적용 전에도 오류 없이 그냥 안 보일 뿐이라 순서를 신경 쓰지 않아도 된다.
+ */
+export async function fetchUserWatched(userId: string): Promise<Watched[]> {
+  const { data, error } = await supabase.from('watched').select('*').eq('userId', userId)
+  if (error) { console.error('[fetchUserWatched]', error.message); return [] }
+  return (data || []) as Watched[]
+}
+
 export function getUserWatched(userId: string): Watched[] {
   return getWatched()
     .filter(w => w.userId === userId)
