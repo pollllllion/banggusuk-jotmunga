@@ -108,6 +108,12 @@ export function NotificationPanel() {
               ))
             )}
           </div>
+          {/* 알림이 잦다고 느끼는 순간이 곧 여기다 — 끄러 가는 길을 그 자리에 둔다 */}
+          <button
+            className="notif-panel-foot"
+            onClick={() => { setOpen(false); navigate('/settings/notifications') }}>
+            알림 설정
+          </button>
         </div>
       )}
     </div>

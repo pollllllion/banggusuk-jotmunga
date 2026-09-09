@@ -40,6 +40,10 @@ function profileToUser(p: any, email: string): User {
     // ⚠️ expert 를 빠뜨리면 isExpert() 가 언제나 false 라, 관리자가 좋문가를 지정해도
     //    배지·랭킹에 아무 변화가 없다(실제로 그랬다).
     expert: p.expert === true,
+    // 알림 설정 — 마이그레이션 전이면 컬럼이 없다(undefined). notify.ts 가 '켜짐'으로 본다.
+    notifyComment: p.notifyComment,
+    notifyReply: p.notifyReply,
+    notifyLike: p.notifyLike,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
     tasteBio: p.tasteBio ?? null,
     favoriteWorks: p.favoriteWorks ?? [],
@@ -118,6 +122,10 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.banned !== undefined) patch.banned = updates.banned
   // 좋문가 — XP 로는 못 오르고 관리자만 준다 (migration_level_simplify.sql 의 트리거가 지킨다)
   if (updates.expert !== undefined) patch.expert = updates.expert
+  // 활동 알림 설정 (본인만 — profiles_update 정책이 지킨다)
+  if (updates.notifyComment !== undefined) patch.notifyComment = updates.notifyComment
+  if (updates.notifyReply !== undefined) patch.notifyReply = updates.notifyReply
+  if (updates.notifyLike !== undefined) patch.notifyLike = updates.notifyLike
   // 공개 취향 프로필
   if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
   if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks

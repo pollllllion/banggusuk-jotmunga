@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { commentNotifyTargets, likeNotifyTarget, postLabel } from '../notify'
+import { commentNotifyTargets, likeNotifyTarget, postLabel, wantsNotification } from '../notify'
 
 const base = { label: '테스트 글', actor: '댓글러' }
 
@@ -60,6 +60,64 @@ describe('commentNotifyTargets', () => {
     const t = commentNotifyTargets({ ...base, postAuthorId: 'author', commenterId: null, participantIds: [null] })
     expect(t).toHaveLength(1)
     expect(t[0].userId).toBe('author')
+  })
+})
+
+describe('wantsNotification (알림 설정)', () => {
+  it('설정이 없으면(마이그레이션 전) 전부 켜진 것으로 본다', () => {
+    for (const t of ['comment', 'reply', 'like'] as const) {
+      expect(wantsNotification(undefined, t)).toBe(true)
+      expect(wantsNotification(null, t)).toBe(true)
+      expect(wantsNotification({}, t)).toBe(true)
+    }
+  })
+  it('false 로 명시했을 때만 끈다', () => {
+    expect(wantsNotification({ notifyComment: false }, 'comment')).toBe(false)
+    expect(wantsNotification({ notifyComment: false }, 'reply')).toBe(true)
+    expect(wantsNotification({ notifyReply: false }, 'reply')).toBe(false)
+    expect(wantsNotification({ notifyLike: false }, 'like')).toBe(false)
+  })
+})
+
+describe('알림 설정을 지키는지', () => {
+  const prefsOf = (map: Record<string, any>) => (id: string) => map[id]
+
+  it('댓글 알림을 끈 글쓴이에게는 안 간다', () => {
+    const t = commentNotifyTargets({
+      ...base, postAuthorId: 'author', commenterId: 'bob', participantIds: ['bob'],
+      prefsOf: prefsOf({ author: { notifyComment: false } }),
+    })
+    expect(t).toEqual([])
+  })
+
+  it('답글 알림을 끈 참여자만 빠지고 나머지는 그대로 간다', () => {
+    const t = commentNotifyTargets({
+      ...base, postAuthorId: 'author', commenterId: 'z', participantIds: ['bob', 'carol'],
+      prefsOf: prefsOf({ bob: { notifyReply: false } }),
+    })
+    expect(t.map(x => x.userId)).toEqual(['author', 'carol'])
+  })
+
+  it('글쓴이가 댓글 알림을 껐다고 해서 답글 알림으로 대신 가지 않는다', () => {
+    // author 가 이 글에 댓글도 달아 둔 상황 — comment 를 껐으면 그걸로 끝이어야 한다
+    const t = commentNotifyTargets({
+      ...base, postAuthorId: 'author', commenterId: 'bob', participantIds: ['author', 'bob'],
+      prefsOf: prefsOf({ author: { notifyComment: false } }),
+    })
+    expect(t).toEqual([])
+  })
+
+  it('추천 알림을 끈 사람에게는 안 간다', () => {
+    const off = likeNotifyTarget({
+      targetAuthorId: 'author', actorId: 'fan', actor: '팬', label: 'x', what: '글',
+      prefsOf: prefsOf({ author: { notifyLike: false } }),
+    })
+    expect(off).toBeNull()
+    const on = likeNotifyTarget({
+      targetAuthorId: 'author', actorId: 'fan', actor: '팬', label: 'x', what: '글',
+      prefsOf: prefsOf({ author: { notifyComment: false } }),   // 다른 스위치는 무관
+    })
+    expect(on).not.toBeNull()
   })
 })
 

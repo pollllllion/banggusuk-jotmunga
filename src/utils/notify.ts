@@ -13,6 +13,24 @@ import type { NotificationType } from '@/types'
 
 export type NotifyTarget = { userId: string; type: NotificationType; message: string }
 
+/** 받는 사람의 알림 설정 (profiles 의 세 칸 · migration_notify_prefs) */
+export type NotifyPrefs = { notifyComment?: boolean; notifyReply?: boolean; notifyLike?: boolean }
+
+/** 받는 사람 id → 그 사람의 설정. 못 찾으면 undefined 를 주면 된다(= 켜짐). */
+export type PrefsLookup = (userId: string) => NotifyPrefs | null | undefined
+
+/**
+ * 이 종류의 알림을 받기로 해 뒀나.
+ * **값이 없으면 켜진 것으로 본다** — 마이그레이션 전이거나 프로필을 아직 못 읽은 상태에서
+ * 알림이 통째로 사라지는 것보다, 기본값(전부 켜짐)대로 오는 쪽이 덜 놀랍다.
+ */
+export function wantsNotification(prefs: NotifyPrefs | null | undefined, type: NotificationType): boolean {
+  if (!prefs) return true
+  if (type === 'comment') return prefs.notifyComment !== false
+  if (type === 'reply') return prefs.notifyReply !== false
+  return prefs.notifyLike !== false   // like · dislike
+}
+
 /** 알림 문구에 넣을 글 이름. 제목이 없던 옛 글은 본문 앞부분으로 대신한다. */
 export const LABEL_MAX = 20
 
@@ -41,18 +59,25 @@ export function commentNotifyTargets(opts: {
   participantIds: (string | null | undefined)[]
   label: string
   actor: string
+  /** 받는 사람의 알림 설정 조회. 없으면 전부 켜진 것으로 본다. */
+  prefsOf?: PrefsLookup
 }): NotifyTarget[] {
-  const { postAuthorId, commenterId, participantIds, label, actor } = opts
+  const { postAuthorId, commenterId, participantIds, label, actor, prefsOf } = opts
   const out: NotifyTarget[] = []
+  // 설정으로 걸러진 사람도 seen 에 넣는다 — 껐다는 이유로 아래 reply 알림이 대신 가면 안 된다
   const seen = new Set<string>(commenterId ? [commenterId] : [])
+  const wants = (id: string, type: NotificationType) => wantsNotification(prefsOf?.(id), type)
 
   if (postAuthorId && !seen.has(postAuthorId)) {
     seen.add(postAuthorId)
-    out.push({ userId: postAuthorId, type: 'comment', message: `${actor}님이 '${label}' 글에 댓글을 남겼어요.` })
+    if (wants(postAuthorId, 'comment')) {
+      out.push({ userId: postAuthorId, type: 'comment', message: `${actor}님이 '${label}' 글에 댓글을 남겼어요.` })
+    }
   }
   for (const id of participantIds) {
     if (!id || seen.has(id)) continue
     seen.add(id)
+    if (!wants(id, 'reply')) continue
     out.push({ userId: id, type: 'reply', message: `내가 댓글 단 '${label}' 글에 ${actor}님이 댓글을 남겼어요.` })
   }
   return out
@@ -65,8 +90,10 @@ export function likeNotifyTarget(opts: {
   actor: string
   label: string
   what: '글' | '댓글'
+  prefsOf?: PrefsLookup
 }): NotifyTarget | null {
-  const { targetAuthorId, actorId, actor, label, what } = opts
+  const { targetAuthorId, actorId, actor, label, what, prefsOf } = opts
   if (!targetAuthorId || targetAuthorId === actorId) return null
+  if (!wantsNotification(prefsOf?.(targetAuthorId), 'like')) return null
   return { userId: targetAuthorId, type: 'like', message: `${actor}님이 '${label}' ${what}을 추천했어요.` }
 }

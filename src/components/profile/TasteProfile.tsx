@@ -186,6 +186,9 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
       })
       toast('취향을 저장했어요.')
       onClose()
+    } catch (e) {
+      // 저장이 서버까지 못 갔다 — 창을 닫지 않는다(쓴 내용을 잃지 않게)
+      toast(e instanceof Error ? e.message : '취향을 저장하지 못했어요.')
     } finally {
       setSaving(false)
     }

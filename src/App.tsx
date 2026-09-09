@@ -20,6 +20,7 @@ import { RankingPage } from '@/pages/RankingPage'
 import { UserProfilePage } from '@/pages/UserProfilePage'
 import { BookmarksPage } from '@/pages/BookmarksPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { NotificationSettingsPage } from '@/pages/NotificationSettingsPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { CurationListPage } from '@/pages/CurationListPage'
 import { CurationDetailPage } from '@/pages/CurationDetailPage'
@@ -83,6 +84,7 @@ export default function App() {
               <Route path="/u/:id" element={<UserProfilePage />} />
               <Route path="/bookmarks" element={<BookmarksPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
               {/* 안내 문서 (푸터에서 진입) */}
               <Route path="/about" element={<AboutPage />} />
               <Route path="/terms" element={<TermsPage />} />

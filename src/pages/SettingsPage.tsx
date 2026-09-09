@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabaseClient'
 import { isPasswordValid, getPasswordRules } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
-import { getPushState, enablePush, disablePush, type PushState } from '@/utils/push'
-import { isIos, isStandalone } from '@/utils/pwa'
+import * as DS from '@/api/dataService'
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -16,34 +15,20 @@ export function SettingsPage() {
   const [newPw, setNewPw] = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
   const [busy, setBusy] = useState(false)
-  const [pushState, setPushState] = useState<PushState>('unsupported')
-  const [pushBusy, setPushBusy] = useState(false)
-
-  useEffect(() => { getPushState().then(setPushState) }, [])
 
   if (!user) return null
 
-  const togglePush = async () => {
-    setPushBusy(true)
-    try {
-      if (pushState === 'on') { await disablePush(); toast('공개일 알림을 껐어요.') }
-      else { await enablePush(user.id); toast('찜한 작품이 공개되는 날 알려드릴게요.') }
-      setPushState(await getPushState())
-    } catch (e: any) {
-      toast(e?.message || '알림 설정에 실패했어요.')
-      setPushState(await getPushState())
-    } finally {
-      setPushBusy(false)
-    }
-  }
-
-  // iOS 는 홈화면에 추가한 뒤에만 웹푸시가 동작한다 (사파리 탭에서는 구독 자체가 안 된다)
-  const iosNeedsInstall = isIos() && !isStandalone()
+  // 알림 설정 줄에 "신청한 작품 N편"을 미리 보여준다 — 들어가 봐야 아는 것보다 낫다
+  const alertCount = DS.getUserContentAlerts(user.id).length
 
   const saveNickname = async () => {
     if (!nickname.trim()) { toast('닉네임을 입력하세요.'); return }
-    await updateProfile({ nickname: nickname.trim() })
-    toast('닉네임이 변경되었습니다.')
+    try {
+      await updateProfile({ nickname: nickname.trim() })
+      toast('닉네임이 변경되었습니다.')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '닉네임을 바꾸지 못했어요.')
+    }
   }
 
   const changePassword = async () => {
@@ -114,33 +99,20 @@ export function SettingsPage() {
         </div>
       )}
 
-      {isAccount && (
-        <div className="settings-section">
-          <h3>공개일 알림</h3>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 12 }}>
-            찜해둔 작품이 공개·개봉하는 날 아침에 알림을 보내드려요. 기기마다 따로 켜야 합니다.
-          </p>
-
-          {iosNeedsInstall ? (
-            <p style={{ fontSize: 13, color: 'var(--subtext)', lineHeight: 1.7 }}>
-              아이폰·아이패드는 <b>공유 → 홈 화면에 추가</b>로 설치한 뒤, 홈화면 아이콘으로 열어야 알림을 켤 수 있어요.
-            </p>
-          ) : pushState === 'unsupported' ? (
-            <p style={{ fontSize: 13, color: 'var(--subtext)' }}>이 브라우저는 알림을 지원하지 않아요.</p>
-          ) : pushState === 'denied' ? (
-            <p style={{ fontSize: 13, color: 'var(--danger)', lineHeight: 1.7 }}>
-              브라우저에서 알림이 차단돼 있어요. 주소창 옆 자물쇠 → 알림을 <b>허용</b>으로 바꾼 뒤 새로고침해주세요.
-            </p>
-          ) : (
-            <button
-              className={`btn ${pushState === 'on' ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={togglePush}
-              disabled={pushBusy}>
-              {pushBusy ? '처리 중...' : pushState === 'on' ? '이 기기 알림 끄기' : '이 기기에서 알림 받기'}
-            </button>
-          )}
-        </div>
-      )}
+      {/* 알림은 종류가 셋(활동·공개일 푸시·신청 작품)이라 이 페이지에 다 넣으면 길어진다.
+          여기서는 지금 상태만 한 줄로 보여주고 전용 페이지로 넘긴다. */}
+      <div className="settings-section">
+        <h3>알림</h3>
+        <button className="settings-link" onClick={() => navigate('/settings/notifications')}>
+          <span>
+            알림 설정
+            <span style={{ display: 'block', fontSize: 12, fontWeight: 400, color: 'var(--subtext)', marginTop: 3 }}>
+              댓글·추천 알림 · 공개일 알림{isAccount && alertCount > 0 ? ` · 신청한 작품 ${alertCount}편` : ''}
+            </span>
+          </span>
+          <span className="chev">›</span>
+        </button>
+      </div>
 
       <div className="settings-section">
         <h3>저작권 안내</h3>

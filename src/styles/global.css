@@ -1335,3 +1335,77 @@ p.content-synopsis .sk-line { display: block; }
 }
 
 .content-synopsis.detail-error { color: var(--subtext); display: flex; align-items: center; gap: 8px; }
+
+/* ── 알림 설정 (/settings/notifications) ───────────────────── */
+.settings-title { font-size: 20px; font-weight: 800; color: var(--dark); margin-bottom: 16px; }
+.settings-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px; }
+.settings-note { font-size: 13px; color: var(--subtext); line-height: 1.7; }
+.settings-note.danger { color: var(--danger); }
+
+/* 계정 설정에서 알림 설정으로 넘어가는 줄 */
+.settings-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; padding: 12px 0; background: none; border: 0; cursor: pointer; text-align: left;
+  font-size: 14px; font-weight: 600; color: var(--text);
+}
+.settings-link:hover { color: var(--link); }
+.settings-link .chev { color: var(--subtext); font-size: 16px; }
+
+/* 스위치 한 줄 */
+.notif-pref-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--border-light);
+}
+.notif-pref-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.notif-pref-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.notif-pref-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.notif-pref-hint { font-size: 12px; color: var(--subtext); line-height: 1.6; }
+
+.switch {
+  flex: none; width: 44px; height: 26px; padding: 0; border-radius: var(--radius-full);
+  background: var(--border); border: 1px solid var(--border);
+  cursor: pointer; transition: background var(--duration) var(--ease);
+}
+.switch.on { background: var(--success); border-color: var(--success); }
+.switch:disabled { opacity: 0.6; cursor: default; }
+.switch .switch-knob {
+  display: block; width: 20px; height: 20px; border-radius: var(--radius-round);
+  background: #fff; box-shadow: var(--shadow-xs);
+  transform: translateX(2px); transition: transform var(--duration) var(--ease);
+}
+.switch.on .switch-knob { transform: translateX(20px); }
+.switch:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+
+/* 개봉알림 신청한 작품 목록 */
+.alert-list { display: flex; flex-direction: column; }
+.alert-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-light);
+}
+.alert-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.alert-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  background: none; border: 0; padding: 0; cursor: pointer; text-align: left;
+}
+.alert-main img, .alert-main .noimg {
+  flex: none; width: 36px; height: 52px; border-radius: var(--radius-xs); object-fit: cover;
+}
+.alert-main .noimg {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--border-light); color: var(--subtext); font-size: 8px; text-align: center;
+}
+.alert-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.alert-title {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.alert-main:hover .alert-title { color: var(--link); }
+.alert-meta { font-size: 12px; color: var(--subtext); }
+
+/* 알림 패널 아래 설정 바로가기 */
+.notif-panel-foot {
+  display: block; width: 100%; padding: 10px 16px; background: none;
+  border: 0; border-top: 1px solid var(--border-light);
+  font-size: 12px; color: var(--text-secondary); cursor: pointer; text-align: center;
+}
+.notif-panel-foot:hover { color: var(--link); }
