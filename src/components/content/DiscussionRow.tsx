@@ -3,6 +3,7 @@ import * as DS from '@/api/dataService'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { boardDate } from '@/utils/helpers'
 import type { Content, Discussion } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 /** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판).
  *  자유방 글은 작품이 없어 content 가 없다 — 그때는 작품 열을 통째로 뺀다. */
@@ -32,7 +33,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   // 인기글 섹션 — 순위 차트. 아래 목록과 같은 글이라도 생김새를 달리해서 중복감을 줄인다.
   if (rank != null) {
     return (
-      <div className="disc-row disc-row-rank" onClick={onOpen}>
+      <div className="disc-row disc-row-rank" {...clickable(onOpen)}>
         <span className={`disc-rank ${rank <= 3 ? 'top' : ''}`}>{rank}</span>
         <span className="disc-row-title">
           {post.spoiler && <span className="disc-spoiler-tag">스포</span>}
@@ -55,7 +56,7 @@ export function DiscussionRow({ post, content, showContent, rank, onOpen }: {
   // 예전엔 flex 라 작품명 길이에 따라 오른쪽이 줄마다 밀렸고, 그게 "지저분함"의 원인이었다.
   // 작품방(showContent=false)에서는 전부 같은 작품이라 말머리 열을 뺀다.
   return (
-    <div className={`disc-row ${showContent ? 'has-tag' : ''}`} onClick={onOpen}>
+    <div className={`disc-row ${showContent ? 'has-tag' : ''}`} {...clickable(onOpen)}>
       {showContent && content && (
         <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>
           {content.title}

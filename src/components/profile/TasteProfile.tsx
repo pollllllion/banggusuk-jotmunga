@@ -7,6 +7,8 @@ import { Poster } from '@/components/content/Poster'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import { GENRES, TYPE_LABELS } from '@/utils/constants'
 import type { Content, ContentType, User } from '@/types'
+import { clickable } from '@/utils/a11y'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /** 공개 취향 프로필 — 인생작품 / 선호 장르 / 좋아하는 감독 + 자동 파생(많이 본 장르).
  *  다른 유저에게 공개되어 "취향이 비슷한 사람"의 추천 신뢰도를 높이는 목적. */
@@ -89,7 +91,7 @@ export function TasteProfile({ user, editable }: { user: User; editable: boolean
 function TasteWork({ content }: { content: Content }) {
   const navigate = useNavigate()
   return (
-    <div className="taste-work" onClick={() => navigate(`/content/${content.id}`)} title={content.title}>
+    <div className="taste-work" title={content.title} {...clickable(() => navigate(`/content/${content.id}`), content.title)}>
       <Poster content={content} showScore={false} />
       <div className="taste-work-title">{content.title}</div>
       <div className="taste-work-type">{TYPE_LABELS[content.type]}</div>
@@ -194,6 +196,8 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
     }
   }
 
+  useEscapeKey(true, onClose)
+
   const overlayClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) onClose() }
 
   return (
@@ -232,13 +236,13 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
               {(matches.length > 0 || tmdbCands.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (
-                    <div key={c.id} className="tmdb-result" onClick={() => addWork(c.id)}>
+                    <div key={c.id} className="tmdb-result" {...clickable(() => addWork(c.id))}>
                       {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                       <div><div className="t">{c.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.releaseYear ? ` · ${c.releaseYear}` : ''}</div></div>
                     </div>
                   ))}
                   {tmdbCands.map(c => (
-                    <div key={c.contentId} className="tmdb-result" onClick={() => addTmdb(c)}>
+                    <div key={c.contentId} className="tmdb-result" {...clickable(() => addTmdb(c))}>
                       {c.r.posterUrl ? <img src={c.r.posterUrl} alt={c.r.title} /> : <div className="noimg">No Image</div>}
                       <div><div className="t">{c.r.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.r.year ? ` · ${c.r.year}` : ''}</div></div>
                     </div>

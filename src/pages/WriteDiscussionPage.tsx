@@ -15,6 +15,7 @@ import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/rich
 import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
+import { clickable } from '@/utils/a11y'
 
 /** 방구석토론방 글쓰기(통합) — 한 화면에서 작품 선택 + 본문 + 별점 + 스포일러.
  *  작품·본문은 필수, 나머지는 선택. 한 작품엔 별점을 한 번만 매길 수 있다.
@@ -239,7 +240,7 @@ export function WriteDiscussionPage() {
   return (
     <>
       <Seo title={`${boardLabel} 글 ${editing ? '수정' : '쓰기'}`} noindex />
-      <div className="back-btn" onClick={() => navigate(editing ? `/talk/${editing.id}` : boardPath)}>
+      <div className="back-btn" {...clickable(() => navigate(editing ? `/talk/${editing.id}` : boardPath))}>
         <BackIcon /> {editing ? '글로 돌아가기' : boardLabel}
       </div>
 
@@ -289,7 +290,7 @@ export function WriteDiscussionPage() {
                         <div className="manual-suggest-head">이미 등록된 같은 작품이 있어요 — 고르면 그 작품에 글을 써요</div>
                         <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
                           {manualSuggestions.map(c => (
-                            <div key={c.id} className="tmdb-result" onClick={() => { setPicked(c); setManual(false) }}>
+                            <div key={c.id} className="tmdb-result" {...clickable(() => { setPicked(c); setManual(false) })}>
                               {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                               <div>
                                 <div className="t">{c.title}</div>
@@ -317,7 +318,7 @@ export function WriteDiscussionPage() {
               {(matches.length > 0 || tmdbHits.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (
-                    <div key={c.id} className="tmdb-result" onClick={() => setPicked(c)}>
+                    <div key={c.id} className="tmdb-result" {...clickable(() => setPicked(c))}>
                       {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                       <div>
                         <div className="t">{c.title}</div>
@@ -327,7 +328,7 @@ export function WriteDiscussionPage() {
                   ))}
                   {/* DB에 없는 작품 — 고르면 그 자리에서 등록된다(ensureContent) */}
                   {tmdbHits.map(r => (
-                    <div key={`${r.kind}-${r.tmdbId}`} className="tmdb-result" onClick={() => pickTmdb(r)}>
+                    <div key={`${r.kind}-${r.tmdbId}`} className="tmdb-result" {...clickable(() => pickTmdb(r))}>
                       {r.posterUrl ? <img src={r.posterUrl} alt={r.title} /> : <div className="noimg">No Image</div>}
                       <div>
                         <div className="t">{r.title}</div>

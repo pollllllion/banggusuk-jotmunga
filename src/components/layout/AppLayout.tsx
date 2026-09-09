@@ -7,6 +7,7 @@ import { Footer } from './Footer'
 import { ReportModal } from '@/components/report/ReportModal'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 import { useUIStore } from '@/stores/uiStore'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export function AppLayout() {
   const { pathname } = useLocation()
@@ -14,6 +15,9 @@ export function AppLayout() {
 
   // 서랍이 열린 채 다른 경로로 가면(뒤로가기 포함) 남지 않게
   useEffect(() => { closeNavDrawer() }, [pathname, closeNavDrawer])
+
+  // 배경을 눌러 닫는 건 마우스만의 방법이다 — 키보드에는 Esc 를 준다
+  useEscapeKey(navDrawerOpen, closeNavDrawer)
 
   // 서랍이 열려 있는 동안 뒤쪽 본문 스크롤 잠금
   useEffect(() => {

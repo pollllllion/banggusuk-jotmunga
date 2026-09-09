@@ -6,6 +6,7 @@ import { TasteProfile } from '@/components/profile/TasteProfile'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
+import { clickable } from '@/utils/a11y'
 
 /** 공개 유저 프로필 — 레벨 + 취향 + 작성 토론글. 다른 유저가 취향을 보고 신뢰를 판단. */
 export function UserProfilePage() {
@@ -30,7 +31,7 @@ export function UserProfilePage() {
   return (
     <>
       <Seo title={`${u.nickname} 님의 프로필`} noindex />
-      <div className="back-btn" onClick={() => navigate(-1)}><BackIcon /> 뒤로</div>
+      <div className="back-btn" {...clickable(() => navigate(-1))}><BackIcon /> 뒤로</div>
       <div className="feed-header">
         <h2 className="feed-title">{u.nickname}{isMe && <span style={{ fontSize: 13, color: 'var(--subtext)', fontWeight: 500 }}> · 나</span>}</h2>
       </div>

@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { REPORT_REASONS } from '@/utils/constants'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 const TARGET_LABELS: Record<string, string> = {
   review: '리뷰 신고하기',
@@ -19,6 +20,8 @@ export function ReportModal() {
   const toast = useToastStore(s => s.show)
   const [selectedReason, setSelectedReason] = useState<string | null>(null)
   const [detail, setDetail] = useState('')
+
+  useEscapeKey(reportModal.open, closeReportModal)
 
   const handleSubmit = () => {
     if (!selectedReason || !user) return
@@ -42,7 +45,7 @@ export function ReportModal() {
   return (
     <div className={`modal-overlay ${reportModal.open ? 'show' : ''}`} onClick={handleOverlayClick}>
       <div className="modal" style={{ position: 'relative' }}>
-        <div className="modal-close" onClick={closeReportModal}>&times;</div>
+        <button type="button" className="modal-close" aria-label="닫기" onClick={closeReportModal}>&times;</button>
         <h3>{TARGET_LABELS[reportModal.targetType]}</h3>
         <p style={{ fontSize: 13, color: 'var(--subtext)', marginBottom: 16 }}>사유를 선택해주세요</p>
         <ul className="report-reasons">

@@ -22,6 +22,7 @@ import { isIndexableContent } from '@/shared/contentIndexable.mjs'
 import { getPushState, enablePush } from '@/utils/push'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
+import { clickable } from '@/utils/a11y'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -122,7 +123,7 @@ export function ContentDetailPage() {
         nofollow={content.hidden === true}
         jsonLd={jsonLd}
       />
-      <div className="back-btn" onClick={() => navigate('/browse')}><BackIcon /> 목록으로</div>
+      <div className="back-btn" {...clickable(() => navigate('/browse'))}><BackIcon /> 목록으로</div>
 
       <div className="content-hero fade-in">
         <div style={{ width: 160, flexShrink: 0 }}>

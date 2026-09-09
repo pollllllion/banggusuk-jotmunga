@@ -14,6 +14,7 @@ import { sanitizeRichText } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import '@/styles/discussion.css'
+import { clickable } from '@/utils/a11y'
 
 /** 방구석토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
 export function DiscussionDetailPage() {
@@ -183,7 +184,7 @@ export function DiscussionDetailPage() {
         image={(!post.spoiler && post.images?.[0]) || content?.posterUrl}
         type="article"
       />
-      <div className="back-btn" onClick={() => navigate(boardPath)}><BackIcon /> 목록으로</div>
+      <div className="back-btn" {...clickable(() => navigate(boardPath))}><BackIcon /> 목록으로</div>
 
       <div className="disc-detail-titlerow">
         {post.rating != null && (
@@ -211,7 +212,7 @@ export function DiscussionDetailPage() {
       </div>
 
       {post.spoiler && !revealSpoiler && !canDeleteAccount ? (
-        <div className="spoiler-cover" onClick={() => setRevealSpoiler(true)}>
+        <div className="spoiler-cover" {...clickable(() => setRevealSpoiler(true), '스포일러 보기')}>
           ⚠️ 스포일러가 포함된 글입니다<small>클릭하면 내용을 표시합니다</small>
         </div>
       ) : (

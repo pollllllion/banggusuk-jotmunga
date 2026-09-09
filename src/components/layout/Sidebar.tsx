@@ -2,6 +2,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { BOARDS } from '@/utils/constants'
+import { clickable } from '@/utils/a11y'
 
 // 이 게시판 항목 뒤에 구분선을 넣는다
 const DIVIDER_AFTER = new Set(['calendar', 'talk'])
@@ -63,7 +64,7 @@ export function Sidebar() {
 
       <div className="sidebar-divider" />
       <div className="sidebar-title">내 활동</div>
-      <div className="sidebar-item" onClick={() => navigate('/feed')}>
+      <div className="sidebar-item" {...clickable(() => navigate('/feed'))}>
         <span className="e">{'\u{1F4F0}'}</span> 내 피드
       </div>
     </nav>

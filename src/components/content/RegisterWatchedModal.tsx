@@ -7,6 +7,8 @@ import { PosterUploader } from '@/components/content/PosterUploader'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { uuid } from '@/utils/helpers'
 import type { Content, ContentType } from '@/types'
+import { clickable } from '@/utils/a11y'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /**
  * 본 작품 등록 모달.
@@ -55,6 +57,8 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
   const [title, setTitle] = useState('')
   const [platform, setPlatform] = useState('')
   const [posterUrl, setPosterUrl] = useState('')
+
+  useEscapeKey(true, onClose)
 
   const overlayClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) onClose() }
 
@@ -220,7 +224,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
                 <div className="manual-suggest-head">이미 등록된 작품 — 고르면 그 작품에 연결돼요</div>
                 <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
                   {dbMatches.map(c => (
-                    <div key={c.id} className="tmdb-result" onClick={() => !saving && linkExisting(c)}>
+                    <div key={c.id} className="tmdb-result" {...clickable(() => { if (!saving) linkExisting(c) })}>
                       {c.posterUrl
                         ? <img src={c.posterUrl} alt={c.title} />
                         : <div className="noimg">No Image</div>}
@@ -236,7 +240,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
 
             <div className="tmdb-results">
               {tmdbResults.map(r => (
-                <div key={r.kind + '-' + r.tmdbId} className="tmdb-result" onClick={() => !saving && pickTmdb(r)}>
+                <div key={r.kind + '-' + r.tmdbId} className="tmdb-result" {...clickable(() => { if (!saving) pickTmdb(r) })}>
                   {r.posterUrl
                     ? <img src={r.posterUrl} alt={r.title} />
                     : <div className="noimg">No Image</div>}
@@ -285,7 +289,7 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
                   <div className="manual-suggest-head">이미 등록된 같은 작품이 있어요 — 고르면 그 작품에 연결돼요</div>
                   <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
                     {manualSuggestions.map(c => (
-                      <div key={c.id} className="tmdb-result" onClick={() => !saving && linkExisting(c)}>
+                      <div key={c.id} className="tmdb-result" {...clickable(() => { if (!saving) linkExisting(c) })}>
                         {c.posterUrl
                           ? <img src={c.posterUrl} alt={c.title} />
                           : <div className="noimg">No Image</div>}

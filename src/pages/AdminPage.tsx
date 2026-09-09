@@ -12,6 +12,7 @@ import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
 import type { Content, ContentType, User } from '@/types'
 import { useContentDetail } from '@/hooks/useContentDetail'
+import { clickable } from '@/utils/a11y'
 
 const REASON_LABELS: Record<string, string> = {
   spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', copyright: '저작권 침해', other: '기타',
@@ -438,7 +439,7 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
       )}
       <div className="tmdb-results">
         {results.map(r => (
-          <div key={r.tmdbId} className="tmdb-result" onClick={() => pick(r)}>
+          <div key={r.tmdbId} className="tmdb-result" {...clickable(() => pick(r))}>
             {r.posterUrl
               ? <img src={r.posterUrl} alt={r.title} />
               : <div className="noimg">No Image</div>}

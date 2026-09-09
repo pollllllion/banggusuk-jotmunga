@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CalendarIcon, CommentIcon, GridIcon, PlusIcon, UserIcon } from '@/components/ui/Icons'
+import { clickable } from '@/utils/a11y'
 
 /**
  * 모바일 하단 탭. 사이드바가 숨겨지는 폭에서 유일한 이동 수단이라
@@ -15,19 +16,19 @@ export function MobileNav() {
 
   return (
     <nav className="mobile-nav">
-      <div className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`} onClick={() => navigate('/')}>
+      <div className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`} aria-current={pathname === '/' ? 'page' : undefined} {...clickable(() => navigate('/'))}>
         <CalendarIcon />캘린더
       </div>
-      <div className={`mobile-nav-item ${talkActive ? 'active' : ''}`} onClick={() => navigate('/talk')}>
+      <div className={`mobile-nav-item ${talkActive ? 'active' : ''}`} aria-current={talkActive ? 'page' : undefined} {...clickable(() => navigate('/talk'))}>
         <CommentIcon size={20} />토론방
       </div>
       <button className="mobile-nav-write" onClick={() => navigate('/talk/write')} aria-label="토론글 쓰기">
         <PlusIcon size={22} />
       </button>
-      <div className={`mobile-nav-item ${pathname === '/browse' ? 'active' : ''}`} onClick={() => navigate('/browse')}>
+      <div className={`mobile-nav-item ${pathname === '/browse' ? 'active' : ''}`} aria-current={pathname === '/browse' ? 'page' : undefined} {...clickable(() => navigate('/browse'))}>
         <GridIcon />작품
       </div>
-      <div className={`mobile-nav-item ${pathname === '/feed' ? 'active' : ''}`} onClick={() => navigate('/feed')}>
+      <div className={`mobile-nav-item ${pathname === '/feed' ? 'active' : ''}`} aria-current={pathname === '/feed' ? 'page' : undefined} {...clickable(() => navigate('/feed'))}>
         <UserIcon />내 피드
       </div>
     </nav>

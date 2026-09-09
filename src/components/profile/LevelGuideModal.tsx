@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 import { LEVEL_TIERS, EXPERT_TIER, LONG_POST_MIN, XP_RULE, ANTIABUSE, QUALITY_CURVE, type LevelInfo } from '@/utils/level'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /**
  * 방좋 레벨 시스템 안내.
@@ -16,6 +17,8 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
   onClose: () => void
 }) {
   const isAdmin = useAuthStore(s => s.user?.role === 'admin')
+  useEscapeKey(true, onClose)
+
   const overlayClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) onClose() }
   const curve = QUALITY_CURVE.filter(([n]) => [1, 5, 10, 50, 100].includes(n))
   const currentTierIndex = level?.tierIndex

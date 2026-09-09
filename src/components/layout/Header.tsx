@@ -9,6 +9,7 @@ import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, ContentType } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 type TmdbHit = { r: TmdbResult; type: ContentType }
 /** 로컬 결과 + TMDB 결과를 한 줄로 세운 것 — 키보드 이동·선택이 두 목록을 넘나들 수 있게 */
@@ -243,32 +244,32 @@ export function Header() {
           <PlusIcon /> 토론하기
         </button>
         <div className="user-menu" ref={menuRef}>
-          <div className="user-avatar" onClick={toggleUserMenu}>{user.nickname[0]}</div>
+          <div className="user-avatar" aria-haspopup="menu" aria-expanded={userMenuOpen} {...clickable(toggleUserMenu, `${user.nickname} 메뉴`)}>{user.nickname[0]}</div>
           <div className={`user-dropdown ${userMenuOpen ? 'show' : ''}`}>
             <div className="user-dropdown-header">
               {user.nickname}
               <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
             </div>
-            <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/my-reviews') }}>
+            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/my-reviews') })}>
               <DocumentIcon /> 내 토론글
             </div>
-            <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/bookmarks') }}>
+            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/bookmarks') })}>
               <BookmarkIcon /> 찜한 작품
             </div>
-            <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/settings') }}>
+            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/settings') })}>
               <SettingsIcon /> 계정 설정
             </div>
             {user.role === 'admin' && (
-              <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/admin') }} style={{ color: 'var(--primary)' }}>
+              <div className="user-dropdown-item" style={{ color: 'var(--primary)' }} {...clickable(() => { closeUserMenu(); navigate('/admin') })}>
                 <ShieldIcon /> 관리자
               </div>
             )}
             {isAccount ? (
-              <div className="user-dropdown-item" onClick={async () => { closeUserMenu(); await logout(); navigate('/') }}>
+              <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); void logout().then(() => navigate('/')) })}>
                 <LogoutIcon /> 로그아웃
               </div>
             ) : (
-              <div className="user-dropdown-item" onClick={() => { closeUserMenu(); navigate('/auth') }} style={{ color: 'var(--primary)' }}>
+              <div className="user-dropdown-item" style={{ color: 'var(--primary)' }} {...clickable(() => { closeUserMenu(); navigate('/auth') })}>
                 <LogoutIcon /> 로그인 / 고정닉
               </div>
             )}

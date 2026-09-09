@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -17,11 +17,14 @@ import {
   CALENDAR_OTT_FILTERS, OTHER_FILTER, hasMinorProvider,
 } from '@/utils/ott'
 import { useIsMobile } from '@/hooks/useIsMobile'
+import { parseYm, formatYm, sameMonth, type Month } from '@/utils/calendarMonth'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
 import { SITE_NAME, SITE_URL } from '@/utils/seo'
 import { getPushState, enablePush } from '@/utils/push'
 import '@/styles/calendar.css'
+import { clickable } from '@/utils/a11y'
 
 /** 홈(캘린더) 구조화 데이터 — 검색결과에 사이트명·검색창을 노출시키기 위한 것 */
 const WEBSITE_JSONLD = {
@@ -97,7 +100,19 @@ export function CalendarPage() {
   const toast = useToastStore(s => s.show)
 
   const now = new Date()
-  const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() })
+  const [searchParams, setSearchParams] = useSearchParams()
+  const thisMonth: Month = { y: now.getFullYear(), m: now.getMonth() }
+  // ?ym= 이 없거나 이상하면 이번 달. 링크를 받은 사람도 늘 뭔가는 보게 된다.
+  const cursor = parseYm(searchParams.get('ym')) ?? thisMonth
+
+  /** 달 이동은 history 에 쌓는다 — 뒤로가기로 이전 달에 돌아올 수 있어야 한다.
+   *  이번 달로 갈 때는 ?ym= 을 지워 주소를 깨끗한 '/' 로 되돌린다. */
+  const setCursor = (next: Month) => {
+    const params = new URLSearchParams(searchParams)
+    if (sameMonth(next, thisMonth)) params.delete('ym')
+    else params.set('ym', formatYm(next))
+    setSearchParams(params)
+  }
   const [filter, setFilter] = useState<ContentType | 'all'>('all')
   const [ott, setOtt] = useState<string>('all')
   const [selected, setSelected] = useState<Content | null>(null)
@@ -105,6 +120,9 @@ export function CalendarPage() {
   const [alerted, setAlerted] = useState(false)
   const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
   const [airPattern, setAirPattern] = useState<string | null>(null)
+
+  // 배경을 눌러 닫는 건 마우스만의 방법이다. 날짜 목록이 위에 있으면 그것부터 닫는다.
+  useEscapeKey(!!dayList || !!selected, () => { if (dayList) setDayList(null); else setSelected(null) })
 
   // 모달이 쓰는 상세 컬럼(줄거리 등)은 용량 때문에 시작 로드에서 빠져 있다 — 열 때 그 행만 채운다.
   // 다 오기 전을 '없음'으로 그리지 않도록 상태를 들고 있는다(useContentDetail).
@@ -206,7 +224,7 @@ export function CalendarPage() {
     const d = new Date(cursor.y, cursor.m + delta, 1)
     setCursor({ y: d.getFullYear(), m: d.getMonth() })
   }
-  const goToday = () => setCursor({ y: now.getFullYear(), m: now.getMonth() })
+  const goToday = () => setCursor(thisMonth)
 
   const openItem = (c: Content) => {
     setSelected(c)
@@ -507,7 +525,7 @@ function LatestCuration() {
   if (!latest) return null
 
   return (
-    <div className="cal-curation" onClick={() => navigate(`/curation/${latest.id}`)}>
+    <div className="cal-curation" {...clickable(() => navigate(`/curation/${latest.id}`))}>
       <span className="cal-curation-tag">공개작 정리</span>
       <div className="cal-curation-body">
         <strong>{latest.title}</strong>

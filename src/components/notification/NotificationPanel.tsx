@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { timeAgo } from '@/utils/helpers'
 import type { Notification } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 /** 자동 재조회 최소 간격 — 탭을 오갈 때마다 요청이 나가지 않게 */
 const REFRESH_MIN_GAP_MS = 30_000
@@ -101,7 +102,7 @@ export function NotificationPanel() {
               </div>
             ) : (
               notifs.map(n => (
-                <div key={n.id} className={`notif-item ${n.read ? '' : 'unread'}`} onClick={() => handleClick(n.id, n.reviewId)}>
+                <div key={n.id} className={`notif-item ${n.read ? '' : 'unread'}`} {...clickable(() => handleClick(n.id, n.reviewId))}>
                   <div className="notif-msg">{n.message}</div>
                   <div className="notif-time">{timeAgo(n.createdAt)}</div>
                 </div>

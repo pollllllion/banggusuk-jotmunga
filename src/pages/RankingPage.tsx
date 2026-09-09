@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { computeSeasonRanking, computeOverallRanking, EXPERT_TIER, type SeasonEntry } from '@/utils/level'
 import { Seo } from '@/components/seo/Seo'
+import { clickable } from '@/utils/a11y'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -10,7 +11,7 @@ function RankRow({ e, i, me, unit, navigate }: {
   e: SeasonEntry; i: number; me?: string; unit: string; navigate: (to: string) => void
 }) {
   return (
-    <div className={`ranking-row linkable ${i < 3 ? 'top' : ''} ${me === e.userId ? 'me' : ''}`} onClick={() => navigate(`/u/${e.userId}`)}>
+    <div className={`ranking-row linkable ${i < 3 ? 'top' : ''} ${me === e.userId ? 'me' : ''}`} {...clickable(() => navigate(`/u/${e.userId}`), `${e.nickname} 프로필`)}>
       <span className="ranking-rank">{i < 3 ? MEDALS[i] : i + 1}</span>
       <div className="ranking-main">
         <div className="ranking-name-row">

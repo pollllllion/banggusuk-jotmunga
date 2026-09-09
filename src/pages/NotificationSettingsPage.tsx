@@ -8,6 +8,7 @@ import { BackIcon } from '@/components/ui/Icons'
 import { getPushState, enablePush, disablePush, type PushState } from '@/utils/push'
 import { isIos, isStandalone } from '@/utils/pwa'
 import type { User } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 /** 활동 알림 스위치 한 줄 — profiles 의 한 칸에 대응한다 */
 type ActivityPref = { key: 'notifyComment' | 'notifyReply' | 'notifyLike'; label: string; hint: string }
@@ -46,7 +47,7 @@ export function NotificationSettingsPage() {
     return (
       <>
         <Seo title="알림 설정" noindex />
-        <div className="back-btn" onClick={() => navigate('/settings')}><BackIcon /> 계정 설정</div>
+        <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
         <h2 className="settings-title">알림 설정</h2>
         <div className="settings-section">
           <h3>고정닉 계정이 필요해요</h3>
@@ -106,7 +107,7 @@ export function NotificationSettingsPage() {
   return (
     <>
       <Seo title="알림 설정" noindex />
-      <div className="back-btn" onClick={() => navigate('/settings')}><BackIcon /> 계정 설정</div>
+      <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
       <h2 className="settings-title">알림 설정</h2>
 
       {/* ── 활동 알림 (계정을 따라다닌다) ── */}

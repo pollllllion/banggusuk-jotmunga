@@ -11,6 +11,7 @@ import { TasteProfile } from '@/components/profile/TasteProfile'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import type { Content, ContentType } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 type Filter = 'all' | ContentType
 /** 묶는 기준: 작품(개봉) 연도 vs 내가 본(시청) 연도 */
@@ -167,7 +168,7 @@ export function MyFeedPage() {
                 {g.items.map(it => {
                   const c = it.content
                   return (
-                    <div key={c.id} className="content-card watched-card fade-in" onClick={() => openCard(c)}>
+                    <div key={c.id} className="content-card watched-card fade-in" {...clickable(() => openCard(c))}>
                       <button className="watched-remove" title="내 피드에서 빼기" onClick={e => remove(e, c)}>✕</button>
                       {editable(c) && <span className="watched-editable" title="클릭하면 정보 수정">✏️</span>}
                       <Poster content={c} showScore={false} />

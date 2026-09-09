@@ -6,6 +6,7 @@ import { SITE_URL, SITE_NAME } from '@/utils/seo'
 import {
   buildCurationDescription, buildCurationJsonLd, bodyParagraphs, isPublished,
 } from '@/shared/curationSeo.mjs'
+import { clickable } from '@/utils/a11y'
 
 /**
  * 큐레이션 상세.
@@ -31,7 +32,7 @@ export function CurationDetailPage() {
       <>
         <Seo title="글을 찾을 수 없습니다" noindex />
         <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>글을 찾을 수 없습니다.</p>
-        <div className="back-btn" onClick={() => navigate('/curation')}>목록으로</div>
+        <div className="back-btn" {...clickable(() => navigate('/curation'))}>목록으로</div>
       </>
     )
   }
@@ -53,7 +54,7 @@ export function CurationDetailPage() {
         nofollow={false}
         jsonLd={published ? buildCurationJsonLd(cur, SITE_URL, SITE_NAME) : null}
       />
-      <div className="back-btn" onClick={() => navigate('/curation')}>목록으로</div>
+      <div className="back-btn" {...clickable(() => navigate('/curation'))}>목록으로</div>
 
       <article className="cur-detail fade-in">
         {!published && <p className="cur-draft-flag">초안 — 아직 공개되지 않은 글입니다.</p>}

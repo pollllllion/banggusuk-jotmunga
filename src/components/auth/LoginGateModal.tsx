@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { isRemember } from '@/lib/authStorage'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /** 글이냐 댓글이냐에 따라 문구만 바뀐다 — 동작은 같다 */
 const COPY = {
@@ -64,6 +65,8 @@ export function LoginGateModal({ onGuest, onCancel, next, kind = 'post' }: {
     if (next) q.set('next', next)
     navigate(`/auth?${q.toString()}`)
   }
+
+  useEscapeKey(true, onCancel)
 
   const overlayClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) onCancel() }
 

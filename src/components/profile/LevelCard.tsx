@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { EXPERT_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
 import { LevelGuideModal } from '@/components/profile/LevelGuideModal'
 import type { User } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 /** 내 피드(프로필) 상단 레벨 카드.
  *  활동 레벨(재미) 과 좋문가(권위) 를 함께 보여준다. tick 으로 강제 재계산.
@@ -21,7 +22,7 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
 
   return (
     <>
-    <div className="level-card clickable fade-in" onClick={() => setShowGuide(true)} title="방좋 레벨 시스템 보기">
+    <div className="level-card clickable fade-in" title="방좋 레벨 시스템 보기" {...clickable(() => setShowGuide(true), '방좋 레벨 시스템 보기')}>
       <div className="level-card-head">
         <span className="level-emoji" aria-hidden>{expert ? EXPERT_TIER.emoji : level.tier.emoji}</span>
         <div className="level-head-text">

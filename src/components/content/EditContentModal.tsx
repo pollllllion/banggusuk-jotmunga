@@ -4,6 +4,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { PosterUploader } from '@/components/content/PosterUploader'
 import type { Content } from '@/types'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /**
  * 내 피드에서 작품 정보 수정 (포스터 잘못 올린 것 고치기 등).
@@ -23,6 +24,8 @@ export function EditContentModal({ content, onClose, onSaved }: {
   const [posterUrl, setPosterUrl] = useState(content.posterUrl ?? '')
   const [releaseYear, setReleaseYear] = useState<string>(content.releaseYear ? String(content.releaseYear) : '')
   const [saving, setSaving] = useState(false)
+
+  useEscapeKey(true, onClose)
 
   const overlayClick = (e: React.MouseEvent) => { if (e.target === e.currentTarget) onClose() }
 

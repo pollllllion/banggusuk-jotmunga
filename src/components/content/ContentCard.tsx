@@ -2,11 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { Poster } from './Poster'
 import { TYPE_LABELS } from '@/utils/constants'
 import type { Content } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 export function ContentCard({ content }: { content: Content }) {
   const navigate = useNavigate()
   return (
-    <div className="content-card fade-in" onClick={() => navigate(`/content/${content.id}`)}>
+    <div className="content-card fade-in" {...clickable(() => navigate(`/content/${content.id}`))}>
       <Poster content={content} />
       <div className="c-title">{content.title}</div>
       <div className="c-meta">
