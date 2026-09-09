@@ -140,10 +140,6 @@ export function NotificationSettingsPage() {
             <b> 종 아이콘</b>에만 쌓입니다. 아래 설정은 미리 저장해 두면 준비되는 대로 적용돼요.
           </p>
         )}
-        <p className="settings-desc">
-          아래를 꺼도 <b>사이트 안 종 아이콘에는 그대로 쌓여요.</b> 여기서 끄는 건 휴대폰·PC 화면에
-          울리는 알림뿐이에요. 계정에 저장돼서 어느 기기에서든 똑같이 적용돼요.
-        </p>
         {ACTIVITY_PUSH_READY && pushState !== 'on' && (
           <p className="settings-note" style={{ marginBottom: 12 }}>
             ⚠️ 아직 이 기기에서 알림을 켜지 않았어요. 아래 <b>‘이 기기에서 알림 받기’</b>를 눌러야
