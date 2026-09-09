@@ -79,45 +79,26 @@ describe('wantsNotification (알림 설정)', () => {
   })
 })
 
-describe('알림 설정을 지키는지', () => {
-  const prefsOf = (map: Record<string, any>) => (id: string) => map[id]
-
-  it('댓글 알림을 끈 글쓴이에게는 안 간다', () => {
-    const t = commentNotifyTargets({
-      ...base, postAuthorId: 'author', commenterId: 'bob', participantIds: ['bob'],
-      prefsOf: prefsOf({ author: { notifyComment: false } }),
-    })
-    expect(t).toEqual([])
+describe('설정은 종 아이콘을 막지 않는다', () => {
+  // 2026-09-09 결정: 종은 항상 뜨고, 설정은 폰 푸시만 끈다.
+  // 그 판정은 Edge Function(push-on-activity)이 하고, 여기서는 하지 않는다.
+  it('설정을 꺼도 대상 계산은 그대로다', () => {
+    const t = commentNotifyTargets({ ...base, postAuthorId: 'author', commenterId: 'bob', participantIds: ['bob', 'carol'] })
+    expect(t.map(x => [x.userId, x.type])).toEqual([['author', 'comment'], ['carol', 'reply']])
   })
 
-  it('답글 알림을 끈 참여자만 빠지고 나머지는 그대로 간다', () => {
-    const t = commentNotifyTargets({
-      ...base, postAuthorId: 'author', commenterId: 'z', participantIds: ['bob', 'carol'],
-      prefsOf: prefsOf({ bob: { notifyReply: false } }),
-    })
-    expect(t.map(x => x.userId)).toEqual(['author', 'carol'])
+  it('추천도 마찬가지', () => {
+    const t = likeNotifyTarget({ targetAuthorId: 'author', actorId: 'fan', actor: '팬', label: 'x', what: '글' })
+    expect(t).not.toBeNull()
   })
+})
 
-  it('글쓴이가 댓글 알림을 껐다고 해서 답글 알림으로 대신 가지 않는다', () => {
-    // author 가 이 글에 댓글도 달아 둔 상황 — comment 를 껐으면 그걸로 끝이어야 한다
-    const t = commentNotifyTargets({
-      ...base, postAuthorId: 'author', commenterId: 'bob', participantIds: ['author', 'bob'],
-      prefsOf: prefsOf({ author: { notifyComment: false } }),
-    })
-    expect(t).toEqual([])
-  })
-
-  it('추천 알림을 끈 사람에게는 안 간다', () => {
-    const off = likeNotifyTarget({
-      targetAuthorId: 'author', actorId: 'fan', actor: '팬', label: 'x', what: '글',
-      prefsOf: prefsOf({ author: { notifyLike: false } }),
-    })
-    expect(off).toBeNull()
-    const on = likeNotifyTarget({
-      targetAuthorId: 'author', actorId: 'fan', actor: '팬', label: 'x', what: '글',
-      prefsOf: prefsOf({ author: { notifyComment: false } }),   // 다른 스위치는 무관
-    })
-    expect(on).not.toBeNull()
+describe('wantsNotification — 폰 푸시 판정 (Edge Function 이 쓰는 규칙)', () => {
+  it('false 로 명시했을 때만 끈다', () => {
+    expect(wantsNotification({ notifyComment: false }, 'comment')).toBe(false)
+    expect(wantsNotification({ notifyComment: false }, 'reply')).toBe(true)
+    expect(wantsNotification({ notifyReply: false }, 'reply')).toBe(false)
+    expect(wantsNotification({ notifyLike: false }, 'like')).toBe(false)
   })
 })
 

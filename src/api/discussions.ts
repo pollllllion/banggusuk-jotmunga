@@ -10,7 +10,7 @@ import type { Discussion, DiscussionBoard, DiscussionComment, NotificationType }
 import { cache, load, store, SaveFailedError } from './cache'
 import { buildNotification, insertNotifications } from './social'
 import { getUserById } from './users'
-import { commentNotifyTargets, likeNotifyTarget, postLabel, type NotifyPrefs } from '@/utils/notify'
+import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notify'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
 export function saveDiscussions(d: Discussion[]) { return store('discussions', d) }
@@ -184,10 +184,6 @@ function sendTargets(targets: { userId: string; type: NotificationType; message:
   void insertNotifications(targets.map(t => buildNotification(t.userId, t.type, postId, t.message)))
 }
 
-/** 받는 사람의 알림 설정 — profiles 는 select 가 열려 있어 남의 설정도 읽을 수 있다.
- *  (알림 행을 만드는 건 행동한 사람의 브라우저라 이게 필요하다) */
-const prefsOf = (userId: string): NotifyPrefs | undefined => getUserById(userId)
-
 function notifyDiscussionComment(post: Discussion, comment: DiscussionComment) {
   sendTargets(commentNotifyTargets({
     postAuthorId: post.authorId,
@@ -195,7 +191,6 @@ function notifyDiscussionComment(post: Discussion, comment: DiscussionComment) {
     participantIds: getDiscussionCommentsByPost(post.id).map(c => c.authorId),
     label: postLabel(post.title, post.body),
     actor: actorName(comment.authorId, comment.guestName),
-    prefsOf,
   }), post.id)
 }
 
@@ -206,7 +201,6 @@ function notifyLike(targetAuthorId: string | null | undefined, actorId: string, 
     actor: actorName(actorId),
     label: postLabel(post.title, post.body),
     what,
-    prefsOf,
   })
   if (target) sendTargets([target], post.id)
 }

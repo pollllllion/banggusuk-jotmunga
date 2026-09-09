@@ -20,8 +20,18 @@ export type NotifyPrefs = { notifyComment?: boolean; notifyReply?: boolean; noti
 export type PrefsLookup = (userId: string) => NotifyPrefs | null | undefined
 
 /**
- * 이 종류의 알림을 받기로 해 뒀나.
- * **값이 없으면 켜진 것으로 본다** — 마이그레이션 전이거나 프로필을 아직 못 읽은 상태에서
+ * 이 종류의 **폰 푸시**를 받기로 해 뒀나.
+ *
+ * ⚠️ 사이트 안 종 아이콘은 이 값과 무관하게 **항상** 뜬다. 설정은 폰 알림만 끈다.
+ *    (2026-09-09 결정 — 종은 사이트에 들어와야 보이니 꺼 둘 이유가 없고,
+ *     성가신 건 주머니에서 울리는 쪽이다)
+ *
+ * 실제로 이 규칙을 적용하는 곳은 Edge Function 이다
+ * (supabase/functions/push-on-activity). 알림 행은 댓글 단 사람의 브라우저가
+ * 만들고, 푸시는 서버가 쏘기 때문이다. 여기 있는 건 규칙의 원본이자 테스트 대상이다.
+ * **한쪽만 고치지 말 것.**
+ *
+ * 값이 없으면 켜진 것으로 본다 — 마이그레이션 전이거나 프로필을 못 읽은 상태에서
  * 알림이 통째로 사라지는 것보다, 기본값(전부 켜짐)대로 오는 쪽이 덜 놀랍다.
  */
 export function wantsNotification(prefs: NotifyPrefs | null | undefined, type: NotificationType): boolean {
@@ -51,6 +61,9 @@ export function postLabel(title: string | null | undefined, body: string | null 
  *   - 자기 글에 자기가 단 댓글, 자기가 또 단 댓글
  *   - 한 사람에게 두 번 (글쓴이 겸 댓글러는 '댓글' 알림 하나만)
  *
+ * 알림 설정은 여기서 보지 않는다 — 종 아이콘은 항상 뜬다.
+ * 설정은 폰 푸시만 끄고, 그 판정은 Edge Function 이 한다.
+ *
  * @param participantIds 이 글의 기존 댓글 작성자 id 목록 (방금 단 댓글이 섞여 있어도 된다)
  */
 export function commentNotifyTargets(opts: {
@@ -59,25 +72,18 @@ export function commentNotifyTargets(opts: {
   participantIds: (string | null | undefined)[]
   label: string
   actor: string
-  /** 받는 사람의 알림 설정 조회. 없으면 전부 켜진 것으로 본다. */
-  prefsOf?: PrefsLookup
 }): NotifyTarget[] {
-  const { postAuthorId, commenterId, participantIds, label, actor, prefsOf } = opts
+  const { postAuthorId, commenterId, participantIds, label, actor } = opts
   const out: NotifyTarget[] = []
-  // 설정으로 걸러진 사람도 seen 에 넣는다 — 껐다는 이유로 아래 reply 알림이 대신 가면 안 된다
   const seen = new Set<string>(commenterId ? [commenterId] : [])
-  const wants = (id: string, type: NotificationType) => wantsNotification(prefsOf?.(id), type)
 
   if (postAuthorId && !seen.has(postAuthorId)) {
     seen.add(postAuthorId)
-    if (wants(postAuthorId, 'comment')) {
-      out.push({ userId: postAuthorId, type: 'comment', message: `${actor}님이 '${label}' 글에 댓글을 남겼어요.` })
-    }
+    out.push({ userId: postAuthorId, type: 'comment', message: `${actor}님이 '${label}' 글에 댓글을 남겼어요.` })
   }
   for (const id of participantIds) {
     if (!id || seen.has(id)) continue
     seen.add(id)
-    if (!wants(id, 'reply')) continue
     out.push({ userId: id, type: 'reply', message: `내가 댓글 단 '${label}' 글에 ${actor}님이 댓글을 남겼어요.` })
   }
   return out
@@ -90,10 +96,8 @@ export function likeNotifyTarget(opts: {
   actor: string
   label: string
   what: '글' | '댓글'
-  prefsOf?: PrefsLookup
 }): NotifyTarget | null {
-  const { targetAuthorId, actorId, actor, label, what, prefsOf } = opts
+  const { targetAuthorId, actorId, actor, label, what } = opts
   if (!targetAuthorId || targetAuthorId === actorId) return null
-  if (!wantsNotification(prefsOf?.(targetAuthorId), 'like')) return null
   return { userId: targetAuthorId, type: 'like', message: `${actor}님이 '${label}' ${what}을 추천했어요.` }
 }

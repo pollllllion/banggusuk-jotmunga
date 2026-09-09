@@ -10,22 +10,28 @@ import { isIos, isStandalone } from '@/utils/pwa'
 import type { User } from '@/types'
 import { clickable } from '@/utils/a11y'
 
-/** 활동 알림 스위치 한 줄 — profiles 의 한 칸에 대응한다 */
+/** 폰 알림 스위치 한 줄 — profiles 의 한 칸에 대응한다 */
 type ActivityPref = { key: 'notifyComment' | 'notifyReply' | 'notifyLike'; label: string; hint: string }
 
 const ACTIVITY_PREFS: ActivityPref[] = [
-  { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남기면 알려드려요.' },
-  { key: 'notifyReply', label: '내가 댓글 단 글에 새 댓글', hint: '대화가 이어지는 걸 놓치지 않게 알려드려요. 알림이 잦다면 이것부터 끄세요.' },
-  { key: 'notifyLike', label: '내 글·댓글 추천', hint: '누가 내 글이나 댓글을 추천하면 알려드려요.' },
+  { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남겼을 때' },
+  { key: 'notifyReply', label: '내가 댓글 단 글에 새 댓글', hint: '대화가 이어질 때. 알림이 잦다면 이것부터 끄세요.' },
+  { key: 'notifyLike', label: '내 글·댓글 추천', hint: '누가 내 글이나 댓글을 추천했을 때' },
 ]
 
 /**
- * 알림 설정 — 활동 알림(댓글·추천) · 공개일 웹푸시 · 개봉알림 신청한 작품.
+ * 알림 설정 — **전부 폰 알림(웹푸시) 설정이다.**
  *
- * 세 가지가 저장되는 곳이 서로 다르다. 화면에서 한데 모으되 그 차이를 문구로 밝힌다:
- *   활동 알림    profiles 의 칸   → 계정을 따라다닌다(기기 무관)
- *   공개일 푸시  이 브라우저의 구독 → **기기마다 따로 켜야 한다**
- *   신청한 작품  content_alerts   → 계정을 따라다닌다
+ * 2026-09-09 정리:
+ *   사이트 안 종 아이콘은 **항상** 뜬다. 여기서 끄고 켜는 건 주머니에서 울리는 쪽뿐이다.
+ *   (종은 사이트에 들어와야 보이니 꺼 둘 이유가 없다)
+ *
+ * 저장되는 곳이 서로 달라서 화면에서도 그 차이를 밝힌다:
+ *   무엇을 받을지  profiles 의 칸(notifyComment/Reply/Like) → 계정을 따라다닌다
+ *   어느 기기로    이 브라우저의 푸시 구독                  → **기기마다 따로 켜야 한다**
+ *   신청한 작품    content_alerts                          → 계정을 따라다닌다
+ *
+ * 실제 발송 판정은 Edge Function(supabase/functions/push-on-activity)이 한다.
  */
 export function NotificationSettingsPage() {
   const navigate = useNavigate()
@@ -110,12 +116,19 @@ export function NotificationSettingsPage() {
       <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
       <h2 className="settings-title">알림 설정</h2>
 
-      {/* ── 활동 알림 (계정을 따라다닌다) ── */}
+      {/* ── 폰 알림: 무엇을 받을지 (계정을 따라다닌다) ── */}
       <div className="settings-section">
-        <h3>활동 알림</h3>
+        <h3>폰 알림으로 받을 것</h3>
         <p className="settings-desc">
-          사이트 안 종 아이콘으로 받는 알림이에요. 계정에 저장돼서 어느 기기에서 봐도 똑같이 적용돼요.
+          아래를 꺼도 <b>사이트 안 종 아이콘에는 그대로 쌓여요.</b> 여기서 끄는 건 휴대폰·PC 화면에
+          울리는 알림뿐이에요. 계정에 저장돼서 어느 기기에서든 똑같이 적용돼요.
         </p>
+        {pushState !== 'on' && (
+          <p className="settings-note" style={{ marginBottom: 12 }}>
+            ⚠️ 아직 이 기기에서 알림을 켜지 않았어요. 아래 <b>‘이 기기에서 알림 받기’</b>를 눌러야
+            실제로 울립니다.
+          </p>
+        )}
         {ACTIVITY_PREFS.map(p => {
           const on = (user[p.key] as boolean | undefined) !== false
           return (
@@ -139,12 +152,12 @@ export function NotificationSettingsPage() {
         })}
       </div>
 
-      {/* ── 공개일 알림 (이 기기의 구독) ── */}
+      {/* ── 어느 기기로 받을지 (이 브라우저의 구독) ── */}
       <div className="settings-section">
-        <h3>공개일 알림 (웹푸시)</h3>
+        <h3>이 기기에서 알림 받기</h3>
         <p className="settings-desc">
-          개봉알림을 신청한 작품이 공개·개봉하는 날 아침에 휴대폰·PC 알림으로 보내드려요.
-          브라우저 구독이라 <b>기기마다 따로 켜야 해요.</b>
+          위의 활동 알림과 <b>개봉일 알림</b>이 이 기기로 옵니다. 브라우저 구독이라
+          <b> 기기마다 따로 켜야 해요</b> — 폰에서 켰다고 노트북에도 오지는 않아요.
         </p>
 
         {iosNeedsInstall ? (
