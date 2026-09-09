@@ -171,6 +171,7 @@ export async function loadAll() {
 async function loadGuestUsers() {
   const ids = new Set<string>()
   try {
+    // 옛 키(신원이 DB 에 있던 시절). 지금 게스트는 localStorage 에만 있어서 받을 행이 없다.
     const mine = localStorage.getItem('bangjot_anon_id')
     if (mine) ids.add(mine)
   } catch { /* 사생활 보호 모드 등에서 localStorage 접근 불가 */ }

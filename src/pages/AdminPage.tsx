@@ -10,7 +10,7 @@ import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/
 import { PosterUploader } from '@/components/content/PosterUploader'
 import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
-import type { Content, ContentType } from '@/types'
+import type { Content, ContentType, User } from '@/types'
 import { useContentDetail } from '@/hooks/useContentDetail'
 
 const REASON_LABELS: Record<string, string> = {
@@ -42,9 +42,23 @@ export function AdminPage() {
   const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce'>('contents')
   const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
+
+  /** 계정 권한 변경(좋문가·정지) — 서버까지 간 걸 확인한 뒤에 성공을 알린다.
+   *  RLS 거부는 throw 하지 않고 { error } 로 오므로, 확인하지 않으면 조용히 실패한다. */
+  const setAccount = async (u: { id: string }, patch: Partial<User>, done: string) => {
+    try {
+      await DS.updateProfileRow(u.id, patch)
+      toast(done)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '처리하지 못했어요.')
+    }
+    rerender()
+  }
   if (!user || user.role !== 'admin') return null
 
-  const users = DS.getUsers()
+  // 회원 관리는 고정닉 계정(profiles)을 다룬다 — 좋문가·정지가 사는 표가 여기다.
+  // (레거시 게스트 표는 읽기 전용이고 expert 컬럼 자체가 없다)
+  const users = DS.getAccounts()
   const contents = DS.getContents()
   const reviews = DS.getReviews()
   const reports = DS.getReports()
@@ -108,10 +122,10 @@ export function AdminPage() {
           <div className="admin-card-actions">
             {/* 좋문가는 XP 로 못 오르는 마지막 칸 — 여기서만 준다 (migration_level_simplify.sql) */}
             {u.expert
-              ? <button className="btn btn-secondary btn-small" onClick={() => { DS.updateUser(u.id, { expert: false }); toast(`'${u.nickname}' 좋문가를 해제했습니다.`); rerender() }}>좋문가 해제</button>
-              : <button className="btn btn-secondary btn-small" onClick={() => { if (!confirm(`'${u.nickname}' 님을 좋문가로 지정할까요?`)) return; DS.updateUser(u.id, { expert: true }); toast(`'${u.nickname}' 님이 좋문가가 되었습니다.`); rerender() }}>좋문가 지정</button>}
-            {u.banned ? <button className="btn btn-primary btn-small" onClick={() => { DS.updateUser(u.id, { banned: false }); toast('정지가 해제되었습니다.'); rerender() }}>정지 해제</button> :
-              <button className="btn btn-danger-solid btn-small" onClick={() => { if (!confirm('이 사용자를 정지하시겠습니까?')) return; DS.updateUser(u.id, { banned: true }); toast('사용자가 정지되었습니다.'); rerender() }}>정지</button>}
+              ? <button className="btn btn-secondary btn-small" onClick={() => void setAccount(u, { expert: false }, `'${u.nickname}' 좋문가를 해제했습니다.`)}>좋문가 해제</button>
+              : <button className="btn btn-secondary btn-small" onClick={() => { if (!confirm(`'${u.nickname}' 님을 좋문가로 지정할까요?`)) return; void setAccount(u, { expert: true }, `'${u.nickname}' 님이 좋문가가 되었습니다.`) }}>좋문가 지정</button>}
+            {u.banned ? <button className="btn btn-primary btn-small" onClick={() => void setAccount(u, { banned: false }, '정지가 해제되었습니다.')}>정지 해제</button> :
+              <button className="btn btn-danger-solid btn-small" onClick={() => { if (!confirm('이 사용자를 정지하시겠습니까?')) return; void setAccount(u, { banned: true }, '사용자가 정지되었습니다.') }}>정지</button>}
           </div>
         </div>
       ))}

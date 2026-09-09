@@ -87,5 +87,8 @@ create policy announcements_update on public.announcements for update using (is_
 create policy announcements_delete on public.announcements for delete using (is_admin());
 
 -- ── users (레거시 게스트 세션 테이블: 비밀번호 미저장, 개방 유지) ─
+-- ⚠️ 2026-09-09 migration_users_lockdown.sql 로 대체됨.
+--    이 개방 정책은 anon 키로 전 행 수정·삭제가 가능해서 잠갔다. 새로 세팅하는
+--    프로젝트라면 여기 대신 migration_users_lockdown.sql 을 적용할 것.
 alter table public.users enable row level security;
 create policy users_all on public.users for all using (true) with check (true);

@@ -3,6 +3,7 @@ import type { User } from '@/types'
 import * as DS from '@/api/dataService'
 import { supabase } from '@/lib/supabaseClient'
 import { setRemember } from '@/lib/authStorage'
+import { readGuest, writeGuest, readLegacyGuestId, makeGuest, clearGuest, type GuestIdentity } from '@/lib/guestIdentity'
 
 interface AuthResult { ok: boolean; error?: string; needsConfirm?: boolean }
 
@@ -23,22 +24,32 @@ interface AuthState {
 
 /**
  * 게스트(유동닉)의 role 을 신뢰하지 않는다.
- * users 테이블은 설계상 개방(누구나 수정)이라, 남이든 본인이든 브라우저에서
- * role='admin' 으로 바꿔 넣을 수 있다. 관리자 판정은 고정닉 계정(profiles)만.
+ * 유동닉 신원은 브라우저(localStorage)에 있어서 본인이 role='admin' 으로 고쳐 넣을 수 있고,
+ * 레거시 users 행도 한때 누구나 고칠 수 있었다. 관리자 판정은 고정닉 계정(profiles)만.
  */
 function asGuest(u: User): User {
   return u.role === 'admin' ? { ...u, role: 'user' } : u
 }
 
-/** 이 브라우저의 게스트(유동닉) 계정 확보 — 비로그인 시 사용 */
+/**
+ * 이 브라우저의 게스트(유동닉) 신원 확보 — 비로그인 시 사용.
+ *
+ * **DB 에 행을 만들지 않는다.** 예전엔 방문자마다 users 행을 하나씩 넣어서
+ * 5,971행이 쌓였는데 실제로 글·댓글이 참조하는 건 1행뿐이었다(guestIdentity.ts 참고).
+ * 옛 키(bangjot_anon_id)를 쓰던 게스트는 **그 id 를 그대로 이어받아** 옛 글과의
+ * 연결을 끊지 않는다. 그 시절 users 행이 남아 있으면 닉네임도 거기서 가져온다.
+ */
 function ensureGuest(): User {
-  const savedId = localStorage.getItem('bangjot_anon_id')
-  let user = savedId ? DS.getUserById(savedId) : undefined
-  if (!user) {
-    user = DS.createUser({ nickname: '방문객' + Math.floor(1000 + Math.random() * 9000), role: 'user' })
-    localStorage.setItem('bangjot_anon_id', user.id)
+  let g: GuestIdentity | null = readGuest()
+  if (!g) {
+    const legacyId = readLegacyGuestId()
+    g = makeGuest(legacyId || undefined)
+    // 옛 users 행이 아직 읽히면 그때 쓰던 닉네임을 살린다(새 닉으로 갈아치우지 않게)
+    const legacyRow = legacyId ? DS.getUserById(legacyId) : undefined
+    if (legacyRow?.nickname) g = { ...g, nickname: legacyRow.nickname, createdAt: legacyRow.createdAt || g.createdAt }
+    writeGuest(g)
   }
-  return asGuest(user)
+  return asGuest({ id: g.id, nickname: g.nickname, email: '', role: 'user', banned: false, createdAt: g.createdAt } as User)
 }
 
 /**
@@ -186,7 +197,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const current = get().user
     if (!current) return
     if (get().isAccount) await DS.updateProfileRow(current.id, updates)
-    else DS.updateUser(current.id, updates)
+    // 유동닉은 DB 에 행이 없다 — 이 브라우저의 신원만 고친다
+    else writeGuest({ id: current.id, nickname: updates.nickname ?? current.nickname, createdAt: current.createdAt })
     const fresh = { ...current, ...updates }
     DS.setSession(fresh)
     set({ user: fresh })
@@ -203,9 +215,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!res.ok) return { ok: false, error: '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.' }
       await supabase.auth.signOut()
     } else {
-      // 게스트(유동닉): 이 브라우저에 있는 임시 계정만 지운다
-      DS.deleteUser(current.id)
-      localStorage.removeItem('bangjot_anon_id')
+      // 게스트(유동닉): 이 브라우저의 신원만 지운다. 옛 글·댓글의 작성자 표시는
+      // 여기서 함께 지운다(users 행 자체는 읽기 전용이라 남는다 — 관리자만 정리 가능).
+      DS.anonymizeGuestPosts(current.id)
+      clearGuest()
     }
 
     // 게스트로 복귀

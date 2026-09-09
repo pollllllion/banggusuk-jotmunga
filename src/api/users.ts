@@ -6,16 +6,20 @@
  * getUserById 는 둘을 합쳐서 보여준다.
  */
 import { supabase } from '@/lib/supabaseClient'
-import { uuid } from '@/utils/helpers'
 import type { User } from '@/types'
-import { cache, load, store, type Table } from './cache'
+import { cache, load, SaveFailedError, type Table } from './cache'
 import { getSession, setSession } from './session'
 import { getReviews, saveReviews, getComments, saveComments } from './reviews'
 
+/**
+ * 레거시 게스트 행 — **읽기 전용이다.**
+ * 유동닉 신원은 이제 브라우저(localStorage)에만 있고(lib/guestIdentity.ts),
+ * 이 테이블에는 그 이전에 만들어진 행만 남아 있다. 옛 글의 작성자 이름을
+ * 보여주는 용도로만 읽는다. 쓰기는 RLS 로도 막혀 있다(migration_users_lockdown.sql).
+ */
 export function getUsers(): User[] { return load('users') }
-export function saveUsers(users: User[]) { store('users', users) }
 
-/** 계정(profiles) + 게스트(users) 통합 조회 — 닉네임 표시 등에 사용 */
+/** 계정(profiles) + 레거시 게스트(users) 통합 조회 — 닉네임 표시 등에 사용 */
 export function getUserById(id: string): User | undefined {
   const u = getUsers().find(u => u.id === id)
   if (u) return u
@@ -33,6 +37,9 @@ export function isAccountId(id: string | null | undefined): boolean {
 function profileToUser(p: any, email: string): User {
   return {
     id: p.id, nickname: p.nickname, email, role: p.role, banned: p.banned, createdAt: p.createdAt,
+    // ⚠️ expert 를 빠뜨리면 isExpert() 가 언제나 false 라, 관리자가 좋문가를 지정해도
+    //    배지·랭킹에 아무 변화가 없다(실제로 그랬다).
+    expert: p.expert === true,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
     tasteBio: p.tasteBio ?? null,
     favoriteWorks: p.favoriteWorks ?? [],
@@ -41,6 +48,17 @@ function profileToUser(p: any, email: string): User {
   }
 }
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
+
+/**
+ * 고정닉 계정 목록(profiles) — 관리자 회원 관리용.
+ *
+ * ⚠️ 예전엔 관리자 화면이 getUsers()(=레거시 게스트 테이블)를 보여줬다.
+ *    좋문가·정지는 profiles 의 컬럼이라(users 엔 expert 컬럼이 아예 없다)
+ *    그 화면의 버튼들은 엉뚱한 표에 쓰고 있었고 아무 효과가 없었다.
+ */
+export function getAccounts(): User[] {
+  return cache.profiles.map((p: any) => profileToUser(p, p.email || ''))
+}
 
 // ── Profiles (Supabase Auth 고정닉 계정) ────────────────────
 /**
@@ -98,15 +116,22 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.nickname !== undefined) patch.nickname = updates.nickname
   if (updates.role !== undefined) patch.role = updates.role
   if (updates.banned !== undefined) patch.banned = updates.banned
+  // 좋문가 — XP 로는 못 오르고 관리자만 준다 (migration_level_simplify.sql 의 트리거가 지킨다)
+  if (updates.expert !== undefined) patch.expert = updates.expert
   // 공개 취향 프로필
   if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
   if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks
   if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres
   if (updates.favoriteDirectors !== undefined) patch.favoriteDirectors = updates.favoriteDirectors
   const idx = cache.profiles.findIndex((p: any) => p.id === id)
+  const prev = idx >= 0 ? cache.profiles[idx] : null
   if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }
-  try { await supabase.from('profiles').update(patch).eq('id', id) }
-  catch (e) { console.error('[profile update]', e) }
+  // supabase-js 는 RLS 거부를 throw 하지 않고 { error } 로 준다 — 반드시 확인한다
+  const { error } = await supabase.from('profiles').update(patch).eq('id', id)
+  if (error) {
+    if (idx >= 0 && prev) cache.profiles[idx] = prev
+    throw new SaveFailedError(error.message)
+  }
 }
 
 // ── 출석 streak ─────────────────────────────────────────────
@@ -147,27 +172,15 @@ export async function touchAttendance(userId: string): Promise<{ streak: number;
 }
 
 // ── 게스트(유동닉) 계정 ─────────────────────────────────────
-export function createUser(data: Partial<User>): User {
-  const users = getUsers()
-  const user: User = { id: uuid(), createdAt: new Date().toISOString(), role: 'user', banned: false, ...data } as User
-  saveUsers([...users, user])
-  return user
-}
-
-export function updateUser(id: string, updates: Partial<User>): User | null {
-  const users = getUsers()
-  const idx = users.findIndex(u => u.id === id)
-  if (idx < 0) return null
-  const updated = { ...users[idx], ...updates }
-  const next = [...users]; next[idx] = updated
-  saveUsers(next)
-  return updated
-}
-
-export function deleteUser(id: string) {
+/**
+ * 유동닉이 '탈퇴'할 때 — 옛 글·댓글에서 작성자 표시만 지운다(본문은 남긴다).
+ *
+ * users 행 자체는 건드리지 않는다. 이제 읽기 전용이고, 애초에 지울 행이 없는
+ * 게스트가 대부분이다(신원이 localStorage 에만 있다). 남은 레거시 행은 관리자가 정리한다.
+ */
+export function anonymizeGuestPosts(id: string) {
   saveReviews(getReviews().map(r => r.authorId === id ? { ...r, authorId: 'deleted' } : r))
   saveComments(getComments().map(c => c.authorId === id ? { ...c, authorId: 'deleted' } : c))
-  saveUsers(getUsers().filter(u => u.id !== id))
 }
 
 /**
