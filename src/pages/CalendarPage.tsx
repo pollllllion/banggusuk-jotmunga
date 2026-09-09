@@ -19,6 +19,7 @@ import {
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { parseYm, formatYm, sameMonth, type Month } from '@/utils/calendarMonth'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { ShareButton } from '@/components/ui/ShareButton'
 import type { Content, ContentType, ContentProvider } from '@/types'
 import { Seo } from '@/components/seo/Seo'
 import { SITE_NAME, SITE_URL } from '@/utils/seo'
@@ -282,6 +283,15 @@ export function CalendarPage() {
           <button className="cal-navbtn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           <button className="cal-today-btn" onClick={goToday}>오늘</button>
         </div>
+        {/* 보고 있는 달을 그대로 공유한다 — ?ym= 덕분에 받은 사람도 같은 달을 연다 */}
+        <ShareButton
+          className="cal-today-btn cal-share"
+          path={sameMonth(cursor, thisMonth) ? '/' : `/?ym=${formatYm(cursor)}`}
+          title={`${cursor.y}년 ${cursor.m + 1}월 개봉·공개 캘린더`}
+          text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 방구석좋문가`}
+          label={`${cursor.y}년 ${cursor.m + 1}월 캘린더 공유하기`}>
+          공유
+        </ShareButton>
         {user?.role === 'admin' && (
           <button className="cal-today-btn" style={{ marginLeft: 'auto' }}
             onClick={() => navigate('/admin', { state: { newContent: true } })}>+ 신작 등록</button>
@@ -375,7 +385,7 @@ export function CalendarPage() {
         </div>
       )}
 
-      {isMobile && upcoming.length > 0 && (
+      {upcoming.length > 0 && (
         <section className="cal-up">
           <h2 className="cal-up-head">{upcomingLabel}</h2>
           <div className="cal-up-list">
@@ -494,6 +504,13 @@ export function CalendarPage() {
                 <BellIcon size={15} filled={alerted} />
                 {alerted ? '알림 켜짐' : '공개알림'}
               </button>
+              <ShareButton
+                className="cal-act"
+                path={`/content/${selected.id}`}
+                title={selected.title}
+                text={`${selected.title} — 방구석좋문가`}
+                label={`'${selected.title}' 공유하기`}
+              />
               <button className="cal-act primary" onClick={() => navigate(`/content/${selected.id}`)}>
                 <CommentIcon /> 작품방 들어가기
               </button>

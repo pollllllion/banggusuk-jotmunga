@@ -11,6 +11,7 @@ import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
 import { BackIcon, BellIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
+import { ShareButton } from '@/components/ui/ShareButton'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
@@ -153,6 +154,13 @@ export function ContentDetailPage() {
                 <BellIcon size={15} filled={alerted} /> {alerted ? '알림 켜짐' : '공개알림'}
               </button>
             )}
+            <ShareButton
+              className="btn-like"
+              path={`/content/${content.id}`}
+              title={content.title}
+              text={`${content.title} — 방구석좋문가`}
+              label={`'${content.title}' 공유하기`}
+            />
             <button className="btn-text btn-small" onClick={() => openReportModal('content', content.id)}>
               <FlagIcon /> 신고
             </button>

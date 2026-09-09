@@ -29,7 +29,7 @@ const VAPID_PUBLIC = process.env.VITE_VAPID_PUBLIC_KEY
   || 'BBIxyps5i-yTX9-Y1Xd9BS2UYL3CSmcXZK4sCa7Y0EoRiUI-tj3LcwWDANMam2-4DMBlEHtGY45Y8h2uGUo5TfA'
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY
 const SITE_URL = 'https://ottcal.com'
-const CONTACT = 'mailto:copyright@bangjot.kr'
+const CONTACT = 'mailto:ttcal.help@gmail.com'
 
 if (!SERVICE_KEY) { console.error('SUPABASE_SERVICE_KEY 가 없습니다.'); process.exit(1) }
 if (!DRY && !VAPID_PRIVATE) { console.error('VAPID_PRIVATE_KEY 가 없습니다.'); process.exit(1) }

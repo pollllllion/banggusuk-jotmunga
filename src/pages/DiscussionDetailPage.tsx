@@ -13,6 +13,7 @@ import { timeAgo, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
+import { ShareButton } from '@/components/ui/ShareButton'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
 
@@ -203,6 +204,14 @@ export function DiscussionDetailPage() {
         <span className="disc-time">
           {timeAgo(post.createdAt)}{post.updatedAt ? ' · 수정됨' : ''}
         </span>
+        <ShareButton
+          className="disc-del"
+          path={`/talk/${post.id}`}
+          title={post.title || '방구석좋문가'}
+          text={content ? `${content.title} — ${post.title || ''}` : (post.title || '')}
+          label="이 글 공유하기">
+          공유
+        </ShareButton>
         {canEdit && <button className="disc-del" onClick={editPost}>수정</button>}
         {(canDeleteAccount || isGuest) && <button className="disc-del" onClick={removePost}>삭제</button>}
         {/* 내 글은 신고할 일이 없다 */}
