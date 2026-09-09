@@ -52,21 +52,15 @@ Supabase → **Edge Functions → Secrets** (또는 `npx supabase secrets set KE
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
 
-## 3) Database Webhook 연결
+## 3) 웹훅 연결 — SQL Editor 에서 한 번
 
-Supabase → **Database → Webhooks** → *Create a new hook*
+`supabase/migration_push_webhook.sql` 을 열어 `<ANON_KEY>`, `<PUSH_HOOK_SECRET>` 두 곳을
+자기 값으로 바꾸고 **SQL Editor** 에 붙여 실행한다.
 
-| 항목 | 값 |
-|---|---|
-| Name | `push-on-activity` |
-| Table | `public.notifications` |
-| Events | **Insert** 만 체크 |
-| Type | **Supabase Edge Functions** |
-| Edge Function | `push-on-activity` |
-| Method | `POST` |
-| HTTP Headers | `X-Hook-Secret` = 2)에서 정한 값 |
-
-Create 를 누르면 끝. (Supabase 가 `Authorization` 헤더는 알아서 붙인다)
+대시보드의 Database → Webhooks 폼으로 해도 같다(칸이 8개라 SQL 이 빠르다):
+Name `push-on-activity` · Table `public.notifications` · Events **Insert만** ·
+Type **Supabase Edge Functions** · Function `push-on-activity` ·
+HTTP Headers 에 `X-Hook-Secret` 추가.
 
 ## 4) 확인
 
