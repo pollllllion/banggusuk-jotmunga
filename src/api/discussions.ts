@@ -6,8 +6,11 @@
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
-import type { Discussion, DiscussionBoard, DiscussionComment } from '@/types'
+import type { Discussion, DiscussionBoard, DiscussionComment, NotificationType } from '@/types'
 import { cache, load, store } from './cache'
+import { buildNotification, insertNotifications } from './social'
+import { getUserById } from './users'
+import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notify'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
 export function saveDiscussions(d: Discussion[]) { store('discussions', d) }
@@ -74,8 +77,10 @@ export async function toggleDiscussionLike(id: string, userId: string): Promise<
   const idx = ds.findIndex(d => d.id === id)
   if (idx >= 0) {
     const cur = ds[idx]
-    const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+    const turningOn = !cur.likes.includes(userId)
+    const likes = turningOn ? [...cur.likes, userId] : cur.likes.filter(u => u !== userId)
     const next = [...ds]; next[idx] = { ...cur, likes }; cache.discussions = next
+    if (turningOn) notifyLike(cur.authorId, userId, cur, '글')
   }
   try { await supabase.rpc('toggle_discussion_like', { p_discussion_id: id }) }
   catch (e) { console.error('[toggle_discussion_like]', e) }
@@ -146,6 +151,46 @@ export async function deleteGuestPost(table: 'reviews' | 'discussions' | 'commen
   return data === true
 }
 
+// ── 알림 ────────────────────────────────────────────────────
+/**
+ * 토론방·자유방에서 나가는 알림.
+ * 누구에게 갈지는 utils/notify.ts 가 정한다(순수 함수 · 테스트로 고정).
+ * 여기서는 표시명을 붙여 행으로 만들어 넣기만 한다.
+ *
+ * 넣기 실패는 조용히 넘어간다 — 알림은 곁다리고, 글·댓글은 이미 저장된 뒤다.
+ */
+
+/** 행동한 사람의 표시명 — 유동닉이면 그 닉, 계정이면 프로필 닉 */
+function actorName(authorId: string | null | undefined, guestName?: string | null): string {
+  if (guestName) return guestName
+  return getUserById(authorId || '')?.nickname || '누군가'
+}
+
+function sendTargets(targets: { userId: string; type: NotificationType; message: string }[], postId: string) {
+  void insertNotifications(targets.map(t => buildNotification(t.userId, t.type, postId, t.message)))
+}
+
+function notifyDiscussionComment(post: Discussion, comment: DiscussionComment) {
+  sendTargets(commentNotifyTargets({
+    postAuthorId: post.authorId,
+    commenterId: comment.authorId,
+    participantIds: getDiscussionCommentsByPost(post.id).map(c => c.authorId),
+    label: postLabel(post.title, post.body),
+    actor: actorName(comment.authorId, comment.guestName),
+  }), post.id)
+}
+
+/** 추천 알림 — 켤 때만 보낸다(껐다 켰다를 알림으로 만들지 않는다). 추천은 로그인 전용. */
+function notifyLike(targetAuthorId: string | null | undefined, actorId: string, post: Discussion, what: '글' | '댓글') {
+  const target = likeNotifyTarget({
+    targetAuthorId, actorId,
+    actor: actorName(actorId),
+    label: postLabel(post.title, post.body),
+    what,
+  })
+  if (target) sendTargets([target], post.id)
+}
+
 // ── Discussion Comments (게시글 댓글) ───────────────────────
 export function getDiscussionComments(): DiscussionComment[] { return load('discussion_comments') }
 export function saveDiscussionComments(c: DiscussionComment[]) { store('discussion_comments', c) }
@@ -163,6 +208,8 @@ export function countDiscussionComments(discussionId: string): number {
 export function createDiscussionComment(data: Partial<DiscussionComment>): DiscussionComment {
   const c: DiscussionComment = { id: uuid(), likes: [], createdAt: new Date().toISOString(), ...data } as DiscussionComment
   saveDiscussionComments([...getDiscussionComments(), c])
+  const post = getDiscussions().find(d => d.id === c.discussionId)
+  if (post) notifyDiscussionComment(post, c)
   return c
 }
 
@@ -202,8 +249,12 @@ export async function toggleDiscussionCommentLike(id: string, userId: string): P
   const idx = cs.findIndex(c => c.id === id)
   if (idx >= 0) {
     const cur = cs[idx]
-    const likes = cur.likes.includes(userId) ? cur.likes.filter(u => u !== userId) : [...cur.likes, userId]
+    const turningOn = !cur.likes.includes(userId)
+    const likes = turningOn ? [...cur.likes, userId] : cur.likes.filter(u => u !== userId)
     const next = [...cs]; next[idx] = { ...cur, likes }; cache.discussion_comments = next
+    // 알림 링크는 댓글이 달린 글로 보낸다(댓글만 가리키는 주소가 없다)
+    const post = turningOn ? getDiscussions().find(d => d.id === cur.discussionId) : undefined
+    if (post) notifyLike(cur.authorId, userId, post, '댓글')
   }
   try { await supabase.rpc('toggle_discussion_comment_like', { p_comment_id: id }) }
   catch (e) { console.error('[toggle_discussion_comment_like]', e) }

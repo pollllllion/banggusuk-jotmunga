@@ -7,7 +7,7 @@
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
-import type { Bookmark, ContentAlert, Watched, Block, Notification, Report, Announcement, Content, ContentType } from '@/types'
+import type { Bookmark, ContentAlert, Watched, Block, Notification, NotificationType, Report, Announcement, Content, ContentType } from '@/types'
 import { cache, load, store } from './cache'
 import { currentUser } from './session'
 
@@ -153,9 +153,43 @@ export function getBlockedIds(userId: string): string[] {
 export function getNotifications(): Notification[] { return load('notifications') }
 export function saveNotifications(n: Notification[]) { store('notifications', n) }
 
-export function createNotification(data: Partial<Notification>) {
-  const n = { id: uuid(), read: false, createdAt: new Date().toISOString(), ...data } as Notification
-  saveNotifications([n, ...getNotifications()])
+/** 알림 행 하나 만들기 — id·시각·읽음 기본값만 채운다. 넣는 건 insertNotifications. */
+export function buildNotification(
+  userId: string, type: NotificationType, reviewId: string, message: string,
+): Notification {
+  return { id: uuid(), userId, type, reviewId, message, read: false, createdAt: new Date().toISOString() }
+}
+
+/**
+ * 알림 넣기 — **남의 알림 행**이라 캐시(store)를 타지 않고 바로 넣는다.
+ * store 를 태우면 내 것도 아닌 행이 내 목록에 섞이고, 다음 persist 가 그걸 또 upsert 한다.
+ *
+ * RLS: notifications_insert 는 with check (true) — 유동닉도 넣을 수 있다.
+ * 실패해도 사용자의 글·댓글은 이미 저장된 뒤다. 화면을 막지 않고 로그만 남긴다.
+ */
+export async function insertNotifications(rows: Notification[]): Promise<void> {
+  if (!rows.length) return
+  const { error } = await supabase.from('notifications').insert(rows)
+  if (error) console.error('[notifications insert]', error.message)
+}
+
+/** 한 번에 받아오는 알림 수. 패널이 30개만 보여주므로 이 정도면 넉넉하다. */
+const NOTIF_FETCH_LIMIT = 100
+
+/**
+ * 알림 다시 받아오기.
+ *
+ * 시작 로드(cache.ts)는 앱이 뜨는 그 한 순간만 캐시를 채운다 — 탭을 켜 둔 채로 온
+ * 알림은 새로고침 전까지 안 보인다. 종을 열 때·탭으로 돌아올 때 이걸 부른다.
+ * (RLS 가 select 를 이미 본인 행으로 좁히므로 userId 조건을 따로 걸지 않는다)
+ */
+export async function refreshNotifications(): Promise<void> {
+  const { data, error } = await supabase
+    .from('notifications').select('*')
+    .order('createdAt', { ascending: false })
+    .limit(NOTIF_FETCH_LIMIT)
+  if (error) { console.error('[notifications refresh]', error.message); return }
+  cache.notifications = data || []
 }
 
 export function getUserNotifications(userId: string): Notification[] {
