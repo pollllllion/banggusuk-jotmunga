@@ -1,0 +1,39 @@
+name: CI (타입체크 + 테스트)
+
+# main 은 push = 배포다. 그런데 Cloudflare 가 돌리는 `vite build` 는 타입체크를
+# 하지 않아서, 타입이 깨진 코드도 그대로 ottcal.com 에 올라간다.
+# 그래서 push 시점에 `tsc --noEmit` 과 테스트를 여기서 돌린다.
+#
+# ⚠️ 이 잡이 빨개도 Cloudflare 배포는 막지 못한다(별도 시스템이다).
+#    빨간 걸 보면 바로 고쳐서 다시 push 하는 게 이 워크플로의 용도다.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      # package-lock.json 그대로 설치 (배포 환경과 같은 의존성으로 검사)
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 타입체크
+        run: npm run typecheck
+
+      - name: 테스트
+        run: npm test
