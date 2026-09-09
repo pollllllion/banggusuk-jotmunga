@@ -151,14 +151,143 @@ async function selectAllRows(t: Table): Promise<any[] | null> {
   return dedupeRows(t, all)
 }
 
-export async function loadAll() {
-  // users(레거시 게스트)는 방문자 수만큼 늘어나는 테이블이라 통째로 받지 않는다 — 아래서 따로.
-  await Promise.all(TABLES.filter(t => t !== 'users').map(async t => {
+/**
+ * ══════════════════════════════════════════════════════════════
+ * 시작 로드는 두 단계다 (2026-09-09).
+ *
+ * 예전엔 loadAll() 하나가 전 테이블을 다 받을 때까지 첫 페인트를 막았다.
+ * 실측으로 contents 2,227행 = 1,875KB(gzip 256KB)를 1000행씩 **3회 순차 왕복**.
+ * 그런데 캘린더 첫 화면에 실제로 필요한 건 ±1개월치, 전체의 16% 뿐이었다.
+ *
+ *   1단계 loadEssential()  작은 표 전부 + 지금 화면에 필요한 작품만 → 여기서 화면을 그린다
+ *   2단계 loadRest()       작품 전체를 백그라운드로 마저 받아 캐시를 채운다
+ *
+ * 2단계가 있어야 하는 이유: 검색(searchContents)을 쓰는 6곳이 "작품 전체가
+ * 메모리에 있다"를 전제한다. 그 전제를 깨지 않으려고 범위 로딩 대신 2단계를 골랐다.
+ * ══════════════════════════════════════════════════════════════
+ */
+
+/** 작품 전체가 캐시에 들어왔나. false 인 동안은 "없는 작품"과 "아직 안 온 작품"을 구분해야 한다. */
+let contentsComplete = false
+export function isContentsComplete(): boolean { return contentsComplete }
+
+/** 2단계가 끝나면 화면을 다시 그려야 한다 — authStore 가 여기에 콜백을 건다. */
+let onContentsComplete: (() => void) | null = null
+export function setOnContentsComplete(fn: () => void) { onContentsComplete = fn }
+
+/** 1단계에서 받아 둘 작품의 공개일 범위 — 지난달부터 두 달 뒤까지.
+ *  캘린더 기본 화면(이번 달)과 앞뒤 한 번의 달 이동을 덮는다. */
+const WINDOW_BACK_MONTHS = 1
+const WINDOW_FWD_MONTHS = 2
+
+function windowRange(base = new Date()): { from: string; to: string } {
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return {
+    from: key(new Date(base.getFullYear(), base.getMonth() - WINDOW_BACK_MONTHS, 1)),
+    to: key(new Date(base.getFullYear(), base.getMonth() + WINDOW_FWD_MONTHS + 1, 0)),
+  }
+}
+
+/**
+ * 지금 주소가 보여 달라는 달. ?ym=2026-12 로 들어온 사람에게 이번 달을 받아 주면
+ * 그 달이 빈 채로 그려지고 2단계가 끝나야 채워진다.
+ */
+function baseMonthFromUrl(): Date {
+  try {
+    const ym = new URLSearchParams(window.location.search).get('ym')
+    const hit = /^(\d{4})-(\d{2})$/.exec((ym || '').trim())
+    if (hit) {
+      const y = Number(hit[1]), m = Number(hit[2]) - 1
+      if (m >= 0 && m <= 11 && y >= 1900 && y <= 2200) return new Date(y, m, 1)
+    }
+  } catch { /* SSR·프리렌더 등 window 없음 */ }
+  return new Date()
+}
+
+/** 주소가 /content/:id 면 그 작품은 1단계에 반드시 있어야 한다(딥링크가 튕기지 않게). */
+function contentIdFromUrl(): string | null {
+  try {
+    const hit = /^\/content\/([^/?#]+)/.exec(window.location.pathname)
+    return hit ? decodeURIComponent(hit[1]) : null
+  } catch { return null }
+}
+
+/** id 목록으로 작품을 받아 캐시에 합친다 (URL 길이 제한 때문에 100개씩) */
+async function fetchContentsByIds(ids: string[]): Promise<any[]> {
+  const out: any[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS).in('id', ids.slice(i, i + 100))
+    if (error) { console.error('[supabase load] contents by id', error.message); break }
+    if (data) out.push(...data)
+  }
+  return out
+}
+
+/**
+ * 1단계에서 받을 작품:
+ *   ① 보고 있는 달 언저리(공개일 범위)
+ *   ② 이미 받아 둔 글·댓글이 가리키는 작품 — 토론방 목록이 작품 없는 글을 걸러내기
+ *      때문에(DiscussionRoomPage), 이게 없으면 목록이 텅 빈 것처럼 보인다
+ *   ③ 주소가 /content/:id 면 그 작품
+ */
+async function loadContentsWindow() {
+  const { from, to } = windowRange(baseMonthFromUrl())
+  const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS)
+    .gte('releaseDate', from).lte('releaseDate', to)
+  if (error) { console.error('[supabase load] contents window', error.message) }
+  const rows = data || []
+
+  const have = new Set(rows.map((r: any) => r.id))
+  const need = new Set<string>()
+  for (const d of cache.discussions) if (d.contentId && !have.has(d.contentId)) need.add(d.contentId)
+  for (const r of cache.reviews) if (r.contentId && !have.has(r.contentId)) need.add(r.contentId)
+  const urlId = contentIdFromUrl()
+  if (urlId && !have.has(urlId)) need.add(urlId)
+
+  if (need.size) rows.push(...await fetchContentsByIds([...need]))
+  cache.contents = dedupeRows('contents', rows)
+}
+
+/** 1단계 — 이게 끝나면 화면을 그려도 된다 */
+export async function loadEssential() {
+  // users(레거시 게스트)는 방문자 수만큼 늘어나는 표라 통째로 받지 않는다 — 아래서 따로.
+  // contents 는 유일하게 큰 표라 따로 뺀다(나머지 전부 합쳐도 30KB 남짓).
+  await Promise.all(TABLES.filter(t => t !== 'users' && t !== 'contents').map(async t => {
     const rows = await selectAllRows(t)
     if (rows) cache[t] = rows
   }))
+  await loadContentsWindow()
   await loadGuestUsers()
   injectUpcomingSeed()
+}
+
+/**
+ * 2단계 — 작품 전체. 백그라운드에서 돈다.
+ *
+ * 1단계에서 받은 행에는 상세 컬럼(줄거리·출연진)이 채워져 있을 수 있다
+ * (작품을 열면 loadContentDetail 이 그 행만 채운다). 목록 컬럼만 담은 새 행으로
+ * 통째로 덮으면 그게 날아가므로 **기존 행 위에 덮어쓴다**(빠진 키는 그대로 남는다).
+ */
+export async function loadRest() {
+  const fresh = await selectAllRows('contents')
+  if (!fresh) return   // 실패하면 창(window) 데이터로 계속 쓴다 — 다음 방문에 다시 시도
+  const prevById = new Map(cache.contents.map((c: any) => [c.id, c]))
+  const merged = fresh.map((r: any) => {
+    const prev = prevById.get(r.id)
+    return prev ? { ...prev, ...r } : r
+  })
+  // 로드 중에 새로 만들어진 작품(ensureContent)이 fresh 에 없을 수 있다
+  const freshIds = new Set(fresh.map((r: any) => r.id))
+  const extras = cache.contents.filter((c: any) => !freshIds.has(c.id))
+  cache.contents = [...merged, ...extras]
+  contentsComplete = true
+  onContentsComplete?.()
+}
+
+/** 옛 이름 — 한 번에 다 받는다. 스크립트·테스트가 쓰던 진입점을 남겨 둔다. */
+export async function loadAll() {
+  await loadEssential()
+  await loadRest()
 }
 
 /**

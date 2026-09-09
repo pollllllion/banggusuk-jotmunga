@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useDataStore } from '@/stores/dataStore'
+import { StillLoading } from '@/components/ui/StillLoading'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
@@ -26,6 +28,7 @@ export function DiscussionDetailPage() {
   const openReportModal = useUIStore(s => s.openReportModal)
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
+  const contentsComplete = useDataStore(s => s.contentsComplete)
 
   const [cbody, setCbody] = useState('')
   const [guestName, setGuestName] = useState('')
@@ -52,6 +55,8 @@ export function DiscussionDetailPage() {
   // 작품이 있어야 하는 건 토론방 글뿐이고, 그건 DB 제약이 지킨다.
   const content = post ? DS.getContentById(post.contentId) : undefined
   const isFree = (post?.board || 'talk') === 'relay'
+  // 글 자체는 1단계에 다 들어온다. 작품만 2단계를 기다릴 수 있다.
+  if (!isFree && post && !content && !contentsComplete) return <StillLoading />
   if (!post || (!isFree && !content)) { navigate('/talk'); return null }
   /** 목록으로 돌아갈 곳 */
   const boardPath = isFree ? '/board/relay' : '/talk'

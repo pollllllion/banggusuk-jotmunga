@@ -16,7 +16,7 @@
  *   social.ts         찜·본작품·차단·알림·신고·공지
  *   curations.ts      큐레이션(기획 글)
  */
-export { cache, load, store, loadAll, reloadUserScoped, seed, type Table } from './cache'
+export { cache, load, store, loadAll, loadEssential, loadRest, isContentsComplete, setOnContentsComplete, reloadUserScoped, seed, SaveFailedError, type Table, type PersistResult } from './cache'
 export { CONTENT_LIST_COLS, CONTENT_DETAIL_COLS } from './contentColumns'
 export { CURATION_LIST_COLS, CURATION_DETAIL_COLS } from './curationColumns'
 export { setSession, getSession, currentUser } from './session'

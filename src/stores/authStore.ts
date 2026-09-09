@@ -4,6 +4,7 @@ import * as DS from '@/api/dataService'
 import { supabase } from '@/lib/supabaseClient'
 import { setRemember } from '@/lib/authStorage'
 import { readGuest, writeGuest, readLegacyGuestId, makeGuest, clearGuest, type GuestIdentity } from '@/lib/guestIdentity'
+import { markContentsComplete } from '@/stores/dataStore'
 
 interface AuthResult { ok: boolean; error?: string; needsConfirm?: boolean }
 
@@ -99,6 +100,20 @@ function subscribeAuthChanges(set: (s: Partial<AuthState>) => void, get: () => A
   })
 }
 
+/**
+ * 2단계 — 작품 전체를 백그라운드로 받는다. 화면을 막지 않는다.
+ * 끝나면 dataStore 를 통해 화면들에게 알린다(딥링크가 "없는 작품"으로 튕기지 않게).
+ * 한 번만 돈다 — init 이 다시 불려도(HMR 등) 두 번 받지 않는다.
+ */
+let bgStarted = false
+function startBackgroundLoad() {
+  if (bgStarted) return
+  bgStarted = true
+  void DS.loadRest()
+    .then(markContentsComplete)
+    .catch(e => console.error('[loadRest]', e))
+}
+
 /** 계정 로그인 시 출석 streak 을 집계하고, 갱신된 값을 유저에 반영한다.
  *  (profiles 마이그레이션 미적용 시 touchAttendance 가 null → 원본 그대로) */
 async function withAttendance(account: User): Promise<User> {
@@ -113,11 +128,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     try {
-      // 구독을 loadAll() 보다 먼저 걸면, 아직 캐시가 비어 있는 사이에 SIGNED_IN·
+      // 구독을 로드보다 먼저 걸면, 아직 캐시가 비어 있는 사이에 SIGNED_IN·
       // TOKEN_REFRESHED 가 도착해 ensureProfile 이 "없는 계정"으로 판단한다.
       // 그래서 로드가 끝난 뒤에 건다. (ensureProfile 자체도 DB 를 다시 확인하지만,
       //  애초에 그 경합을 만들지 않는 게 맞다)
-      await DS.loadAll()
+      //
+      // ⚠️ 여기서 기다리는 건 **1단계뿐**이다. 작품 전체(1,875KB)를 기다리면
+      //    그만큼 흰 화면이 길어진다 — 나머지는 화면을 띄운 뒤 백그라운드로 받는다.
+      await DS.loadEssential()
+      startBackgroundLoad()
       subscribeAuthChanges(set, get)
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {

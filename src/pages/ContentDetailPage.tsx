@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
+import { useDataStore } from '@/stores/dataStore'
+import { StillLoading } from '@/components/ui/StillLoading'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
@@ -38,8 +40,14 @@ export function ContentDetailPage() {
   // 다 오기 전(loading)·못 받았을 때(error)를 구분해야 '정보 없는 작품'으로 오해받지 않는다.
   const { state: detail, retry: retryDetail } = useContentDetail(id)
 
+  const contentsComplete = useDataStore(s => s.contentsComplete)
   const content = DS.getContentById(id!)
-  if (!content) { navigate('/browse'); return null }
+  // 시작 로드가 2단계라 "캐시에 없다"가 곧 "없는 작품"이 아니다 —
+  // 2단계가 끝나기 전에 튕기면 멀쩡한 공유 링크가 목록으로 날아간다.
+  if (!content) {
+    if (!contentsComplete) return <StillLoading />
+    navigate('/browse'); return null
+  }
 
   // 공개 여부는 캘린더와 동일하게 '공개일' 기준으로 판단한다.
   const relDate = content.manualOverride && content.manualReleaseDate ? content.manualReleaseDate : content.releaseDate
