@@ -44,14 +44,29 @@ export function timeAgo(dateStr: string): string {
  */
 export function boardDate(dateStr: string): string {
   const d = new Date(dateStr)
-  const mins = Math.floor((Date.now() - d.getTime()) / 60000)
-  if (mins < 0) return '방금'          // 시계 오차로 미래가 찍힌 경우
-  if (mins < 1) return '방금'
-  if (mins < 60) return `${mins}분`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}시간`
+  const now = new Date()
   const p = (n: number) => String(n).padStart(2, '0')
+
+  // 오늘 쓴 글은 시:분. '3시간' 같은 경과 시간이 아니라 시계 시각이다 —
+  // 목록을 위에서 아래로 훑을 때 시각이 줄줄이 내려가는 편이 순서를 읽기 쉽다.
+  // '경과 24시간'이 아니라 **달력상 같은 날**로 끊는다: 어젯밤 11시 글이 오늘 아침에
+  // '9시간'으로 남아 오늘 글처럼 보이던 것을 없앤다.
+  const sameDay = d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate()
+  if (sameDay) return `${p(d.getHours())}:${p(d.getMinutes())}`
+
+  // 올해 글은 월.일만. 해가 다를 때만 연도를 붙인다 — 목록의 거의 모든 줄에
+  // 똑같은 '26.' 이 붙어 있어 봐야 구분에 보태는 게 없다.
+  if (d.getFullYear() === now.getFullYear()) return `${p(d.getMonth() + 1)}.${p(d.getDate())}`
   return `${p(d.getFullYear() % 100)}.${p(d.getMonth() + 1)}.${p(d.getDate())}`
+}
+
+/** 글 상세용 정확한 작성 시각 — 2026.09.09 23:59 */
+export function fullDateTime(dateStr: string): string {
+  const d = new Date(dateStr)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
 /** 점수(0~10)에 따른 색상 */

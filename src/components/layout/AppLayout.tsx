@@ -27,6 +27,23 @@ export function AppLayout() {
     trackPageView(pathname, { q: pathname === '/browse' ? search : null, uid })
   }, [pathname, search, uid])
 
+  /**
+   * 화면을 옮기면 언제나 맨 위부터 보여준다.
+   *
+   * 브라우저는 기본으로 '이 주소에서 아까 어디까지 내렸더라'를 기억했다가 되돌려 놓는데
+   * (history.scrollRestoration = 'auto'), SPA 에서는 그 복원이 새 화면을 그리기 전에
+   * 일어난다. 아직 짧은 화면에 옛 위치를 적용하니 자리가 매번 달라지고, 결국 사람이
+   * 손으로 다시 올려야 했다. 복원을 끄고 우리가 직접 맨 위로 올린다.
+   *
+   * pathname 만 본다 — ?p=(쪽 번호)·?sub=(탭)·?search=(검색어) 는 같은 화면 안의 변화다.
+   * 특히 검색은 글자마다 주소가 바뀌므로 여기서 같이 올리면 타이핑 중에 화면이 튄다.
+   * 쪽 번호는 Pager 가 넘길 때 직접 맨 위로 올린다(usePageParam).
+   */
+  useEffect(() => {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+  }, [])
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+
   // 서랍이 열린 채 다른 경로로 가면(뒤로가기 포함) 남지 않게
   useEffect(() => { closeNavDrawer() }, [pathname, closeNavDrawer])
 

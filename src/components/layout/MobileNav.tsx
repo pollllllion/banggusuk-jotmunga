@@ -14,6 +14,12 @@ export function MobileNav() {
   // /talk/write 는 가운데 글쓰기 버튼이 맡으므로 토론방 탭을 켜지 않는다
   const talkActive = pathname.startsWith('/talk') && pathname !== '/talk/write'
 
+  // 글 상세에서는 이 자리를 '댓글 입력' 바가 쓴다(디시와 같다). 둘을 세로로 쌓으면
+  // 화면 아래 100px 가까이가 막힌다. 대신 그 화면 맨 위에 뒤로가기 고정 헤더가 있어서
+  // 여기서 탭이 사라져도 빠져나갈 길은 남는다.
+  const isPostDetail = /^\/talk\/[^/]+$/.test(pathname) && pathname !== '/talk/write'
+  if (isPostDetail) return null
+
   return (
     <nav className="mobile-nav">
       <div className={`mobile-nav-item ${pathname === '/' ? 'active' : ''}`} aria-current={pathname === '/' ? 'page' : undefined} {...clickable(() => navigate('/'))}>

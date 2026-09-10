@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { StillLoading } from '@/components/ui/StillLoading'
@@ -12,7 +12,7 @@ import { CurationBacklinks } from '@/components/content/CurationBacklinks'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
-import { BackIcon, BellIcon, BookmarkIcon, FlagIcon } from '@/components/ui/Icons'
+import { BackIcon, BellIcon, BookmarkIcon, EyeIcon, FlagIcon } from '@/components/ui/Icons'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
@@ -30,11 +30,14 @@ import { clickable } from '@/utils/a11y'
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
+  // 본 작품 등록은 서버 왕복이 있다 — 오가는 동안 두 번 눌리지 않게 잠근다
+  const [watchBusy, setWatchBusy] = useState(false)
 
   // 줄거리·출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다.
   // 다 오기 전(loading)·못 받았을 때(error)를 구분해야 '정보 없는 작품'으로 오해받지 않는다.
@@ -59,8 +62,18 @@ export function ContentDetailPage() {
     : content.status === 'ongoing' ? '연재중'
     : content.status === 'completed' ? '완결' : null
 
+  /** 어느 탭을 보고 있나. 기본은 토론글 — 주소에 ?tab= 이 없으면 글부터 보여준다.
+   *  (목록·내 피드에서 오는 링크가 이미 ?tab=talk 를 달고 있다) */
+  const tab: 'talk' | 'info' = searchParams.get('tab') === 'info' ? 'info' : 'talk'
+  const goTab = (next: 'talk' | 'info') => {
+    const q = new URLSearchParams(searchParams)
+    if (next === 'talk') q.delete('tab'); else q.set('tab', next)   // 기본값은 주소에 안 남긴다
+    setSearchParams(q, { replace: true })   // 탭질이 뒤로가기 기록을 채우지 않게
+  }
+
+  const discussions = DS.getDiscussionsByContent(content.id)
   // 별점 = 토론글 중 별점 단 글에서 집계
-  const rated = DS.getDiscussionsByContent(content.id).filter(d => d.rating != null)
+  const rated = discussions.filter(d => d.rating != null)
   const ratingCount = rated.length
   const avgRating = ratingCount ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / ratingCount) * 10) / 10 : 0
   const dist = Array.from({ length: 10 }, (_, i) => {
@@ -72,6 +85,40 @@ export function ContentDetailPage() {
 
   const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
   const alerted = user ? DS.isContentAlerted(user.id, content.id) : false
+  const watched = user ? DS.isWatched(user.id, content.id) : false
+
+  /**
+   * 본 작품 등록 — 내 피드에 담는다. 찜과 다르다:
+   * 찜은 '볼 것', 본 작품은 '본 것'이고 취향 프로필·레벨의 재료가 된다.
+   *
+   * 내 피드 화면의 등록 모달은 작품을 검색하는 단계가 있는데, 여기서는 이미 그 작품 앞에
+   * 서 있으므로 한 번 누르면 끝이다. 본 연도는 안 받는다 — 지금 보고 등록하는 흐름이라
+   * 대개 올해다. 연도를 고쳐야 하면 내 피드에서 고칠 수 있다.
+   */
+  const handleWatched = async () => {
+    if (!user) return
+    if (!isAccount) { toast('본 작품 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return }
+    if (watchBusy) return
+    setWatchBusy(true)
+    try {
+      if (watched) {
+        await DS.unregisterWatched(user.id, content.id)
+        toast('내 피드에서 뺐어요.')
+      } else {
+        await DS.registerWatched({
+          contentId: content.id, type: content.type, title: content.title,
+          posterUrl: content.posterUrl, platform: content.platform,
+          releaseYear: content.releaseYear, synopsis: content.synopsis,
+          genres: content.genres, creators: content.creators,
+        })
+        toast('본 작품으로 담았어요.')
+      }
+    } catch {
+      toast('처리하지 못했어요. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setWatchBusy(false); rerender()
+    }
+  }
 
   const handleBookmark = () => {
     if (!user) return
@@ -107,8 +154,6 @@ export function ContentDetailPage() {
     }
   }
 
-  const goWrite = () => navigate(`/talk/write?contentId=${content.id}`)
-
   // ── SEO ──────────────────────────────────────────────────────
   const seoTitle = buildContentTitle(content, todayKey)
   const seoDescription = buildContentDescription(content, todayKey)
@@ -116,7 +161,7 @@ export function ContentDetailPage() {
   // "sitemap 엔 있는데 페이지는 noindex" 같은 모순이 안 생긴다.
   const indexable = isIndexableContent(content, {
     today: todayKey,
-    discussionCount: DS.getDiscussionsByContent(content.id).length,
+    discussionCount: discussions.length,
   })
   const jsonLd = indexable ? buildContentJsonLd(content, SITE_URL) : null
 
@@ -134,88 +179,133 @@ export function ContentDetailPage() {
       />
       <div className="back-btn" {...clickable(() => navigate('/browse'))}><BackIcon /> 목록으로</div>
 
-      <div className="content-hero fade-in">
-        <div style={{ width: 160, flexShrink: 0 }}>
-          <Poster content={content} showScore={false} />
-        </div>
-        <div className="content-hero-info">
-          <span className={`type-badge type-${content.type}`}>{TYPE_LABELS[content.type]}</span>
-          <h1>{content.title}</h1>
-          <div className="content-hero-meta">
-            {content.platform && <span>{content.platform} · </span>}
-            {relDate ? <span>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</span> : content.releaseYear && <span>{content.releaseYear}년</span>}
-            {statusLabel && !relDate && <span> · {statusLabel}</span>}
-          </div>
-          {detail === 'ready'
-            ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
-            : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
-
-          <div className="review-detail-actions" style={{ marginTop: 14, marginBottom: 0 }}>
-            {!isUpcoming && (
-              <button className="btn btn-primary" onClick={goWrite}>토론하기</button>
-            )}
-            <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
-              <BookmarkIcon filled={bookmarked} /> 찜
-            </button>
-            {isUpcoming && (
-              <button className={`btn-like ${alerted ? 'active' : ''}`} onClick={handleAlert}>
-                <BellIcon size={15} filled={alerted} /> {alerted ? '알림 켜짐' : '공개알림'}
-              </button>
-            )}
-            <ShareButton
-              className="btn-like"
-              path={`/content/${content.id}`}
-              title={content.title}
-              text={`${content.title} — 방구석좋문가`}
-              label={`'${content.title}' 공유하기`}
-            />
-            <button className="btn-text btn-small" onClick={() => openReportModal('content', content.id)}>
-              <FlagIcon /> 신고
-            </button>
-          </div>
-        </div>
+      {/* 탭 위에 늘 남는 한 줄 — 어느 작품 방인지만 말한다.
+          포스터·줄거리·버튼은 '작품상세정보' 탭으로 내려갔지만, 제목까지 내려가면
+          토론글 탭에 무슨 작품 글인지 알려 주는 것이 하나도 안 남는다. */}
+      <div className="content-head fade-in">
+        <span className={`type-badge type-${content.type}`}>{TYPE_LABELS[content.type]}</span>
+        <h1>{content.title}</h1>
+        <span className="content-head-meta">
+          {content.platform && <>{content.platform} · </>}
+          {relDate
+            ? <>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</>
+            : content.releaseYear ? <>{content.releaseYear}년</> : null}
+        </span>
       </div>
 
-      <ContentInfo content={content} detail={detail} />
+      {/* 작품에 대고 하는 것들 — 탭 위에 둔다.
+          '작품상세정보' 탭 안에 있을 땐 찜·공유를 누르려고 탭을 옮겨야 했다. 이 버튼들은
+          정보가 아니라 작품 자체에 붙는 행동이라, 어느 탭을 보고 있든 같은 자리에 있어야 한다.
+          '토론하기'는 여기 없다 — 토론글 목록 머리에 이미 있고, 글을 쓰는 건 그 목록에서
+          할 일이다. 좁은 화면에서는 아이콘 위·글자 아래로 균등 분할된다(global.css). */}
+      <div className="content-actions">
+        {/* 아직 안 나온 작품은 봤을 수가 없다 */}
+        {!isUpcoming && (
+          <button className={`btn-like ${watched ? 'active' : ''}`} onClick={handleWatched} disabled={watchBusy}>
+            <EyeIcon size={15} /> {watched ? '봤음' : '본 작품'}
+          </button>
+        )}
+        <button className={`btn-like ${bookmarked ? 'active' : ''}`} onClick={handleBookmark}>
+          <BookmarkIcon filled={bookmarked} /> 찜
+        </button>
+        {isUpcoming && (
+          <button className={`btn-like ${alerted ? 'active' : ''}`} onClick={handleAlert}>
+            <BellIcon size={15} filled={alerted} /> {alerted ? '알림 켜짐' : '공개알림'}
+          </button>
+        )}
+        <ShareButton
+          className="btn-like"
+          path={`/content/${content.id}`}
+          title={content.title}
+          text={`${content.title} — 방구석좋문가`}
+          label={`'${content.title}' 공유하기`}
+        >
+          공유
+        </ShareButton>
+        <button className="btn-like" onClick={() => openReportModal('content', content.id)}>
+          <FlagIcon /> 신고
+        </button>
+      </div>
 
-      {/* 별점 요약 + 분포 (출시된 작품만) */}
-      {!isUpcoming && (
-        <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
-          <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
-            <div className="score-box-label">전체 평점</div>
-            <div className="big" style={{ color: scoreColor(avgRating) }}>
-              {ratingCount ? avgRating.toFixed(1) : '-'}
-            </div>
-            <Stars score={avgRating} size={16} />
-            <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
-            {expertRating.count > 0 && (
-              <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
-                <span className="score-expert-label">👑 좋문가 평점</span>
-                <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
-                <span className="score-expert-cnt">· {expertRating.count}명</span>
-              </div>
-            )}
+      <div className="content-tabs" role="tablist">
+        <button
+          role="tab" aria-selected={tab === 'talk'}
+          className={tab === 'talk' ? 'active' : ''}
+          onClick={() => goTab('talk')}>
+          {/* 글 수는 붙이지 않는다 — 바로 아래 '토론글 12 [토론하기]' 줄이 이미 말한다 */}
+          토론글
+        </button>
+        <button
+          role="tab" aria-selected={tab === 'info'}
+          className={tab === 'info' ? 'active' : ''}
+          onClick={() => goTab('info')}>
+          작품상세정보
+        </button>
+      </div>
+
+      {tab === 'talk' ? (
+        /* 토론글(=글) 목록 + 작성 */
+        <DiscussionBoard contentId={content.id} />
+      ) : (
+        <>
+        {/* 포스터 · 줄거리 — 버튼 줄은 탭 위로 올라갔다(두 탭에서 다 쓰는 것이라) */}
+        <div className="content-hero fade-in">
+          <div style={{ width: 160, flexShrink: 0 }}>
+            <Poster content={content} showScore={false} />
           </div>
-          <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
-            {dist.map(d => (
-              <div key={d.score} className="dist-row">
-                <span className="lbl">{d.score}점</span>
-                <div className="dist-bar-bg">
-                  <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
-                </div>
-                <span className="val">{d.count}</span>
-              </div>
-            ))}
+          <div className="content-hero-info">
+            <div className="content-hero-meta">
+              {content.platform && <span>{content.platform} · </span>}
+              {relDate ? <span>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</span> : content.releaseYear && <span>{content.releaseYear}년</span>}
+              {statusLabel && !relDate && <span> · {statusLabel}</span>}
+            </div>
+            {detail === 'ready'
+              ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
+              : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
           </div>
         </div>
+
+        <ContentInfo content={content} detail={detail} />
+
+        {/* 별점 요약 + 분포 (출시된 작품만) */}
+        {!isUpcoming && (
+          <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
+            <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
+              <div className="score-box-label">전체 평점</div>
+              <div className="big" style={{ color: scoreColor(avgRating) }}>
+                {ratingCount ? avgRating.toFixed(1) : '-'}
+              </div>
+              <Stars score={avgRating} size={16} />
+              <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
+              {expertRating.count > 0 && (
+                <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
+                  <span className="score-expert-label">👑 좋문가 평점</span>
+                  <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
+                  <span className="score-expert-cnt">· {expertRating.count}명</span>
+                </div>
+              )}
+            </div>
+            <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
+              {dist.map(d => (
+                <div key={d.score} className="dist-row">
+                  <span className="lbl">{d.score}점</span>
+                  <div className="dist-bar-bg">
+                    <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
+                  </div>
+                  <span className="val">{d.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
+        <CurationBacklinks contentId={content.id} />
+        </>
       )}
 
-      {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
-      <CurationBacklinks contentId={content.id} />
-
-      {/* 토론글(=글) 목록 + 작성 */}
-      <DiscussionBoard contentId={content.id} />
-
+      {/* TMDB 출처는 탭과 상관없이 늘 보인다 — 위 줄거리가 TMDB 자료라서
+          '정보' 탭에서만 밝히면 글 탭에서는 출처 없이 그 자료를 쓰는 셈이 된다 */}
       {content.source === 'tmdb' && (
         <p style={{ fontSize: 11, color: 'var(--subtext)', textAlign: 'center', marginTop: 20, lineHeight: 1.7 }}>
           작품 정보 제공: <a href={content.tmdbUrl || 'https://www.themoviedb.org/'} target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)', textDecoration: 'underline' }}>TMDB</a>

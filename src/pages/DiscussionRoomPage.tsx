@@ -108,14 +108,16 @@ export function DiscussionRoomPage() {
       {trending.length > 0 && (
         <section className="disc-trending fade-in">
           <h3 className="disc-trending-head">지금 뜨는 글</h3>
+          {/* 아래 '전체 글'과 같은 생김새를 쓴다. 무엇이 뜨는 글인지는 섹션 제목이 말해 주므로
+              순위 숫자는 달지 않는다 — 댓글 수로 뽑은 차례라 1위·2위의 차이가 크지도 않다. */}
           <div className="disc-board">
-            {trending.map(({ post, content }, i) => (
+            <DiscussionRowHead showContent />
+            {trending.map(({ post, content }) => (
               <DiscussionRow
                 key={post.id}
                 post={post}
                 content={content}
                 showContent
-                rank={i + 1}
                 onOpen={() => navigate(`/talk/${post.id}`)}
               />
             ))}
