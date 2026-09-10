@@ -45,6 +45,7 @@ function profileToUser(p: any, email: string): User {
     notifyReply: p.notifyReply,
     notifyLike: p.notifyLike,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
+    avatarUrl: p.avatarUrl ?? null,
     tasteBio: p.tasteBio ?? null,
     favoriteWorks: p.favoriteWorks ?? [],
     favoriteGenres: p.favoriteGenres ?? [],
@@ -127,6 +128,7 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.notifyReply !== undefined) patch.notifyReply = updates.notifyReply
   if (updates.notifyLike !== undefined) patch.notifyLike = updates.notifyLike
   // 공개 취향 프로필
+  if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl
   if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
   if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks
   if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres

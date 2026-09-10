@@ -21,6 +21,8 @@ export interface User {
   /** 내 글·댓글이 추천되면 알림 */
   notifyLike?: boolean
   // ── 공개 취향 프로필 (다른 유저에게 공개 · 마이그레이션 후) ──
+  /** 업로드한 프로필 사진 공개 URL. 없으면 빈 사람 실루엣 (migration_profile_avatar) */
+  avatarUrl?: string | null
   tasteBio?: string | null        // 취향 한 줄 소개
   favoriteWorks?: string[]        // 인생작품 (content id 목록)
   favoriteGenres?: string[]       // 선호 장르
@@ -177,6 +179,12 @@ export interface Discussion {
 export interface DiscussionComment {
   id: string
   discussionId: string
+  /** 답글이면 원댓글 id. 없으면(null·undefined) 원댓글이다.
+   *  migration_comment_reply 미적용이면 undefined — 그때는 전부 원댓글로 보인다. */
+  parentId?: string | null
+  /** 답글이 달린 채로 지워진 댓글. 본문은 비어 있고 "삭제된 댓글입니다" 자리만 남는다.
+   *  답글 없는 댓글은 이 표시를 쓰지 않고 행째로 지운다. */
+  deleted?: boolean
   authorId: string | null
   guestName?: string | null
   guestPwHash?: string | null

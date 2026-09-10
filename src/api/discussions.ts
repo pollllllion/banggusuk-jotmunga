@@ -216,7 +216,8 @@ export function getDiscussionCommentsByPost(discussionId: string): DiscussionCom
 }
 
 export function countDiscussionComments(discussionId: string): number {
-  return getDiscussionComments().filter(c => c.discussionId === discussionId).length
+  // 삭제 표시만 남은 자리는 세지 않는다 — 목록의 [3] 은 '읽을 것이 몇 개인가'다
+  return getDiscussionComments().filter(c => c.discussionId === discussionId && !c.deleted).length
 }
 
 /** 댓글 작성 — 글과 같은 이유로 서버 저장을 기다린다(실패 시 롤백 + throw). */
@@ -230,10 +231,37 @@ export async function createDiscussionComment(data: Partial<DiscussionComment>):
   return c
 }
 
+/** 이 댓글에 달린 답글이 하나라도 있나 — 지울 때 행을 남길지 정하는 기준 */
+export function hasReplies(commentId: string): boolean {
+  return getDiscussionComments().some(c => c.parentId === commentId)
+}
+
+/**
+ * 댓글 삭제 (고정닉·관리자).
+ *
+ * 답글이 달려 있으면 **행을 남기고 본문만 비운다** — 화면에는 "삭제된 댓글입니다" 가 뜨고
+ * 답글은 원래 자리에 그대로 붙어 있다. 행째로 지우면 남이 쓴 답글이 맥락을 잃는다
+ * (부모 없는 답글이 원댓글 자리로 올라와 혼자 딴소리를 한다).
+ * 답글이 없으면 빈 자리를 남길 이유가 없으므로 예전처럼 진짜로 지운다.
+ */
 export async function deleteDiscussionComment(id: string): Promise<void> {
   const prev = getDiscussionComments()
-  const res = await saveDiscussionComments(prev.filter(c => c.id !== id))
+  const next = hasReplies(id)
+    ? prev.map(c => (c.id === id ? { ...c, body: '', deleted: true } : c))
+    : prev.filter(c => c.id !== id)
+  const res = await saveDiscussionComments(next)
   if (!res.ok) { cache.discussion_comments = prev; throw new SaveFailedError(res.error) }
+}
+
+/** 유동닉 댓글 삭제 표시 — 비번 확인은 서버 RPC 가 한다(유동닉 행은 RLS update 가 막는다) */
+export async function softDeleteGuestDiscussionComment(id: string, password: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('soft_delete_guest_discussion_comment', { p_id: id, p_password: password })
+  if (error) { console.error('[soft_delete_guest_discussion_comment]', error); return false }
+  if (data === true) {
+    cache.discussion_comments = cache.discussion_comments.map((c: DiscussionComment) =>
+      c.id === id ? { ...c, body: '', deleted: true } : c)
+  }
+  return data === true
 }
 
 /** 댓글 수정 (본문만) — 고정닉 글 전용. RLS 상 본인/관리자만 통과한다. */

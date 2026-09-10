@@ -9,18 +9,20 @@ import * as DS from '@/api/dataService'
 import { GuestCred } from '@/components/ui/GuestCred'
 import { ExpertTag } from '@/components/profile/ExpertTag'
 import { LevelTag } from '@/components/profile/LevelTag'
+import { Avatar } from '@/components/profile/Avatar'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
-import { timeAgo, fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
+import { fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { markPostRead } from '@/utils/readPosts'
+import { isExpertAuthor } from '@/utils/level'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
 
-/** 댓글 정렬 — 디시 모바일의 '등록순 / 최신순'. 답글순은 없다(방좋 댓글엔 답글이 없다) */
+/** 댓글 정렬 — 디시 모바일의 '등록순 / 최신순'. 원댓글에만 건다(답글은 늘 달린 차례대로) */
 type CommentSort = 'old' | 'new'
 
 /** 방구석토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
@@ -53,6 +55,9 @@ export function DiscussionDetailPage() {
   // 비회원으로 쓰기로 한 뒤에만 닉네임·비번 칸을 낸다. 그 전에는 입력칸을 누르는 순간
   // 로그인 창이 뜬다 — 댓글칸 위에 '로그인 / 비회원' 안내를 늘 띄워 두지 않으려고.
   const [guestMode, setGuestMode] = useState(false)
+  // 답글 — 어느 원댓글 밑에 입력칸이 열려 있나 / 그 입력칸 내용
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [rbody, setRbody] = useState('')
   const composerRef = useRef<HTMLTextAreaElement>(null)
 
   useEscapeKey(menuOpen, () => setMenuOpen(false))
@@ -68,7 +73,7 @@ export function DiscussionDetailPage() {
   }, [id])
 
   // 글이 바뀌면(이전글/다음글로 이동) 열려 있던 메뉴·수정칸을 닫는다 — 같은 화면이 재활용되므로
-  useEffect(() => { setMenuOpen(false); setEditingId(null) }, [id])
+  useEffect(() => { setMenuOpen(false); setEditingId(null); setReplyTo(null); setRbody('') }, [id])
 
   /** 하단 바를 누르면 진짜 입력칸으로 데려가 커서를 놓는다 */
   const focusComposer = () => {
@@ -97,10 +102,16 @@ export function DiscussionDetailPage() {
   const canDeleteAccount = !!user && isAccount && !isGuest && (user.id === post.authorId || user.role === 'admin')
   // 수정은 글쓴이만 (관리자라도 남의 글 내용은 고치지 않는다 — 삭제만)
   const canEdit = (!!user && isAccount && !isGuest && user.id === post.authorId) || isGuest
-  const comments = [...DS.getDiscussionCommentsByPost(post.id)].sort((a, b) => {
+  const comments = DS.getDiscussionCommentsByPost(post.id)
+  /** 정렬은 원댓글에만 건다 — 답글까지 최신순으로 뒤집으면 주고받은 차례가 뒤엉킨다 */
+  const rootComments = comments.filter(c => !c.parentId).sort((a, b) => {
     const d = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     return csort === 'old' ? d : -d
   })
+  /** 답글은 언제나 달린 차례대로 (getDiscussionCommentsByPost 가 이미 오름차순이다) */
+  const repliesOf = (parentId: string) => comments.filter(c => c.parentId === parentId && !c.deleted)
+  /** 세는 건 읽을 수 있는 댓글만 — 삭제 표시만 남은 자리는 뺀다 */
+  const commentCount = comments.filter(c => !c.deleted).length
 
   // 이전글 / 다음글 — 목록과 같은 차례(최신이 위)를 그대로 쓴다.
   // '이전글'은 목록에서 한 칸 위(더 최신), '다음글'은 한 칸 아래(더 오래된 글)다.
@@ -150,7 +161,9 @@ export function DiscussionDetailPage() {
       try { await DS.deleteDiscussion(post.id) } catch (e) { failToast(e); return }
       toast('삭제했습니다.'); navigate('/talk')
     } else if (isGuest) {
-      const pw = prompt('글 작성 시 입력한 비밀번호를 입력하세요.')
+      // 유동닉은 계정이 없어 비번이 곧 신원 확인이다. 그 창 하나가 '정말 지울까요' 까지 겸하도록
+      // 문구에 삭제라고 못박는다 — 확인창을 따로 띄우면 팝업이 연달아 두 번 뜬다.
+      const pw = prompt('이 글을 삭제할까요?\n\n작성 시 입력한 비밀번호를 넣으면 삭제됩니다.')
       if (pw === null) return
       const ok = await DS.deleteGuestPost('discussions', post.id, pw)
       toast(ok ? '삭제했습니다.' : '비밀번호가 일치하지 않습니다.')
@@ -178,6 +191,32 @@ export function DiscussionDetailPage() {
     // 저장이 서버까지 간 걸 확인한 뒤에 입력칸을 비운다 — 실패했는데 쓴 글이 사라지면 안 된다
     try { await DS.createDiscussionComment(payload) } catch (e) { failToast(e); return }
     setGuestPw(''); setCbody(''); rerender()
+  }
+
+  /**
+   * 답글 등록. 원댓글 밑에만 달린다(깊이 1단계) — 답글의 답글도 같은 원댓글에 붙인다.
+   * 스레드가 계단처럼 깊어지면 폰 화면에서 오른쪽이 남아나지 않는다.
+   *
+   * 알림은 원댓글과 같은 길을 탄다(createDiscussionComment → notifyDiscussionComment):
+   * 글쓴이 + 이미 그 글에 댓글을 단 사람들. 답글 받은 사람도 그 안에 들어 있다.
+   */
+  const submitReply = async (parentId: string) => {
+    if (!isAccount && !guestMode) { setLoginOpen(true); return }
+    const text = rbody.trim()
+    if (!text) { toast('답글을 입력하세요.'); return }
+    if (text.length > 1000) { toast('답글은 1000자 이내로 입력해주세요.'); return }
+
+    let payload: Parameters<typeof DS.createDiscussionComment>[0]
+    if (isAccount && user) {
+      payload = { discussionId: post.id, parentId, authorId: user.id, body: text }
+    } else {
+      if (!guestName.trim()) { toast('닉네임을 입력하세요.'); return }
+      if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
+      const hash = await sha256hex(guestPw)
+      payload = { discussionId: post.id, parentId, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text }
+    }
+    try { await DS.createDiscussionComment(payload) } catch (e) { failToast(e); return }
+    setGuestPw(''); setRbody(''); setReplyTo(null); rerender()
   }
 
   const likeComment = (cid: string) => {
@@ -218,13 +257,88 @@ export function DiscussionDetailPage() {
       try { await DS.deleteDiscussionComment(c.id) } catch (e) { failToast(e); return }
       toast('삭제했습니다.'); rerender()
     } else if (cGuest) {
-      const pw = prompt('댓글 작성 시 입력한 비밀번호를 입력하세요.')
+      // 글 삭제와 같은 방식 — 비번 창 하나가 '정말 지울까요' 까지 겸한다
+      const pw = prompt('이 댓글을 삭제할까요?\n\n작성 시 입력한 비밀번호를 넣으면 삭제됩니다.')
       if (pw === null) return
-      const ok = await DS.deleteGuestPost('discussion_comments', c.id, pw)
+      // 답글이 달려 있으면 자리를 남긴다(고정닉 쪽과 같은 규칙 · deleteDiscussionComment 참고)
+      const ok = DS.hasReplies(c.id)
+        ? await DS.softDeleteGuestDiscussionComment(c.id, pw)
+        : await DS.deleteGuestPost('discussion_comments', c.id, pw)
       toast(ok ? '삭제했습니다.' : '비밀번호가 일치하지 않습니다.')
-      // RPC 가 서버에서 이미 지웠고 캐시에서도 뺐다 — 화면만 다시 그리면 된다
+      // RPC 가 서버에서 이미 처리했고 캐시도 맞춰 놨다 — 화면만 다시 그리면 된다
       if (ok) rerender()
     }
+  }
+
+  /** 댓글 한 덩이. 원댓글과 답글이 같은 생김새를 쓴다 — 다른 건 왼쪽 들여쓰기와
+   *  '답글쓰기' 유무뿐이다(답글에는 안 붙는다 · 1단계까지만 쓰므로). */
+  const renderComment = (c: typeof comments[number], isReply: boolean) => {
+    // 답글이 달린 채로 지워진 자리. 답글이 제 부모 아래 그대로 있게 하려고 남긴 껍데기라
+    // 닉네임·아바타·추천·관리 버튼을 전부 뺀다 — 누가 썼는지는 이제 남의 일이 아니다.
+    if (c.deleted) {
+      return <div key={c.id} className={`disc-comment is-tomb ${isReply ? 'is-reply' : ''}`}>삭제된 댓글입니다.</div>
+    }
+    const cg = !!c.guestName
+    const cName = cg ? c.guestName : (DS.getUserById(c.authorId || '')?.nickname || '탈퇴한 사용자')
+    const cLiked = user ? c.likes.includes(user.id) : false
+    const cCanDel = (!!user && isAccount && !cg && (user.id === c.authorId || user.role === 'admin')) || cg
+    const cCanEdit = (!!user && isAccount && !cg && user.id === c.authorId) || cg
+    const cEditing = editingId === c.id
+    const cIsAccount = DS.isAccountId(c.authorId)
+    // 유동닉은 닉네임이 겹칠 수 있어 글쓴이인지 확인할 방법이 없다 → 고정닉만 표시한다
+    const cIsPostAuthor = cIsAccount && !!post.authorId && c.authorId === post.authorId
+    const goProfile = cIsAccount ? () => navigate(`/u/${c.authorId}`) : undefined
+
+    return (
+      <div key={c.id} className={`disc-comment ${isReply ? 'is-reply' : ''}`}>
+        <Avatar src={DS.getUserById(c.authorId || '')?.avatarUrl} name={cName} size={isReply ? 26 : 30} onClick={goProfile} />
+        <div className="disc-comment-main">
+          <div className="disc-comment-head">
+            {cIsAccount
+              ? <span
+                  className="disc-author linkable"
+                  {...clickable(() => navigate(`/u/${c.authorId}`), `${cName} 프로필 보기`)}
+                >{cName}</span>
+              : <span className="disc-author guest">{cName}</span>}
+            <LevelTag authorId={c.authorId} />
+            {/* 글쓴이가 자기 글에 단 댓글 — 대화를 읽을 때 제일 먼저 알아야 하는 것 */}
+            {cIsPostAuthor && <span className="disc-op-tag">작성자</span>}
+          </div>
+          {cEditing ? (
+            <div className="disc-comment-edit">
+              <textarea className="disc-input" style={{ minHeight: 54 }} maxLength={1000}
+                value={editingBody} onChange={e => setEditingBody(e.target.value)} autoFocus />
+              <div className="disc-composer-foot">
+                <span className="disc-count">{editingBody.length}/1000</span>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-secondary btn-small" onClick={() => { setEditingId(null); setEditingPw('') }}>취소</button>
+                  <button className="btn btn-primary btn-small" onClick={() => saveComment(c)} disabled={!editingBody.trim()}>저장</button>
+                </span>
+              </div>
+            </div>
+          ) : (
+            <p className="disc-comment-body">{c.body}</p>
+          )}
+          <div className="disc-comment-foot">
+            <span className="disc-time">{fullDateTime(c.createdAt)}{c.updatedAt ? ' · 수정됨' : ''}</span>
+            {!isReply && (
+              <button className="disc-del" onClick={() => {
+                setReplyTo(replyTo === c.id ? null : c.id); setRbody('')
+              }}>답글쓰기</button>
+            )}
+            {cCanEdit && !cEditing && <button className="disc-del" onClick={() => startEditComment(c)}>수정</button>}
+            {cCanDel && !cEditing && <button className="disc-del" onClick={() => removeComment(c)}>삭제</button>}
+            {c.authorId !== user?.id && (
+              <button className="disc-del" onClick={() => reportTarget('discussion_comment', c.id)}>신고</button>
+            )}
+          </div>
+        </div>
+        <button className={`disc-clike ${cLiked ? 'on' : ''}`} onClick={() => likeComment(c.id)} aria-label="이 댓글 추천">
+          <HeartIcon filled={cLiked} size={15} />
+          <span>{c.likes.length || 0}</span>
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -275,13 +389,19 @@ export function DiscussionDetailPage() {
         <h1 className="disc-detail-title">{post.title || '(제목 없음)'}</h1>
         {post.spoiler && <span className="disc-spoiler-tag">스포일러</span>}
       </div>
+      {/* 프로필 사진 · 닉네임 · 레벨 아이콘 — 댓글 줄과 같은 차례로 읽힌다.
+          좋문가는 아이콘 대신 '👑 좋문가' 배지가 나간다. 둘 다 그리면 왕관이 두 번 뜬다
+          (LevelTag 도 좋문가면 👑 를 그린다). 여기서만 이름표를 다는 이유는 글쓴이라서다 —
+          댓글마다 붙이면 목록이 배지밭이 된다. */}
       <div className="disc-detail-meta">
-        <LevelTag authorId={post.authorId} />
+        <Avatar src={DS.getUserById(post.authorId || '')?.avatarUrl} name={author} size={30} onClick={isAccountAuthor ? () => navigate(`/u/${post.authorId}`) : undefined} />
         <span
           className={`disc-author ${isAccountAuthor ? 'linkable' : 'guest'}`}
           onClick={() => { if (isAccountAuthor) navigate(`/u/${post.authorId}`) }}
         >{author}</span>
-        <ExpertTag authorId={post.authorId} />
+        {isExpertAuthor(post.authorId)
+          ? <ExpertTag authorId={post.authorId} />
+          : <LevelTag authorId={post.authorId} />}
         {/* 수정·삭제만 여기 남는다(공유·신고는 아래 조회 줄로 갔다).
             좁은 화면에서는 이 줄을 접는다 — 같은 항목이 위 고정 헤더의 ⋮ 메뉴에 들어 있다 */}
         <span className="disc-detail-acts">
@@ -357,58 +477,46 @@ export function DiscussionDetailPage() {
       </div>
 
       <div className="disc-comments">
-        <div className="disc-comments-title">댓글 {comments.length}</div>
+        <div className="disc-comments-title">댓글 {commentCount}</div>
 
         {/* 댓글 정렬 (디시 모바일의 등록순/최신순). 댓글이 한 개뿐이면 고를 게 없어 숨긴다 */}
-        {comments.length > 1 && (
+        {commentCount > 1 && (
           <div className="disc-csort" role="group" aria-label="댓글 정렬">
             <button className={csort === 'old' ? 'on' : ''} aria-pressed={csort === 'old'} onClick={() => setCsort('old')}>등록순</button>
             <button className={csort === 'new' ? 'on' : ''} aria-pressed={csort === 'new'} onClick={() => setCsort('new')}>최신순</button>
           </div>
         )}
 
-        {comments.map(c => {
-          const cg = !!c.guestName
-          const cName = cg ? c.guestName : (DS.getUserById(c.authorId || '')?.nickname || '탈퇴한 사용자')
-          const cLiked = user ? c.likes.includes(user.id) : false
-          const cCanDel = (!!user && isAccount && !cg && (user.id === c.authorId || user.role === 'admin')) || cg
-          const cCanEdit = (!!user && isAccount && !cg && user.id === c.authorId) || cg
-          const cEditing = editingId === c.id
+        {/* 원댓글 하나 + 그 답글들 + (열려 있으면) 답글 입력칸을 한 덩이로 묶는다.
+            묶어 놔야 정렬을 '최신순'으로 바꿔도 답글이 제 부모를 따라 움직인다. */}
+        {rootComments.map(c => {
+          const replies = repliesOf(c.id)
+          // 남은 답글이 하나도 없는 삭제 자리는 아예 안 그린다 — 껍데기를 남긴 이유가
+          // 답글을 붙들어 두기 위해서였는데, 그 답글마저 지워졌으면 남길 까닭이 없다.
+          if (c.deleted && !replies.length) return null
           return (
-            <div key={c.id} className="disc-comment">
-              <div className="disc-comment-head">
-                {DS.isAccountId(c.authorId)
-                  ? <span
-                      className="disc-author linkable"
-                      {...clickable(() => navigate(`/u/${c.authorId}`), `${cName} 프로필 보기`)}
-                    >{cName}</span>
-                  : <span className="disc-author guest">{cName}</span>}
-                <span className="disc-time">{timeAgo(c.createdAt)}{c.updatedAt ? ' · 수정됨' : ''}</span>
-                {cCanEdit && !cEditing && <button className="disc-del" onClick={() => startEditComment(c)}>수정</button>}
-                {cCanDel && !cEditing && <button className="disc-del" onClick={() => removeComment(c)}>삭제</button>}
-                {c.authorId !== user?.id && (
-                  <button className="disc-del" onClick={() => reportTarget('discussion_comment', c.id)}>신고</button>
-                )}
-              </div>
-              {cEditing ? (
-                <div className="disc-comment-edit">
-                  <textarea className="disc-input" style={{ minHeight: 54 }} maxLength={1000}
-                    value={editingBody} onChange={e => setEditingBody(e.target.value)} autoFocus />
-                  <div className="disc-composer-foot">
-                    <span className="disc-count">{editingBody.length}/1000</span>
-                    <span style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-secondary btn-small" onClick={() => { setEditingId(null); setEditingPw('') }}>취소</button>
-                      <button className="btn btn-primary btn-small" onClick={() => saveComment(c)} disabled={!editingBody.trim()}>저장</button>
-                    </span>
-                  </div>
+          <div key={c.id} className="disc-comment-group">
+            {renderComment(c, false)}
+            {replies.map(r => renderComment(r, true))}
+            {replyTo === c.id && (
+              <div className="disc-reply-composer">
+                {!isAccount && guestMode && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="댓글" />}
+                <textarea
+                  className="disc-input" style={{ minHeight: 48 }} maxLength={1000} autoFocus
+                  placeholder="답글을 남겨보세요"
+                  value={rbody} onChange={e => setRbody(e.target.value)}
+                  onFocus={() => { if (!isAccount && !guestMode) { setLoginOpen(true); } }}
+                />
+                <div className="disc-composer-foot">
+                  <span className="disc-count">{rbody.length}/1000</span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-secondary btn-small" onClick={() => { setReplyTo(null); setRbody('') }}>취소</button>
+                    <button className="btn btn-primary btn-small" onClick={() => submitReply(c.id)} disabled={!rbody.trim()}>답글 등록</button>
+                  </span>
                 </div>
-              ) : (
-                <p className="disc-comment-body">{c.body}</p>
-              )}
-              <button className={`disc-clike ${cLiked ? 'on' : ''}`} onClick={() => likeComment(c.id)}>
-                <HeartIcon filled={cLiked} size={12} /> {c.likes.length || 0}
-              </button>
-            </div>
+              </div>
+            )}
+          </div>
           )
         })}
 
@@ -462,8 +570,8 @@ export function DiscussionDetailPage() {
       {!composerFocus && (
         <div className="disc-cbar">
           <button className="disc-cbar-input" onClick={focusComposer}>댓글 입력</button>
-          <button className="disc-cbar-count" onClick={focusComposer} aria-label={`댓글 ${comments.length}개`}>
-            💬 {comments.length}
+          <button className="disc-cbar-count" onClick={focusComposer} aria-label={`댓글 ${commentCount}개`}>
+            💬 {commentCount}
           </button>
         </div>
       )}

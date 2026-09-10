@@ -9,6 +9,7 @@ import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, ContentType } from '@/types'
+import { Avatar } from '@/components/profile/Avatar'
 import { clickable } from '@/utils/a11y'
 
 type TmdbHit = { r: TmdbResult; type: ContentType }
@@ -244,14 +245,23 @@ export function Header() {
           <PlusIcon /> 토론하기
         </button>
         <div className="user-menu" ref={menuRef}>
-          <div className="user-avatar" aria-haspopup="menu" aria-expanded={userMenuOpen} {...clickable(toggleUserMenu, `${user.nickname} 메뉴`)}>{user.nickname[0]}</div>
+          <div className="user-avatar" aria-haspopup="menu" aria-expanded={userMenuOpen} {...clickable(toggleUserMenu, `${user.nickname} 메뉴`)}>
+            {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user.nickname[0]}
+          </div>
           <div className={`user-dropdown ${userMenuOpen ? 'show' : ''}`}>
-            <div className="user-dropdown-header">
-              {user.nickname}
-              <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
+            {/* 닉네임·메일 칸을 누르면 내 피드(본 작품 서랍)로 간다 */}
+            <div
+              className="user-dropdown-header clickable"
+              {...clickable(() => { closeUserMenu(); navigate('/feed') }, '내 피드로 가기')}
+            >
+              <Avatar src={user.avatarUrl} name={user.nickname} size={36} />
+              <div className="user-dropdown-who">
+                {user.nickname}
+                <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
+              </div>
             </div>
-            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/my-reviews') })}>
-              <DocumentIcon /> 내 토론글
+            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/me') })}>
+              <DocumentIcon /> 내 정보
             </div>
             <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/bookmarks') })}>
               <BookmarkIcon /> 찜한 작품

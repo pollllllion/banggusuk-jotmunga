@@ -27,7 +27,7 @@ import { ContentDetailPage } from '@/pages/ContentDetailPage'
 const AuthPage = lazy(() => import('@/pages/AuthPage').then(m => ({ default: m.AuthPage })))
 const WriteDiscussionPage = lazy(() => import('@/pages/WriteDiscussionPage').then(m => ({ default: m.WriteDiscussionPage })))
 const BoardPage = lazy(() => import('@/pages/BoardPage').then(m => ({ default: m.BoardPage })))
-const MyReviewsPage = lazy(() => import('@/pages/MyReviewsPage').then(m => ({ default: m.MyReviewsPage })))
+const MyPage = lazy(() => import('@/pages/MyPage').then(m => ({ default: m.MyPage })))
 const MyFeedPage = lazy(() => import('@/pages/MyFeedPage').then(m => ({ default: m.MyFeedPage })))
 const RankingPage = lazy(() => import('@/pages/RankingPage').then(m => ({ default: m.RankingPage })))
 const UserProfilePage = lazy(() => import('@/pages/UserProfilePage').then(m => ({ default: m.UserProfilePage })))
@@ -104,7 +104,9 @@ export default function App() {
                 <Route path="/review/write" element={<Navigate to="/talk/write" replace />} />
                 <Route path="/review/write/:contentId" element={<Navigate to="/talk/write" replace />} />
                 <Route path="/review/*" element={<Navigate to="/talk" replace />} />
-                <Route path="/my-reviews" element={<MyReviewsPage />} />
+                <Route path="/me" element={<MyPage />} />
+                {/* 옛 주소 — 메뉴의 '내 토론글' 이 '내 정보' 로 바뀌었다. 북마크·옛 링크를 살려 둔다 */}
+                <Route path="/my-reviews" element={<Navigate to="/me" replace />} />
                 <Route path="/feed" element={<MyFeedPage />} />
                 <Route path="/ranking" element={<AdminGuard><RankingPage /></AdminGuard>} />
                 <Route path="/u/:id" element={<UserProfilePage />} />

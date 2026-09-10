@@ -134,3 +134,51 @@ export async function uploadTalkMediaFromUrl(url: string): Promise<string> {
   if (blob.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(blob.size)}MB). ${MAX_MB}MB 이하만 됩니다.`)
   return uploadTalkMedia(new File([blob], `remote.${EXT[type]}`, { type }))
 }
+
+/**
+ * 프로필 사진 업로드 → 공개 URL.
+ *
+ * 같은 버킷(talk-media)의 `avatars/` 아래를 쓴다 — 버킷을 하나 더 만들면 정책을
+ * 한 벌 더 관리해야 하는데, 읽기 공개·쓰기 로그인이라는 조건이 똑같다.
+ * 첨부(uploadTalkMedia)와 달리 **정사각형으로 잘라 작게 줄인다** — 원본을 그대로 두면
+ * 34px 짜리 동그라미 하나 그리자고 몇 MB 를 받는다.
+ */
+const AVATAR_PX = 256
+
+export async function uploadAvatar(input: File): Promise<string> {
+  if (!input.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있어요.')
+  if (input.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(input.size)}MB). ${MAX_MB}MB 이하로 올려주세요.`)
+
+  const file = await squareShrink(input)
+  const path = `avatars/${uuid()}.webp`
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    contentType: file.type,
+    cacheControl: '31536000',
+  })
+  if (error) {
+    console.error('[avatar upload]', error)
+    throw new Error('업로드에 실패했어요. 잠시 후 다시 시도해주세요.')
+  }
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+/** 가운데를 정사각형으로 잘라 AVATAR_PX 로 줄인 webp. 실패하면 원본 그대로 올린다. */
+async function squareShrink(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const side = Math.min(bitmap.width, bitmap.height)
+    const sx = (bitmap.width - side) / 2
+    const sy = (bitmap.height - side) / 2
+    const canvas = document.createElement('canvas')
+    canvas.width = AVATAR_PX; canvas.height = AVATAR_PX
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { bitmap.close(); return file }
+    ctx.drawImage(bitmap, sx, sy, side, side, 0, 0, AVATAR_PX, AVATAR_PX)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/webp', 0.85))
+    if (!blob) return file
+    return new File([blob], 'avatar.webp', { type: 'image/webp' })
+  } catch {
+    return file   // GIF 애니메이션 등 — 원본을 그대로 올린다
+  }
+}

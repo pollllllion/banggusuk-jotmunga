@@ -134,8 +134,20 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .user-dropdown-item:hover { background: var(--bg); color: var(--text); }
 .user-dropdown-item svg { opacity: 0.6; }
-.user-dropdown-header { padding: 14px 16px; border-bottom: 1px solid var(--border-light); font-weight: 700; font-size: 14px; color: var(--heading); }
-.user-dropdown-header small { display: block; font-weight: 400; color: var(--subtext); font-size: 12px; margin-top: 2px; }
+.user-dropdown-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-light);
+  font-weight: 700; font-size: 14px; color: var(--heading);
+}
+.user-dropdown-who { min-width: 0; }
+.user-dropdown-header small {
+  display: block; font-weight: 400; color: var(--subtext); font-size: 12px; margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 누르면 내 피드로 — 누를 수 있다는 걸 색이 아니라 배경 반응으로 알린다 */
+.user-dropdown-header.clickable { cursor: pointer; transition: background var(--duration) var(--ease); }
+.user-dropdown-header.clickable:hover { background: var(--bg); }
+.user-avatar img { width: 100%; height: 100%; border-radius: var(--radius-round); object-fit: cover; display: block; }
 
 /* Sidebar */
 .sidebar {
@@ -1506,4 +1518,119 @@ p.content-synopsis .sk-line { display: block; }
 
 @media (max-width: 720px) {
   .stat-row { grid-template-columns: minmax(0, 1fr) 56px auto; gap: 8px; font-size: 12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   내 정보 (/me) — 나만 보는 활동 기록
+   ──────────────────────────────────────────────────────────────
+   '내 피드'(/feed · 본 작품 서랍)와 다른 화면이다. 여기는 내가 쓴 것과 받은 것,
+   그리고 프로필·레벨이 모인다.
+   ══════════════════════════════════════════════════════════════ */
+.me-card {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 12px;
+}
+.me-avatar { position: relative; flex-shrink: 0; text-align: center; }
+/* 사진 오른쪽 아래 카메라 배지 — 누르면 시트가 열린다 */
+.me-avatar-cam {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 26px; height: 26px; border-radius: var(--radius-round);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text-secondary); box-shadow: var(--shadow-xs);
+  transition: var(--duration) var(--ease);
+}
+.me-avatar-cam:hover:not(:disabled) { background: var(--bg); color: var(--text); }
+.me-avatar-cam:disabled { opacity: .5; cursor: default; }
+
+.me-ident { flex: 1 1 200px; min-width: 0; }
+.me-nick-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.me-nick { font-size: 20px; font-weight: 800; color: var(--heading); margin: 0; }
+.me-nick-edit { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.me-nick-edit .form-input { flex: 1 1 140px; min-width: 0; margin-bottom: 0; }
+.me-email { font-size: 13px; color: var(--text-secondary); margin-top: 3px; word-break: break-all; }
+.me-since { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+
+.me-card-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; margin-left: auto; }
+
+/* 댓글·받은 추천 줄 — 글 목록(.disc-row)과 달리 본문이 주인공이라 2줄로 편다 */
+.me-row {
+  padding: 11px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+  transition: background var(--duration) var(--ease);
+}
+.me-row:last-child { border-bottom: none; }
+.me-row:hover { background: var(--bg); }
+.me-row-body {
+  margin: 0 0 4px; font-size: 13.5px; line-height: 1.5; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.me-row-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11.5px; color: var(--subtext);
+}
+/* 어느 글에 달았나 — 본문이 아니라 '어디'라서 색으로 눌러 둔다 */
+.me-row-where {
+  max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--link); font-weight: 600;
+}
+.me-row-likes { color: var(--danger); font-weight: 700; font-variant-numeric: tabular-nums; }
+.me-kind {
+  display: inline-block; margin-right: 6px; padding: 1px 6px;
+  border-radius: var(--radius-xs); font-size: 10.5px; font-weight: 800;
+  background: var(--border-light); color: var(--text-secondary);
+}
+.me-kind.post { background: var(--info-light); color: var(--info); }
+
+/* 칸이 넷이라 좁은 화면에서는 글자를 줄여야 한 줄에 들어간다 */
+@media (max-width: 768px) {
+  .me-tabs button { font-size: 12.5px; padding: 10px 4px; }
+}
+
+@media (max-width: 768px) {
+  .me-card { padding: 14px; gap: 12px; }
+  .me-card-actions { margin-left: 0; flex-direction: row; width: 100%; justify-content: flex-end; }
+  .me-nick { font-size: 18px; }
+}
+
+/* ── 액션 시트 (아이폰 하단 시트 · 2026-09-10) ────────────────
+   지금은 프로필 사진(카메라/앨범·사진 삭제)에만 쓴다.
+   폰에서는 아래에서 올라오고, 넓은 화면에서는 가운데 뜬다 — 넓은 화면에서 바닥에
+   붙여 두면 마우스가 화면 끝까지 내려가야 한다. */
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 10px;
+  animation: fadeIn 0.15s var(--ease);
+}
+.sheet {
+  width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; gap: 8px;
+  animation: sheetUp 0.18s var(--ease);
+}
+@keyframes sheetUp { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* 붙어 있는 항목들은 한 덩이, '취소'는 떼어 놓는다 — 취소가 실수로 눌리지 않게 */
+.sheet-group {
+  background: var(--card); border-radius: var(--radius-lg); overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.sheet-item {
+  display: block; width: 100%; padding: 16px 12px;
+  background: var(--card); border: none;
+  font-size: 15px; font-weight: 600; color: var(--link); text-align: center;
+  transition: background var(--duration) var(--ease);
+}
+.sheet-group .sheet-item + .sheet-item { border-top: 1px solid var(--border-light); }
+.sheet-item:hover { background: var(--bg); }
+.sheet-item.danger { color: var(--danger); }
+.sheet-cancel {
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  font-weight: 700;
+}
+
+@media (min-width: 769px) {
+  /* 넓은 화면에서는 가운데 */
+  .sheet-overlay { align-items: center; }
 }

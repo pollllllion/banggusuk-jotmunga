@@ -184,3 +184,13 @@ export function UserIcon({ size = 20 }: IconProps) {
     </svg>
   )
 }
+
+/** 프로필 사진 바꾸기 배지에 쓰는 카메라 */
+export function CameraIcon({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <path d="M3 8.5h3.2l1.5-2.2h8.6l1.5 2.2H21v10H3z"/>
+      <circle cx="12" cy="13.2" r="3.3"/>
+    </svg>
+  )
+}

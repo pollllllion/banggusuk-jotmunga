@@ -99,6 +99,8 @@ export function ContentDetailPage() {
     if (!user) return
     if (!isAccount) { toast('본 작품 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return }
     if (watchBusy) return
+    // 등록 취소는 내 피드에서 한 칸이 사라지는 일이다 — 본 연도 같은 기록도 같이 날아간다
+    if (watched && !confirm(`'${content.title}'을(를) 본 작품에서 뺄까요?`)) return
     setWatchBusy(true)
     try {
       if (watched) {
