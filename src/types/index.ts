@@ -1,3 +1,10 @@
+/** 내 토론 한 줄 — 내가 건 내 글 */
+export interface PinnedPost {
+  id: string
+  /** 남에게 보일지. false 면 나만 본다 */
+  public: boolean
+}
+
 // ── User ────────────────────────────────────────────────────
 export interface User {
   id: string
@@ -20,6 +27,14 @@ export interface User {
   notifyReply?: boolean
   /** 내 글·댓글이 추천되면 알림 */
   notifyLike?: boolean
+  // ── 내 피드 칸별 공개 여부 (migration_feed_privacy · 미적용이면 undefined = 공개) ──
+  /** 내가 매긴 별점을 남에게 보여줄지 */
+  showRatings?: boolean
+  /** 본 작품 목록을 남에게 보여줄지 */
+  showWatched?: boolean
+  /** 내 토론 — 내가 고른 내 글 모음. 차례가 곧 화면 차례다 (migration_pinned_posts).
+   *  글마다 공개/비공개가 따로 있다: 자랑할 글과 그냥 모아 둔 글이 한 칸에 섞이므로. */
+  pinnedPosts?: PinnedPost[]
   // ── 공개 취향 프로필 (다른 유저에게 공개 · 마이그레이션 후) ──
   /** 업로드한 프로필 사진 공개 URL. 없으면 빈 사람 실루엣 (migration_profile_avatar) */
   avatarUrl?: string | null

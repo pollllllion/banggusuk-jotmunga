@@ -46,6 +46,9 @@ function profileToUser(p: any, email: string): User {
     notifyLike: p.notifyLike,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
     avatarUrl: p.avatarUrl ?? null,
+    showRatings: p.showRatings, showWatched: p.showWatched,
+    // jsonb 라 그대로 배열로 온다. 마이그레이션 전이면 undefined → 빈 목록으로 본다
+    pinnedPosts: Array.isArray(p.pinnedPosts) ? p.pinnedPosts : [],
     tasteBio: p.tasteBio ?? null,
     favoriteWorks: p.favoriteWorks ?? [],
     favoriteGenres: p.favoriteGenres ?? [],
@@ -129,6 +132,10 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.notifyLike !== undefined) patch.notifyLike = updates.notifyLike
   // 공개 취향 프로필
   if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl
+  // 내 피드 칸별 공개 여부
+  if (updates.showRatings !== undefined) patch.showRatings = updates.showRatings
+  if (updates.showWatched !== undefined) patch.showWatched = updates.showWatched
+  if (updates.pinnedPosts !== undefined) patch.pinnedPosts = updates.pinnedPosts
   if (updates.tasteBio !== undefined) patch.tasteBio = updates.tasteBio
   if (updates.favoriteWorks !== undefined) patch.favoriteWorks = updates.favoriteWorks
   if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres

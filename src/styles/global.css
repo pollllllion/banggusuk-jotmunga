@@ -1093,7 +1093,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .taste-sec { margin-top: 12px; }
 .taste-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
-.taste-auto { font-size: 10px; font-weight: 700; color: var(--subtext); background: var(--border-light); border-radius: var(--radius-full); padding: 1px 6px; margin-left: 2px; }
+/* 칸 제목 옆 편집 — 제목 줄 오른쪽 끝으로 민다 */
+.taste-label { display: flex; align-items: center; }
+.taste-edit { margin-left: auto; }
 .taste-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .taste-chip {
   font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full);
@@ -1103,6 +1105,14 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .taste-chip.ghost b { color: var(--text-secondary); }
 .taste-chip.selectable { cursor: pointer; background: var(--bg); border: 1px solid var(--border); }
 .taste-chip.selectable.on, .taste-chip.on { background: var(--primary); color: #fff; cursor: pointer; }
+/* 빈 자리를 채우는 + — 안내 문장 대신 이것 하나가 무엇을 하면 되는지 말한다.
+   칩이 이미 있을 때도 줄 끝에 남아서 '더 넣기' 가 된다. */
+.taste-chip.add {
+  cursor: pointer; background: transparent; border: 1px dashed var(--border);
+  color: var(--subtext); font-weight: 700; line-height: 1;
+  padding: 4px 12px; transition: var(--duration) var(--ease);
+}
+.taste-chip.add:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
 .taste-works { display: flex; flex-wrap: wrap; gap: 10px; }
 .taste-work { width: 78px; cursor: pointer; position: relative; }
 .taste-work img { width: 100%; border-radius: var(--radius-sm); display: block; }
@@ -1634,3 +1644,214 @@ p.content-synopsis .sk-line { display: block; }
   /* 넓은 화면에서는 가운데 */
   .sheet-overlay { align-items: center; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   내 피드 (/feed) — 남에게 보이는 취향 전시 화면 (2026-09-10)
+   ──────────────────────────────────────────────────────────────
+   레벨 카드는 여기 없다. 닉네임 옆 아이콘 하나로 끝내고 자세한 건 '내 정보'(/me)에 있다 —
+   레벨은 내 진도지 남이 볼 정보가 아니다.
+   순서: 인생작품(히어로) → 프로필 → 취향 → 내 별점 → 최근 글 → 본 작품 전체.
+   ══════════════════════════════════════════════════════════════ */
+
+/* 인생작품이 배경이 된다. .main 의 좌우 여백을 뚫어 화면 끝까지 편다 */
+/* 배경은 토큰이 아니라 고정 먹색이다 — --heading 은 '글자색' 이라 다크 테마에서
+   밝게 뒤집히고, 그러면 히어로가 흰 판이 되어 라벨이 안 보인다. */
+.feed-hero {
+  background: #18181B; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 18px 16px 72px; margin-bottom: 0;
+}
+.feed-hero-label {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; font-weight: 800; color: var(--subtext);
+  letter-spacing: .04em; margin-bottom: 10px;
+}
+.feed-hero-edit {
+  font-size: 11.5px; font-weight: 600; color: #A1A1AA; background: none; padding: 0;
+  letter-spacing: 0; transition: color var(--duration) var(--ease);
+}
+.feed-hero-edit:hover { color: #E4E4E7; }
+/* 한 줄 소개 끝에 붙는 편집 — 글자와 같은 줄에 흘려 둔다(버튼이 문장을 밀어내지 않게) */
+.feed-bio-edit {
+  margin-left: 6px; padding: 0; background: none;
+  font-size: 11.5px; font-weight: 600; color: var(--subtext);
+  transition: color var(--duration) var(--ease);
+}
+.feed-bio-edit:hover { color: var(--text-secondary); }
+/* 포스터 자리는 높이를 못 박는다 — 폭에 맞춰 늘리면 키가 173px 까지 자라고,
+   비어 있을 때(글 두 줄 + 버튼)와 높이가 두 배 가까이 벌어져 등록 전후로 화면이 들썩인다.
+   폭이 아니라 **높이**에 맞춘다: 포스터는 2:3 을 지킨 채 이 키에 들어가고(잘리지 않는다)
+   남는 좌우는 가운데 정렬로 비운다. 꽉 채우자고 옆으로 늘리면 납작해진다. */
+.feed-hero-works, .feed-hero-empty { height: 160px; }
+/* 넘치면 가로로 민다. justify-content:center 는 넘칠 때 앞쪽을 잘라 먹으므로 쓰지 않고,
+   양 끝 아이템의 auto margin 으로 가운데를 잡는다 — 자리가 남을 때만 가운데로 모인다. */
+.feed-hero-works { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
+.feed-hero-works > :first-child { margin-left: auto; }
+.feed-hero-works > :last-child { margin-right: auto; }
+.feed-hero-work {
+  height: 100%; aspect-ratio: 2 / 3; flex-shrink: 0; overflow: hidden; border-radius: var(--radius-md);
+  cursor: pointer; transition: transform var(--duration) var(--ease);
+}
+.feed-hero-work:hover { transform: translateY(-3px); }
+.feed-hero-work .poster { aspect-ratio: auto; width: 100%; height: 100%; }
+/* 아직 안 고른 사람 — 빈 검은 판을 두는 대신 무엇을 하면 되는지 말한다 */
+.feed-hero-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 0 10px;
+}
+.feed-hero-empty p { font-size: 13.5px; color: #A1A1AA; margin: 0 0 12px; }
+
+/* 프로필 — 히어로 위로 걸친다 */
+/* 프로필은 가운데 정렬. 사진이 카드 위로 솟아 히어로에 걸치는데,
+   히어로 아래 여백(padding-bottom: 72px)이 그만큼 잡혀 있어 포스터를 가리지 않는다.
+   사진 꼭대기는 히어로 아래 끝에서 64px(= 카드 -30 + 사진 -34) 위 — 포스터 밑단보다 8px 아래다.
+   여백을 줄이려면 이 셈을 다시 해야 한다. */
+.feed-profile {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin: -30px 8px 16px; padding: 0 18px 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.feed-profile .avatar { margin-top: -34px; border: 3px solid var(--card); }
+.feed-profile-name { display: flex; align-items: center; gap: 6px; }
+.feed-profile-nick { font-size: 19px; font-weight: 800; color: var(--heading); }
+.feed-bio {
+  font-size: 14px; line-height: 1.6; color: var(--text); text-align: center;
+  margin: 0; text-wrap: pretty;
+}
+.feed-bio-add { font-size: 13px; color: var(--subtext); background: none; text-decoration: underline dotted; }
+.feed-bio-add:hover { color: var(--text-secondary); }
+/* 숫자 세 칸 — 세로선으로 나눈다 */
+.feed-stats {
+  display: flex; width: 100%; margin-top: 4px;
+  border-top: 1px solid var(--border-light); padding-top: 12px;
+}
+.feed-stats > div { flex: 1; text-align: center; }
+.feed-stats > div + div { border-left: 1px solid var(--border-light); }
+.feed-stats b { display: block; font-size: 17px; font-weight: 800; color: var(--heading); font-variant-numeric: tabular-nums; }
+.feed-stats span { font-size: 11px; color: var(--subtext); }
+
+/* 섹션 공통 */
+.feed-sec { margin-bottom: 20px; }
+.feed-sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.feed-sec-head h3 { font-size: 15px; font-weight: 800; color: var(--heading); margin: 0; }
+.feed-sec-note { font-size: 12px; color: var(--subtext); }
+.feed-sec-right { display: flex; align-items: center; gap: 8px; }
+
+/* 칸별 공개 스위치 — 내 피드에서만 보인다.
+   껐다 켜는 것이라 색이 아니라 글자로 상태를 말한다(색만으로는 어느 쪽이 켜짐인지 모른다). */
+.feed-public {
+  flex-shrink: 0; padding: 3px 9px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card); color: var(--subtext);
+  transition: var(--duration) var(--ease);
+}
+.feed-public:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.feed-public.on { background: var(--primary-50); border-color: var(--primary-light); color: var(--primary); }
+/* 공개 프로필에서 본인에게만 보이는 표시 */
+.feed-private {
+  flex-shrink: 0; padding: 3px 9px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 700; background: var(--border-light); color: var(--subtext);
+}
+
+/* 취향 — 칸마다 라벨 + 칩 */
+.feed-taste { margin-bottom: 20px; }
+.feed-taste-row { margin-bottom: 12px; }
+.feed-taste-row .taste-label { display: block; }
+
+/* 내가 매긴 별점 */
+.feed-ratings {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-xs);
+}
+.feed-rating {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer;
+  border-bottom: 1px solid var(--border-light); transition: background var(--duration) var(--ease);
+}
+.feed-rating:last-child { border-bottom: none; }
+.feed-rating:hover { background: var(--bg); }
+.feed-rating-poster { width: 34px; flex-shrink: 0; }
+.feed-rating-info { flex: 1; min-width: 0; }
+.feed-rating-title {
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.feed-rating-meta { font-size: 11px; color: var(--subtext); margin-top: 1px; }
+.feed-rating-score {
+  flex-shrink: 0; color: #fff; font-size: 12.5px; font-weight: 800;
+  border-radius: var(--radius-sm); padding: 3px 9px; font-variant-numeric: tabular-nums;
+}
+/* 별점이 아직 없을 때 — 목록 상자와 같은 틀을 쓰되 안내만 담는다 */
+.feed-ratings-empty { text-align: center; padding: 22px 16px; }
+.feed-ratings-empty p { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
+.feed-ratings-empty p.sub { margin-top: 4px; font-size: 12px; color: var(--subtext); }
+.feed-ratings-empty .btn { margin-top: 12px; }
+.feed-more {
+  display: block; width: 100%; margin-top: 8px; padding: 8px;
+  font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
+}
+.feed-more:hover { border-color: var(--text-secondary); color: var(--text); }
+
+/* 많이 본 장르 — 본 작품에서 세어 낸 값. 막대는 1위 대비 비율이다 */
+.feed-genres {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 14px 16px; box-shadow: var(--shadow-xs);
+  display: flex; flex-direction: column; gap: 9px;
+}
+.feed-genre { display: flex; align-items: center; gap: 10px; }
+.feed-genre-name { width: 56px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text); }
+.feed-genre-bar { flex: 1; height: 8px; background: var(--border-light); border-radius: var(--radius-full); overflow: hidden; }
+.feed-genre-bar > div { height: 100%; background: var(--text-secondary); border-radius: var(--radius-full); }
+.feed-genre-n {
+  width: 24px; flex-shrink: 0; text-align: right;
+  font-size: 12px; font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+}
+
+
+@media (max-width: 768px) {
+  /* 히어로는 화면 끝까지 (.main 의 좌우 padding 12px 을 뚫는다) */
+  .feed-hero { margin: -12px -12px 0; border-radius: 0; padding: 16px 14px 72px; }
+  .feed-profile { margin: -30px 0 16px; }
+}
+
+/* 본 작품 가로 줄 — 접혀 있을 때의 모습. 수백 편이 세로로 쏟아지지 않게 한 줄로 민다.
+   삭제·연도 수정 같은 관리는 '전체 보기'로 펼친 뒤에 한다(훑다가 손이 스쳐 지워지지 않게). */
+.feed-strip {
+  display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 4px;
+}
+.feed-strip-item {
+  width: 96px; flex-shrink: 0; cursor: pointer;
+  transition: transform var(--duration) var(--ease);
+}
+.feed-strip-item:hover { transform: translateY(-3px); }
+.feed-strip-title {
+  margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* 내 토론 — 내가 고른 내 글 한 줄.
+   글마다 공개/비공개가 따로 있다(자랑할 글과 혼자 볼 글이 한 칸에 섞이므로). */
+.feed-pin {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+  border-bottom: 1px solid var(--border-light);
+  transition: background var(--duration) var(--ease);
+}
+.feed-pin:last-child { border-bottom: none; }
+.feed-pin:hover { background: var(--bg); }
+.feed-pin-main { flex: 1; min-width: 0; cursor: pointer; }
+.feed-pin-title {
+  font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.feed-pin-meta {
+  display: flex; align-items: center; gap: 8px; margin-top: 3px;
+  font-size: 11.5px; color: var(--subtext);
+}
+.feed-pin-work { color: var(--link); font-weight: 600; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-pin-likes { color: var(--danger); font-weight: 700; }
+.feed-pin-x {
+  flex-shrink: 0; width: 24px; height: 24px; border-radius: var(--radius-sm);
+  color: var(--subtext); font-size: 13px; background: none;
+}
+.feed-pin-x:hover { background: var(--danger-light); color: var(--danger); }

@@ -29,7 +29,7 @@ type CommentSort = 'old' | 'new'
 export function DiscussionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { user, isAccount } = useAuthStore()
+  const { user, isAccount, updateProfile } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const openReportModal = useUIStore(s => s.openReportModal)
   const [, setTick] = useState(0)
@@ -125,6 +125,24 @@ export function DiscussionDetailPage() {
   const myIdx = siblings.findIndex(p => p.id === post.id)
   const prevPost = myIdx > 0 ? siblings[myIdx - 1] : undefined
   const nextPost = myIdx >= 0 && myIdx < siblings.length - 1 ? siblings[myIdx + 1] : undefined
+
+  /**
+   * 내 토론 — 내가 고른 내 글 모음(프로필의 pinnedPosts). 내 피드 맨 아래에 걸린다.
+   * 새로 걸면 기본은 비공개다 — 모아 두려고 건 글이 본인 모르게 남에게 뜨면 안 된다.
+   * 공개로 바꾸는 건 내 피드에서 한 줄씩 고른다.
+   */
+  const isMyPost = !!user && isAccount && !isGuest && user.id === post.authorId
+  const pinned = (user?.pinnedPosts ?? []).some(p => p.id === post.id)
+  const togglePin = async () => {
+    if (!user) return
+    const list = user.pinnedPosts ?? []
+    const next = pinned ? list.filter(p => p.id !== post.id) : [{ id: post.id, public: false }, ...list]
+    try {
+      await updateProfile({ pinnedPosts: next })
+      toast(pinned ? '내 토론에서 뺐어요.' : '내 토론에 저장했어요. (비공개로 담겼어요)')
+      rerender()
+    } catch { toast('처리하지 못했어요.') }
+  }
 
   const likePost = () => {
     if (!user) { toast('로그인 후 이용해주세요.'); return }
@@ -370,6 +388,11 @@ export function DiscussionDetailPage() {
             <div className="disc-menu-scrim" onClick={() => setMenuOpen(false)} />
             {/* 공유·신고는 본문 위 조회 줄에 늘 보이므로 여기 또 넣지 않는다 */}
             <div className="disc-menu" role="menu">
+              {isMyPost && (
+                <button className="disc-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); void togglePin() }}>
+                  {pinned ? '내 토론에서 빼기' : '내 토론에 저장'}
+                </button>
+              )}
               {canEdit && <button className="disc-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); void editPost() }}>수정</button>}
               {(canDeleteAccount || isGuest) && (
                 <button className="disc-menu-item danger" role="menuitem" onClick={() => { setMenuOpen(false); void removePost() }}>삭제</button>
@@ -405,6 +428,12 @@ export function DiscussionDetailPage() {
         {/* 수정·삭제만 여기 남는다(공유·신고는 아래 조회 줄로 갔다).
             좁은 화면에서는 이 줄을 접는다 — 같은 항목이 위 고정 헤더의 ⋮ 메뉴에 들어 있다 */}
         <span className="disc-detail-acts">
+          {/* 내 글만 — 남의 글을 내 피드에 걸 수는 없다(그건 '스크랩'이고 다른 기능이다) */}
+          {isMyPost && (
+            <button className="disc-del" onClick={togglePin} title="내 피드의 '내 토론' 칸에 걸어 둡니다">
+              {pinned ? '내 토론에서 빼기' : '내 토론에 저장'}
+            </button>
+          )}
           {canEdit && <button className="disc-del" onClick={editPost}>수정</button>}
           {(canDeleteAccount || isGuest) && <button className="disc-del" onClick={removePost}>삭제</button>}
         </span>

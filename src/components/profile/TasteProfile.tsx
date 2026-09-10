@@ -10,99 +10,23 @@ import type { Content, ContentType, User } from '@/types'
 import { clickable } from '@/utils/a11y'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
-/** 공개 취향 프로필 — 인생작품 / 선호 장르 / 좋아하는 감독 + 자동 파생(많이 본 장르).
- *  다른 유저에게 공개되어 "취향이 비슷한 사람"의 추천 신뢰도를 높이는 목적. */
-export function TasteProfile({ user, editable }: { user: User; editable: boolean }) {
-  const [editing, setEditing] = useState(false)
-
-  const works = (user.favoriteWorks ?? []).map(id => DS.getContentById(id)).filter((c): c is Content => Boolean(c))
-  const genres = user.favoriteGenres ?? []
-  const directors = user.favoriteDirectors ?? []
-  const bio = user.tasteBio?.trim()
-
-  // 자동 파생: 내가 본 작품에서 가장 많은 장르 top 3 (입력 없이 취향을 보여주는 신뢰 신호)
-  const topWatchedGenres = useMemo(() => {
-    const count = new Map<string, number>()
-    for (const w of DS.getUserWatched(user.id)) {
-      const c = DS.getContentById(w.contentId)
-      c?.genres?.forEach(g => count.set(g, (count.get(g) || 0) + 1))
-    }
-    return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-  }, [user.id])
-
-  const isEmpty = !bio && !works.length && !genres.length && !directors.length
-
-  return (
-    <div className="taste-card fade-in">
-      <div className="taste-head">
-        <h3>내 취향</h3>
-        {editable && <button className="btn-text btn-small" onClick={() => setEditing(true)}>{isEmpty ? '+ 등록' : '편집'}</button>}
-      </div>
-
-      {isEmpty ? (
-        <p className="taste-empty">
-          {editable
-            ? '인생작품·선호 장르·좋아하는 감독을 등록해보세요. 취향이 비슷한 사람들이 회원님의 추천을 더 신뢰하게 돼요.'
-            : '아직 등록한 취향이 없어요.'}
-        </p>
-      ) : (
-        <>
-          {bio && <p className="taste-bio">“{bio}”</p>}
-
-          {works.length > 0 && (
-            <section className="taste-sec">
-              <div className="taste-label">인생작품</div>
-              <div className="taste-works">
-                {works.map(c => <TasteWork key={c.id} content={c} />)}
-              </div>
-            </section>
-          )}
-
-          {genres.length > 0 && (
-            <section className="taste-sec">
-              <div className="taste-label">선호 장르</div>
-              <div className="taste-chips">{genres.map(g => <span key={g} className="taste-chip">{g}</span>)}</div>
-            </section>
-          )}
-
-          {directors.length > 0 && (
-            <section className="taste-sec">
-              <div className="taste-label">좋아하는 감독·작가</div>
-              <div className="taste-chips">{directors.map(d => <span key={d} className="taste-chip">{d}</span>)}</div>
-            </section>
-          )}
-        </>
-      )}
-
-      {topWatchedGenres.length > 0 && (
-        <section className="taste-sec">
-          <div className="taste-label">많이 본 장르 <span className="taste-auto">자동</span></div>
-          <div className="taste-chips">
-            {topWatchedGenres.map(([g, n]) => <span key={g} className="taste-chip ghost">{g} <b>{n}</b></span>)}
-          </div>
-        </section>
-      )}
-
-      {editing && <TasteEditModal user={user} onClose={() => setEditing(false)} />}
-    </div>
-  )
-}
-
-function TasteWork({ content }: { content: Content }) {
-  const navigate = useNavigate()
-  return (
-    <div className="taste-work" title={content.title} {...clickable(() => navigate(`/content/${content.id}`), content.title)}>
-      <Poster content={content} showScore={false} />
-      <div className="taste-work-title">{content.title}</div>
-      <div className="taste-work-type">{TYPE_LABELS[content.type]}</div>
-    </div>
-  )
-}
-
-const MAX_WORKS = 6
+/** 취향 편집 창. 보여주는 쪽은 components/profile/ProfileShowcase.tsx 가 맡는다 —
+ *  내 피드와 공개 프로필이 같은 화면을 쓰기 때문에 이 파일은 고치는 일만 한다. */
+const MAX_WORKS = 10
 const MAX_DIRECTORS = 8
 
-function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) {
+/** 편집 창은 칸마다 따로 뜬다. 화면에서 세 곳에 흩어져 있는 것을 한 창에 몰아 넣으면
+ *  취향 한 줄만 고치려 해도 인생작품 검색·장르 목록이 통째로 딸려 나온다. */
+export type TasteSection = 'works' | 'bio' | 'taste'
+
+const SECTION_META: Record<TasteSection, { title: string; sub: string }> = {
+  works: { title: '인생작품', sub: '내 피드 맨 위에 포스터로 걸립니다. 본 작품 전체가 아니라 인생작품만 골라주세요.' },
+  bio: { title: '취향 한 줄', sub: '프로필 아래 한 줄로 뜹니다. 장르·감독은 여기 적지 말고 취향 칸에 넣어주세요.' },
+  taste: { title: '취향', sub: '선호 장르와 좋아하는 감독·작가·배우. 고른 것만 내 피드에 뜹니다.' },
+}
+
+/** 취향 편집 창 — 한 번에 한 칸만 고친다(section). 내 피드·공개 프로필이 같이 쓴다. */
+export function TasteEditModal({ user, section, onClose }: { user: User; section: TasteSection; onClose: () => void }) {
   const updateProfile = useAuthStore(s => s.updateProfile)
   const toast = useToastStore(s => s.show)
 
@@ -177,16 +101,17 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
     setDirInput('')
   }
 
+  /** 지금 고치고 있는 칸만 저장한다 — 다른 칸까지 같이 덮어쓰면
+   *  두 창을 나란히 열어 둔 경우 나중에 닫는 쪽이 앞의 저장을 되돌린다. */
   const save = async () => {
     setSaving(true)
     try {
-      await updateProfile({
-        tasteBio: bio.trim() || null,
-        favoriteWorks: works,
-        favoriteGenres: genres,
-        favoriteDirectors: directors,
-      })
-      toast('취향을 저장했어요.')
+      await updateProfile(
+        section === 'works' ? { favoriteWorks: works }
+          : section === 'bio' ? { tasteBio: bio.trim() || null }
+            : { favoriteGenres: genres, favoriteDirectors: directors },
+      )
+      toast(`${SECTION_META[section].title}을(를) 저장했어요.`)
       onClose()
     } catch (e) {
       // 저장이 서버까지 못 갔다 — 창을 닫지 않는다(쓴 내용을 잃지 않게)
@@ -204,15 +129,18 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal taste-modal" style={{ maxWidth: 520, width: '94vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>내 취향 편집</h3>
-        <p className="taste-modal-sub">공개 프로필이에요. 취향이 비슷한 사람들이 회원님 평을 더 신뢰하게 됩니다.</p>
+        <h3>{SECTION_META[section].title}</h3>
+        <p className="taste-modal-sub">{SECTION_META[section].sub}</p>
 
+        {section === 'bio' && (
         <div className="form-group">
-          <label>취향 한 줄</label>
+          <label>취향 한 줄 <span className="opt">최대 60자</span></label>
           <input className="form-input" maxLength={60} value={bio} onChange={e => setBio(e.target.value)}
-            placeholder="예: 서사 탄탄한 느와르에 약합니다" />
+            autoFocus placeholder="예: 서사 탄탄한 느와르에 약합니다" />
         </div>
+        )}
 
+        {section === 'works' && (
         <div className="form-group">
           <label>인생작품 <span className="opt">최대 {MAX_WORKS}</span></label>
           {works.length > 0 && (
@@ -256,7 +184,12 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
             </>
           )}
         </div>
+        )}
 
+        {/* '취향' 창은 장르와 감독·작가·배우 둘을 함께 다룬다 — 둘 다 칩으로 고르는 같은 성격이고,
+            화면에서도 취향 한 칸에 나란히 뜬다. */}
+        {section === 'taste' && (
+        <>
         <div className="form-group">
           <label>선호 장르</label>
           <div className="taste-chips">
@@ -267,7 +200,7 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
         </div>
 
         <div className="form-group">
-          <label>좋아하는 감독·작가 <span className="opt">최대 {MAX_DIRECTORS}</span></label>
+          <label>좋아하는 감독·작가·배우 <span className="opt">최대 {MAX_DIRECTORS}</span></label>
           {directors.length > 0 && (
             <div className="taste-chips" style={{ marginBottom: 8 }}>
               {directors.map(d => (
@@ -278,10 +211,12 @@ function TasteEditModal({ user, onClose }: { user: User; onClose: () => void }) 
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="form-input" value={dirInput} onChange={e => setDirInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addDirector() } }}
-              placeholder="이름 입력 후 Enter (예: 봉준호)" />
+              placeholder="이름 입력 후 Enter (예: 봉준호 · 송강호)" />
             <button className="btn btn-secondary btn-small" onClick={addDirector}>추가</button>
           </div>
         </div>
+        </>
+        )}
 
         <div className="write-actions">
           <button className="btn btn-secondary" onClick={onClose}>취소</button>
