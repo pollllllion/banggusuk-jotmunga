@@ -1786,6 +1786,8 @@ p.content-synopsis .sk-line { display: block; }
 .feed-ratings-empty p { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
 .feed-ratings-empty p.sub { margin-top: 4px; font-size: 12px; color: var(--subtext); }
 .feed-ratings-empty .btn { margin-top: 12px; }
+/* 목록이 짧은 까닭 — 위 숫자와 안 맞아 보일 때만 뜬다 */
+.feed-ratings-note { margin: 8px 0 0; font-size: 12px; color: var(--subtext); text-align: center; }
 /* 본 작품 선반의 따라붙는 접기 알약 (components/profile/WatchedShelf.tsx)
    수백 편을 펼쳐 놓고 한참 내려간 자리에서도 한 번에 접을 수 있어야 한다.
    화면 아래 가운데 — 손이 닿는 자리이고, 위쪽 헤더·고정 바와 섞이지 않는다.

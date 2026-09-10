@@ -53,6 +53,14 @@ export function ProfileShowcase({ user, watched, editable }: {
   const favGenres = user.favoriteGenres ?? []
   const favDirectors = user.favoriteDirectors ?? []
 
+  /** 공개 여부. 마이그레이션 전(undefined)이면 공개로 본다.
+   *  남에게 감춰진 칸은 지우지 않고 '비공개' 라고 적는다 — 본인은 감춘 것도 봐야 관리할 수 있다. */
+  const ratingsPublic = user.showRatings !== false
+  const watchedPublic = user.showWatched !== false
+  const ratingsHidden = !ratingsPublic && !editable
+  /** 본 작품이 감춰진 상태 — '무엇을 봤나'(목록·장르)만 가린다. 편수·별점 수·평균은 그대로 둔다 */
+  const watchedHidden = !watchedPublic && !editable
+
   /**
    * 이 사람이 매긴 별점 — 두 군데서 온다. 1작품 1별점이라 작품당 한 줄이다.
    *   · 토론글에 단 별점 (글이 있으니 누르면 그 글로 간다)
@@ -72,6 +80,10 @@ export function ProfileShowcase({ user, watched, editable }: {
   const avgRating = ratings.length
     ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10
     : 0
+  // 본 작품을 비공개로 둔 사람의 목록 별점은 **줄로 보여주지 않는다** — 작품 이름이 곧 본 목록이다.
+  // 다만 위 ratings/avgRating(숫자)에는 그대로 남는다: 감추는 건 '무엇'이지 '얼마나'가 아니다.
+  const listRatings = watchedHidden ? ratings.filter(r => r.postId) : ratings
+  const hiddenRatings = ratings.length - listRatings.length
 
   /** 본 작품에서 세어 낸 장르 순위 — 입력 없이 나오는 취향 신호. 상위 4개만 */
   const genreRanks = (() => {
@@ -81,15 +93,6 @@ export function ProfileShowcase({ user, watched, editable }: {
     const max = top.length ? top[0][1] : 1
     return top.map(([genre, n]) => ({ genre, n, pct: Math.round((n / max) * 100) }))
   })()
-
-  /** 별점 공개 여부. 마이그레이션 전(undefined)이면 공개로 본다 */
-  const ratingsPublic = user.showRatings !== false
-  /** 본 작품이 비공개면 거기서 세어 낸 '많이 본 장르'도 감춘다 — 집계라도 같은 정보다 */
-  const watchedPublic = user.showWatched !== false
-  /** 남에게 감춰진 칸: 지우지 않고 '비공개' 라고 적는다. 본인은 감춘 것도 봐야 관리할 수 있다 */
-  const ratingsHidden = !ratingsPublic && !editable
-  /** 본 작품이 감춰졌으면 거기서 나온 값(장르·편수·목록 별점)을 통째로 감춘다 */
-  const watchedHidden = !watchedPublic && !editable
 
   const openTaste = (section: TasteSection) => setTasteOpen(section)
 
@@ -174,7 +177,7 @@ export function ProfileShowcase({ user, watched, editable }: {
           )
           : editable && <button className="feed-bio-add" onClick={() => openTaste('bio')}>취향 한 줄을 남겨보세요</button>}
         <div className="feed-stats">
-          <div title={watchedHidden ? '비공개' : undefined}><b>{watchedHidden ? '–' : watched.length}</b><span>본 작품</span></div>
+          <div><b>{watched.length}</b><span>본 작품</span></div>
           <div><b>{ratings.length}</b><span>별점</span></div>
           <div>
             <b style={ratings.length ? { color: scoreColor(avgRating) } : undefined}>{ratings.length ? avgRating.toFixed(1) : '-'}</b>
@@ -215,7 +218,7 @@ export function ProfileShowcase({ user, watched, editable }: {
           <div className="feed-sec-head">
             <h3>{editable ? '내가 매긴 별점' : '매긴 별점'}{!ratingsHidden && ratings.length > 0 && ` ${ratings.length}`}</h3>
             <span className="feed-sec-right">
-              {!ratingsHidden && ratings.length > 0 && <span className="feed-sec-note">높은 순</span>}
+              {!ratingsHidden && listRatings.length > 0 && <span className="feed-sec-note">높은 순</span>}
               {editable ? (
                 <button
                   className={`feed-public ${ratingsPublic ? 'on' : ''}`}
@@ -227,15 +230,15 @@ export function ProfileShowcase({ user, watched, editable }: {
           </div>
           {ratingsHidden ? (
             <FeedBlank>이 사람이 별점을 비공개로 뒀어요.</FeedBlank>
-          ) : !ratings.length ? (
+          ) : !listRatings.length ? (
             <div className="feed-ratings feed-ratings-empty">
-              <p>아직 매긴 별점이 없어요.</p>
+              <p>{hiddenRatings > 0 ? `본 작품을 비공개로 둬서 별점 ${hiddenRatings}개를 목록에서 감췄어요.` : '아직 매긴 별점이 없어요.'}</p>
               {editable && <p className="sub">본 작품 목록에서 <b>별점</b>을 누르거나, 작품에 글을 쓸 때 별점을 달면 여기에 모입니다.</p>}
             </div>
           ) : (
             <>
               <div className="feed-ratings">
-                {ratings.slice(0, shownRatings).map(({ key, postId, rating, content }) => (
+                {listRatings.slice(0, shownRatings).map(({ key, postId, rating, content }) => (
                   <div
                     key={key}
                     className="feed-rating"
@@ -250,9 +253,13 @@ export function ProfileShowcase({ user, watched, editable }: {
                   </div>
                 ))}
               </div>
-              {ratings.length > shownRatings && (
+              {/* 감춘 것이 있으면 왜 목록이 짧은지 말해 준다 — 위 숫자(별점 N)와 안 맞아 보이니까 */}
+              {hiddenRatings > 0 && (
+                <p className="feed-ratings-note">본 작품을 비공개로 둬서 {hiddenRatings}개는 목록에서 감췄어요.</p>
+              )}
+              {listRatings.length > shownRatings && (
                 <button className="feed-more" onClick={() => setShownRatings(n => n + RATINGS_STEP)}>
-                  {Math.min(RATINGS_STEP, ratings.length - shownRatings)}개 더 보기 (남은 {ratings.length - shownRatings})
+                  {Math.min(RATINGS_STEP, listRatings.length - shownRatings)}개 더 보기 (남은 {listRatings.length - shownRatings})
                 </button>
               )}
               {shownRatings > RATINGS_PREVIEW && (

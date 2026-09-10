@@ -109,8 +109,10 @@ export function UserProfilePage() {
       <Seo title={`${u.nickname} 님의 프로필`} noindex />
       <div className="back-btn" {...clickable(() => navigate(-1))}><BackIcon /> 뒤로</div>
 
-      {/* 본 작품이 비공개면 거기서 매긴 별점도 넘기지 않는다 — 별점 칸으로 새면 감춘 뜻이 없다 */}
-      <ProfileShowcase user={u} watched={watchedShown ? (watched ?? []) : []} editable={isMe} />
+      {/* 비공개여도 통째로 넘긴다 — 감추는 건 '무엇을 봤나'(목록·장르)지 '얼마나 봤나'가 아니다.
+          편수·별점 수·평균은 그대로 보여야 꾸준히 보고 있다는 것이 남에게 전해진다.
+          무엇을 감출지는 ProfileShowcase 가 showWatched 를 보고 정한다. */}
+      <ProfileShowcase user={u} watched={watched ?? []} editable={isMe} />
 
       {/* 본 작품 — 비어 있든 감춰져 있든 칸은 그린다.
           선반은 내 피드와 같은 것을 쓴다: 남의 목록도 전체 보기를 열면 별점순·추천작만·갈래로
