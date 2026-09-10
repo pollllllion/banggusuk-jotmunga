@@ -145,11 +145,12 @@ export async function uploadTalkMediaFromUrl(url: string): Promise<string> {
  */
 const AVATAR_PX = 256
 
-export async function uploadAvatar(input: File): Promise<string> {
+export async function uploadAvatar(input: File, opts?: { alreadySquare?: boolean }): Promise<string> {
   if (!input.type.startsWith('image/')) throw new Error('이미지 파일만 올릴 수 있어요.')
   if (input.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(input.size)}MB). ${MAX_MB}MB 이하로 올려주세요.`)
 
-  const file = await squareShrink(input)
+  // 자르기 창을 거쳐 온 그림은 이미 256px 정사각 webp 다 — 또 구우면 화질만 깎인다
+  const file = opts?.alreadySquare ? input : await squareShrink(input)
   const path = `avatars/${uuid()}.webp`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,

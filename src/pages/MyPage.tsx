@@ -8,6 +8,7 @@ import { LevelCard } from '@/components/profile/LevelCard'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { Seo } from '@/components/seo/Seo'
 import { uploadAvatar } from '@/utils/talkMedia'
+import { AvatarCropModal } from '@/components/profile/AvatarCropModal'
 import { fullDateTime } from '@/utils/helpers'
 import { SettingsIcon, CameraIcon } from '@/components/ui/Icons'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -49,6 +50,8 @@ export function MyPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   // 사진 배지를 누르면 열리는 시트 (카메라/앨범 · 사진 삭제 · 취소)
   const [sheetOpen, setSheetOpen] = useState(false)
+  /** 자르기 창에 올라가 있는 그림. 확인해야 올라간다 */
+  const [cropFile, setCropFile] = useState<File | null>(null)
   useEscapeKey(sheetOpen, () => setSheetOpen(false))
   // LevelCard 는 계산 결과를 기억한다 — 프로필을 고친 뒤 다시 세게 하려고 바꿔 준다
   const [tick, setTick] = useState(0)
@@ -101,14 +104,21 @@ export function MyPage() {
       .filter((r): r is Row => !!r),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 
-  /** 프로필 사진 올리기 — 고른 즉시 올리고 저장한다(따로 '저장' 을 누르게 하지 않는다) */
-  const pickAvatar = async (file: File | null | undefined) => {
+  /** 고른 그림은 바로 올리지 않고 자르기 창으로 넘긴다 — 어떻게 잘릴지 보고 정한다 */
+  const pickAvatar = (file: File | null | undefined) => {
     setSheetOpen(false)
     if (!file) return
     if (!isAccount) { toast('프로필 사진은 로그인(고정닉) 후 바꿀 수 있어요.'); return }
+    if (!file.type.startsWith('image/')) { toast('이미지 파일만 올릴 수 있어요.'); return }
+    setCropFile(file)
+  }
+
+  /** 자르기 창에서 확인한 그림을 올리고 저장한다 */
+  const saveAvatar = async (cropped: File) => {
+    setCropFile(null)
     setBusy(true)
     try {
-      const url = await uploadAvatar(file)
+      const url = await uploadAvatar(cropped, { alreadySquare: true })
       await updateProfile({ avatarUrl: url })
       toast('프로필 사진을 바꿨어요.')
     } catch (e: any) {
@@ -175,6 +185,10 @@ export function MyPage() {
         </div>
       )}
 
+      {cropFile && (
+        <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onDone={saveAvatar} />
+      )}
+
       {/* ── 프로필 ─────────────────────────────────────────── */}
       <div className="me-card fade-in">
         <div className="me-avatar">
@@ -188,7 +202,7 @@ export function MyPage() {
             </button>
           )}
           <input ref={fileRef} type="file" accept="image/*" hidden
-            onChange={e => { void pickAvatar(e.target.files?.[0]); e.target.value = '' }} />
+            onChange={e => { pickAvatar(e.target.files?.[0]); e.target.value = '' }} />
         </div>
 
         <div className="me-ident">

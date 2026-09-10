@@ -6,6 +6,7 @@ import { DiscussionRow, DiscussionRowHead } from '@/components/content/Discussio
 import { BOARDS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
+import { BoardTopbar } from '@/components/content/BoardTopbar'
 import '@/styles/discussion.css'
 
 /** 한 페이지에 보여줄 글 수 — 방구석토론방과 같게 */
@@ -49,9 +50,15 @@ export function FreeBoardPage() {
         title="자유방"
         description="작품 얘기가 아니어도 괜찮은 방구석좋문가 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳."
       />
+      {/* 자유방은 칸이 하나뿐이라 뛰어갈 곳이 없다 — 제목만 붙여 둔다 */}
+      <BoardTopbar
+        title={board ? board.label : '자유방'}
+        action={<button className="btn btn-primary btn-small" onClick={openWrite}>글쓰기</button>}
+      />
       <div className="feed-header">
         <h2 className="feed-title">{board ? board.label : '자유방'}</h2>
-        <button className="btn btn-primary btn-small" onClick={openWrite}>글쓰기</button>
+        {/* 좁은 화면에서는 고정 바에 같은 버튼이 있어 접는다(CSS) */}
+        <button className="btn btn-primary btn-small feed-header-write" onClick={openWrite}>글쓰기</button>
       </div>
 
       <div className="disc-searchbar">

@@ -1855,3 +1855,28 @@ p.content-synopsis .sk-line { display: block; }
   color: var(--subtext); font-size: 13px; background: none;
 }
 .feed-pin-x:hover { background: var(--danger-light); color: var(--danger); }
+
+/* ── 프로필 사진 자르기 창 ─────────────────────────────────
+   네모 안에서 자르지만 동그라미로 보여준다 — 결과가 동그라미라서.
+   그림은 절대 위치로 놓고 드래그로 좌표만 바꾼다(transform 을 쓰면 내보낼 때 셈이 두 벌이 된다). */
+.crop-modal { max-width: 340px; width: 94vw; text-align: center; }
+.crop-view {
+  position: relative; margin: 14px auto 0; overflow: hidden;
+  border-radius: var(--radius-md); background: var(--bg);
+  cursor: grab; touch-action: none; user-select: none;
+}
+.crop-view:active { cursor: grabbing; }
+.crop-view img { position: absolute; max-width: none; display: block; pointer-events: none; }
+/* 동그라미 밖을 덮는 가리개 — 잘려 나갈 부분을 흐리게 눌러 둔다 */
+.crop-ring {
+  position: absolute; inset: 0; pointer-events: none;
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 0 49.5%, #000 50%);
+  mask: radial-gradient(circle at 50% 50%, transparent 0 49.5%, #000 50%);
+}
+.crop-zoom {
+  display: flex; align-items: center; gap: 10px; margin: 14px 2px 4px;
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
+}
+.crop-zoom input { flex: 1; accent-color: var(--primary); }

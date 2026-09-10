@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
@@ -7,6 +7,7 @@ import { DiscussionRow, DiscussionRowHead } from '@/components/content/Discussio
 import { pickTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
+import { BoardTopbar } from '@/components/content/BoardTopbar'
 import '@/styles/discussion.css'
 
 /** 세부 탭 — 글의 작품 타입으로 필터 */
@@ -88,6 +89,25 @@ export function DiscussionRoomPage() {
     ? pickTrending(allRows, p => DS.countDiscussionComments(p.id), TRENDING_LIMIT)
     : []
 
+  /**
+   * 고정 머리에 지금 보고 있는 칸 이름을 띄운다.
+   * '전체 글' 머리가 고정 바(사이트 헤더 52 + 바 46 = 98px) 밑으로 들어가는 순간 바뀐다 —
+   * 화면 한가운데를 기준으로 삼으면 두 칸 경계에서 이름이 깜빡인다.
+   * 뜨는 글 칸이 없을 땐 칸이 하나뿐이라 이름을 아예 안 띄운다.
+   */
+  const trendingRef = useRef<HTMLElement>(null)
+  const allRef = useRef<HTMLElement>(null)
+  const [atAll, setAtAll] = useState(false)
+  useEffect(() => {
+    const onScroll = () => {
+      const top = allRef.current?.getBoundingClientRect().top
+      setAtAll(top != null && top <= 98)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const openWrite = () => {
     if (!user) { toast('로그인 후 이용해주세요.'); return }
     navigate('/talk/write')
@@ -100,13 +120,21 @@ export function DiscussionRoomPage() {
         title="방구석토론방"
         description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방."
       />
+      {/* 좁은 화면에서 스크롤해도 위에 붙는 머리 — 어느 게시판인지, 어느 칸으로 갈지 */}
+      <BoardTopbar
+        title="방구석토론방"
+        section={trending.length > 0 ? (atAll ? '전체 글' : '지금 뜨는 글') : undefined}
+        action={<button className="btn btn-primary btn-small" onClick={openWrite}>토론하기</button>}
+      />
       <div className="feed-header">
         <h2 className="feed-title">방구석토론방</h2>
-        <button className="btn btn-primary btn-small" onClick={openWrite}>토론하기</button>
+        {/* 좁은 화면에서는 고정 바에 같은 버튼이 있어 접는다(CSS). 넓은 화면에는 고정 바가
+            없으므로 여기가 유일한 진입점이다 — 지우면 데스크톱에서 글을 못 쓴다. */}
+        <button className="btn btn-primary btn-small feed-header-write" onClick={openWrite}>토론하기</button>
       </div>
 
       {trending.length > 0 && (
-        <section className="disc-trending fade-in">
+        <section className="disc-trending fade-in" ref={trendingRef}>
           <h3 className="disc-trending-head">지금 뜨는 글</h3>
           {/* 아래 '전체 글'과 같은 생김새를 쓴다. 무엇이 뜨는 글인지는 섹션 제목이 말해 주므로
               순위 숫자는 달지 않는다 — 댓글 수로 뽑은 차례라 1위·2위의 차이가 크지도 않다. */}
@@ -144,7 +172,7 @@ export function DiscussionRoomPage() {
           {!query && <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={openWrite}>토론하기</button>}
         </div>
       ) : (
-        <section className="disc-all">
+        <section className="disc-all" ref={allRef}>
           <h3 className="disc-trending-head">전체 글</h3>
           <div className="disc-board fade-in">
             <DiscussionRowHead showContent />

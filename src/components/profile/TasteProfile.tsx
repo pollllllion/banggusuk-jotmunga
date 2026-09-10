@@ -13,7 +13,7 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 /** 취향 편집 창. 보여주는 쪽은 components/profile/ProfileShowcase.tsx 가 맡는다 —
  *  내 피드와 공개 프로필이 같은 화면을 쓰기 때문에 이 파일은 고치는 일만 한다. */
 const MAX_WORKS = 10
-const MAX_DIRECTORS = 8
+const MAX_DIRECTORS = 20
 
 /** 편집 창은 칸마다 따로 뜬다. 화면에서 세 곳에 흩어져 있는 것을 한 창에 몰아 넣으면
  *  취향 한 줄만 고치려 해도 인생작품 검색·장르 목록이 통째로 딸려 나온다. */

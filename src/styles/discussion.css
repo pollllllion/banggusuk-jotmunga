@@ -644,3 +644,34 @@
   /* 공감 버튼은 넓은 화면과 같은 알약 크기를 쓴다. 한때 가로로 크게 폈다가 되돌렸다 —
      본문을 다 읽고 댓글로 넘어가는 길목에 큰 덩어리가 있으면 그게 화면을 끊는다. */
 }
+
+/* ── 게시판 목록 고정 머리 (좁은 화면) ─────────────────────
+   글 상세의 고정 헤더(.disc-topbar)와 같은 자리·같은 키. 목록을 한참 내리다 보면
+   여기가 어느 게시판인지, 지금 보는 게 뜨는 글인지 전체 글인지 잊는다.
+   sticky 가 아니라 fixed 인 이유는 .disc-topbar 와 같다 — .main 의 overflow-x:hidden. */
+.board-topbar, .board-topbar-gap { display: none; }
+
+@media (max-width: 768px) {
+  .board-topbar {
+    display: flex; align-items: center; gap: 8px;
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 90;
+    padding: 0 14px; height: 46px; background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .board-topbar-title {
+    flex: 0 0 auto; font-size: 14.5px; font-weight: 800; color: var(--text);
+    white-space: nowrap;
+  }
+  /* 게시판 이름 · 지금 보는 칸 */
+  .board-topbar-sep { flex-shrink: 0; color: var(--border); font-size: 12px; }
+  .board-topbar-section {
+    min-width: 0; font-size: 13px; font-weight: 700; color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 오른쪽 버튼 — 목록을 어디까지 내렸든 글은 쓸 수 있어야 한다 */
+  .board-topbar-action { margin-left: auto; flex-shrink: 0; }
+  /* 고정이라 자리를 안 차지한다 — 그만큼 밀어 준다 */
+  .board-topbar-gap { display: block; height: 46px; margin-top: -12px; }
+  /* 목록 머리의 글쓰기 버튼 — 고정 바에 같은 것이 있어 여기서는 접는다 */
+  .feed-header-write { display: none; }
+}
