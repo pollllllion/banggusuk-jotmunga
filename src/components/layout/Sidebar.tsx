@@ -64,8 +64,12 @@ export function Sidebar() {
 
       <div className="sidebar-divider" />
       <div className="sidebar-title">내 활동</div>
-      <div className="sidebar-item" {...clickable(() => navigate('/feed'))}>
+      <div className={`sidebar-item ${isActive('/feed') ? 'active' : ''}`} {...clickable(() => navigate('/feed'))}>
         내 피드
+      </div>
+      {/* 관심 등록한 사람들의 새 글·별점 모아보기 — 내 피드 바로 아래(둘 다 '피드'다) */}
+      <div className={`sidebar-item ${isActive('/follows') ? 'active' : ''}`} {...clickable(() => navigate('/follows'))}>
+        관심 피드
       </div>
     </nav>
   )

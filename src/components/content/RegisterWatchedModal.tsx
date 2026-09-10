@@ -11,7 +11,7 @@ import { clickable } from '@/utils/a11y'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /**
- * 본 작품 등록 모달.
+ * 본 작품 · 찜한 작품 등록 모달 (mode 로 가른다).
  *
  * ★ 2026-08-19 — 카테고리 선택 단계를 없앴다 ★
  * 예전엔 영화/드라마/예능/웹툰/웹소설을 먼저 고르게 했다. 그 단계가 하던 일은 셋이었는데
@@ -33,15 +33,25 @@ const MANUAL_TYPES: ContentType[] = ['webtoon', 'webnovel']
 /** 공백·문장부호 무시한 느슨한 정규화 (한글/영문/숫자만) — 수기작품 중복 매칭용 */
 const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()
 
-export function RegisterWatchedModal({ onClose, onRegistered }: {
+/**
+ * 이 창은 '본 작품' 과 '찜' 둘 다 등록한다 — 하는 일이 똑같기 때문이다:
+ * 작품을 찾아 내 목록에 건다. 다른 건 어느 목록에 거느냐뿐이라 mode 로 가른다.
+ * (검색·수기 등록·중복 연결 로직을 두 벌로 두면 한쪽만 고쳐지는 날이 온다)
+ */
+export type RegisterMode = 'watched' | 'bookmark'
+
+const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품' }
+
+export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }: {
   onClose: () => void
   onRegistered: (c: Content) => void
+  /** 어느 목록에 걸까. 기본은 본 작품 */
+  mode?: RegisterMode
 }) {
+  const label = MODE_LABEL[mode]
   const { user, isAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
 
-  // 실제로 본 연도 (기본값 = 올해, "기억 안 남"이면 null)
-  const [watchedYear, setWatchedYear] = useState<number | null>(new Date().getFullYear())
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<TmdbResult[]>([])
   const [searched, setSearched] = useState(false)
@@ -85,12 +95,24 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
   }, [query])
 
   const register = async (input: DS.RegisterWatchedInput) => {
-    if (!user || !isAccount) { toast('본 작품 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return }
-    if (DS.isWatched(user.id, input.contentId)) { toast('이미 등록한 작품이에요.'); return }
+    if (!user || !isAccount) { toast(`${label} 등록은 로그인(고정닉) 후 이용할 수 있어요.`); return }
+    const already = mode === 'watched'
+      ? DS.isWatched(user.id, input.contentId)
+      : DS.isBookmarked(user.id, input.contentId)
+    if (already) { toast(mode === 'watched' ? '이미 등록한 작품이에요.' : '이미 찜한 작품이에요.'); return }
     setSaving(true)
     try {
-      const content = await DS.registerWatched(input)
-      toast(`'${content.title}' 등록 완료!`)
+      // 찜은 작품 행만 있으면 된다 — 없으면 만들고(ensureContent) 찜 링크를 건다.
+      // 본 작품은 registerWatched 가 그 둘을 한 번에 한다.
+      const content = mode === 'watched'
+        ? await DS.registerWatched(input)
+        : await DS.ensureContent({
+          contentId: input.contentId, type: input.type, title: input.title,
+          posterUrl: input.posterUrl, releaseYear: input.releaseYear,
+          synopsis: input.synopsis, platform: input.platform,
+        })
+      if (mode === 'bookmark') DS.toggleBookmark(user.id, content.id)
+      toast(`'${content.title}' ${mode === 'watched' ? '등록' : '찜'} 완료!`)
       onRegistered(content)
       onClose()
     } catch (e: any) {
@@ -110,7 +132,6 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
       releaseYear: r.year,
       synopsis: r.overview,
       platform: type === 'movie' ? '극장' : 'TV/OTT',
-      watchedYear,
     })
   }
 
@@ -122,7 +143,6 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
       title: title.trim(),
       posterUrl: posterUrl.trim() || null,
       platform: platform.trim() || null,
-      watchedYear,
     })
   }
 
@@ -160,25 +180,8 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
       posterUrl: c.posterUrl,
       platform: c.platform,
       releaseYear: c.releaseYear,
-      watchedYear,
     })
   }
-
-  // 본 연도 선택 UI (올해 ~ 1970, + "기억 안 남")
-  const YEARS = Array.from({ length: new Date().getFullYear() - 1969 }, (_, i) => new Date().getFullYear() - i)
-  const watchedYearRow = (
-    <label className="watched-year-field">
-      <span>언제 봤어요?</span>
-      <select
-        className="form-input"
-        value={watchedYear ?? ''}
-        onChange={e => setWatchedYear(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">선택 안 함 (기억 안 남)</option>
-        {YEARS.map(y => <option key={y} value={y}>{y}년</option>)}
-      </select>
-    </label>
-  )
 
   /** 영화/드라마/예능 배지. tv 결과는 눌러서 드라마↔예능을 바로 고칠 수 있다. */
   const typeBadge = (r: TmdbResult) => {
@@ -202,12 +205,11 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal" style={{ maxWidth: 460, width: '92vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>본 작품 등록</h3>
+        <h3>{label} 등록</h3>
 
         {/* 검색으로 등록 (기본) */}
         {!manual && (
           <>
-            {watchedYearRow}
             <input
               className="form-input" autoFocus placeholder="제목으로 검색 (영화·드라마·예능·웹툰·웹소설)"
               value={query}
@@ -269,7 +271,6 @@ export function RegisterWatchedModal({ onClose, onRegistered }: {
         {manual && (
           <>
             <button className="btn-text btn-small" onClick={() => setManual(false)} style={{ marginBottom: 8 }}>‹ 검색으로 돌아가기</button>
-            {watchedYearRow}
             <div className="cat-chips">
               {CONTENT_TYPES.filter(t => MANUAL_TYPES.includes(t.code)).map(t => (
                 <button

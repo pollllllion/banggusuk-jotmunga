@@ -142,7 +142,7 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
 
         {section === 'works' && (
         <div className="form-group">
-          <label>인생작품 <span className="opt">최대 {MAX_WORKS}</span></label>
+          <label>{SECTION_META[section].title} <span className="opt">최대 {MAX_WORKS}</span></label>
           {works.length > 0 && (
             <div className="taste-works edit">
               {works.map(id => {

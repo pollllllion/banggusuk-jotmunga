@@ -31,6 +31,20 @@ export function getUserBookmarks(userId: string): Bookmark[] {
   return getBookmarks().filter(b => b.userId === userId)
 }
 
+/**
+ * 남의 '찜한 작품'을 서버에서 직접 받아온다 (프로필 화면용).
+ * 캐시(cache.bookmarks)에는 **내 행만** 들어 있다 — fetchUserWatched 와 같은 이유다.
+ *
+ * ⚠️ bookmarks 의 select 정책이 "본인만"이면 남의 것은 **빈 배열**로 돌아온다.
+ *    공개하려면 migration_bookmarks_public.sql 을 적용해야 한다.
+ *    적용 전에도 오류 없이 그냥 안 보일 뿐이다.
+ */
+export async function fetchUserBookmarks(userId: string): Promise<Bookmark[]> {
+  const { data, error } = await supabase.from('bookmarks').select('*').eq('userId', userId)
+  if (error) { console.error('[fetchUserBookmarks]', error.message); return [] }
+  return (data || []) as Bookmark[]
+}
+
 // ── ContentAlert (공개알림) ─────────────────────────────────
 // 찜과 별개다. 찜해도 알림은 안 가고, 여기 행이 있는 작품만 공개일에 푸시된다.
 // 브라우저 푸시 구독(push_subscriptions)은 이것과 또 별개 — 둘 다 있어야 실제로 온다.
@@ -140,6 +154,18 @@ export async function updateWatchedYear(userId: string, contentId: string, year:
   )
   try { await supabase.from('watched').update({ watchedYear: year }).eq('userId', userId).eq('contentId', contentId) }
   catch (e) { console.error('[updateWatchedYear]', e) }
+}
+
+/**
+ * 본 작품 별점 — 글 없이 목록에서 바로 매긴다(migration_watched_rating).
+ * 저장 뒤 그 작품 평점을 다시 센다: 서버는 트리거가, 화면은 캐시가 맡는다.
+ */
+export async function updateWatchedRating(userId: string, contentId: string, rating: number | null): Promise<void> {
+  cache.watched = cache.watched.map((w: any) =>
+    w.userId === userId && w.contentId === contentId ? { ...w, rating } : w
+  )
+  try { await supabase.from('watched').update({ rating }).eq('userId', userId).eq('contentId', contentId) }
+  catch (e) { console.error('[updateWatchedRating]', e) }
 }
 
 // ── Blocks ──────────────────────────────────────────────────

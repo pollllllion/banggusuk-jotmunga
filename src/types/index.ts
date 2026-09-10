@@ -32,6 +32,8 @@ export interface User {
   showRatings?: boolean
   /** 본 작품 목록을 남에게 보여줄지 */
   showWatched?: boolean
+  /** 찜한 작품 목록을 남에게 보여줄지 (migration_bookmarks_public) */
+  showBookmarks?: boolean
   /** 내 토론 — 내가 고른 내 글 모음. 차례가 곧 화면 차례다 (migration_pinned_posts).
    *  글마다 공개/비공개가 따로 있다: 자랑할 글과 그냥 모아 둔 글이 한 칸에 섞이므로. */
   pinnedPosts?: PinnedPost[]
@@ -40,6 +42,10 @@ export interface User {
   avatarUrl?: string | null
   tasteBio?: string | null        // 취향 한 줄 소개
   favoriteWorks?: string[]        // 인생작품 (content id 목록)
+  /** 내가 손으로 고른 추천작 — 남에게 "이건 봐라" 하는 목록 (migration_recommend_follow) */
+  recommendedWorks?: string[]
+  /** 관심 등록한 사람들 (profile id). 관심 피드가 이 사람들의 별점·새 글을 모은다 */
+  follows?: string[]
   favoriteGenres?: string[]       // 선호 장르
   favoriteDirectors?: string[]    // 좋아하는 감독/작가
 }
@@ -265,6 +271,9 @@ export interface Watched {
   createdAt: string
   /** 실제로 이 작품을 본 연도 (사용자 입력, 모르면 null) */
   watchedYear: number | null
+  /** 글 없이 목록에서 바로 매긴 별점 1~10 (migration_watched_rating · 안 매겼으면 null).
+   *  작품 평점에도 들어간다 — 다만 같은 사람의 토론글 별점이 있으면 그쪽이 우선이다. */
+  rating?: number | null
 }
 
 // ── Announcement ────────────────────────────────────────────

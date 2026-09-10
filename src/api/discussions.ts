@@ -35,14 +35,26 @@ export function getUserRatingForContent(userId: string, contentId: string): Disc
   return getDiscussions().find(d => d.authorId === userId && d.contentId === contentId && d.rating != null)
 }
 
-/** 평점 재집계 — 별점 단 토론글에서 집계한다. 캐시만 갱신(즉시 표시용).
- *  avgRating = 별점 평균, reviewCount = 별점 단 글 수. (DB 는 트리거가 맞춘다)
- *  자유방 글은 작품이 없어 null 이 들어온다 — DB 쪽 함수와 마찬가지로 조용히 넘긴다. */
+/**
+ * 평점 재집계 — 캐시만 갱신(즉시 표시용). DB 는 트리거가 같은 규칙으로 맞춘다
+ * (supabase/migration_watched_rating.sql 의 recompute_content_rating).
+ *
+ * 재료는 둘이다: **별점 단 토론글** + **본 작품에서 바로 매긴 별점**.
+ * 같은 사람이 둘 다 가지고 있으면 토론글 쪽만 센다 — 글로 남긴 평가가 더 무겁고
+ * 1작품 1별점 규칙과도 맞는다. 유동닉 글의 별점은 묶을 상대가 없어 그대로 센다.
+ *
+ * 자유방 글은 작품이 없어 null 이 들어온다 — DB 쪽 함수와 마찬가지로 조용히 넘긴다.
+ */
 export function recomputeContentRating(contentId: string | null | undefined) {
   if (!contentId) return
   const rated = getDiscussions().filter(d => d.contentId === contentId && d.rating != null)
-  const count = rated.length
-  const avg = count ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / count) * 10) / 10 : 0
+  const ratedAuthors = new Set(rated.map(d => d.authorId).filter(Boolean))
+  const fromWatched = (cache.watched as any[])
+    .filter(w => w.contentId === contentId && w.rating != null && !ratedAuthors.has(w.userId))
+    .map(w => w.rating as number)
+  const scores = [...rated.map(d => d.rating || 0), ...fromWatched]
+  const count = scores.length
+  const avg = count ? Math.round((scores.reduce((s, r) => s + r, 0) / count) * 10) / 10 : 0
   const idx = cache.contents.findIndex((c: any) => c.id === contentId)
   if (idx >= 0) {
     const next = [...cache.contents]

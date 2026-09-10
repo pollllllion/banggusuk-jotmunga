@@ -514,7 +514,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .feed-summary { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--subtext); font-size: 13px; margin: 2px 0 14px; }
 .feed-summary b { color: var(--text); font-size: 15px; }
 .feed-quicklinks { display: flex; gap: 8px; margin-left: auto; }
-/* 묶는 기준 토글 (작품 연도별 / 본 연도별) */
+/* 줄 세우기 줄 — 왼쪽 토글(작품 연도별 / 별점순) + 오른쪽 '추천작만' 거르개 */
+.feed-sortrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.feed-sortrow .feed-groupmode { margin-bottom: 0; }
+/* 묶는 기준 토글 (작품 연도별 / 별점순) */
 .feed-groupmode { display: inline-flex; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius-full); overflow: hidden; }
 .feed-groupmode button {
   padding: 6px 14px; font-size: 13px; font-weight: 700; border: none; cursor: pointer;
@@ -539,16 +542,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .feed-year-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border-light); }
 .feed-year-label { font-size: 16px; font-weight: 800; color: var(--heading); }
 .feed-year-count { font-size: 13px; font-weight: 600; color: var(--primary); }
-.feed-year-sub { font-size: 12px; color: var(--subtext); }
-
-/* 카드 하단 시청 연도 태그 (클릭 시 수정) */
-.watched-year-tag {
-  margin-top: 4px; padding: 2px 8px; border-radius: var(--radius-full);
-  font-size: 11px; font-weight: 700; cursor: pointer;
-  border: 1px solid var(--border); background: var(--bg-soft, var(--card)); color: var(--subtext);
-  transition: var(--duration) var(--ease); align-self: flex-start;
-}
-.watched-year-tag:hover { border-color: var(--primary); color: var(--primary); }
 
 .watched-card { position: relative; }
 .watched-card .watched-remove {
@@ -585,11 +578,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* 관리자 등록폼 — 중복 작품 경고 */
 .dup-warn { margin: -4px 0 12px; padding: 8px 10px; border-radius: var(--radius); font-size: 12px; line-height: 1.5; color: var(--danger); border: 1px solid var(--danger); }
-
-/* 등록 모달 — "언제 봤어요?" 연도 선택 */
-.watched-year-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-.watched-year-field > span { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
-.watched-year-field select { flex: 1; }
 
 /* 등록 모달 — 수기작품 중복 후보 (기존 작품에 연결) */
 .manual-suggest { border: 1px dashed var(--border); border-radius: var(--radius); padding: 8px 10px; background: var(--bg-soft, var(--card)); }
@@ -849,6 +837,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .header-write { display: none; }
 
   .main { margin-left: 0; padding: 12px; max-width: 100%; width: 100%; overflow-x: hidden; }
+
 
   /* 작품 액션 — 알약들이 줄바꿈되며 자리가 들쭉날쭉하던 것을 격자로 잡는다.
      아이콘 위·글자 아래로 폭을 균등 분할 — 폭이 같아야 손이 자리를 외운다. */
@@ -1113,6 +1102,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   padding: 4px 12px; transition: var(--duration) var(--ease);
 }
 .taste-chip.add:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+/* 남의 프로필에서 아직 안 채운 칸 — ＋ 자리에 대신 들어가는 한 마디 */
+.taste-blank { font-size: 12px; color: var(--subtext); align-self: center; }
 .taste-works { display: flex; flex-wrap: wrap; gap: 10px; }
 .taste-work { width: 78px; cursor: pointer; position: relative; }
 .taste-work img { width: 100%; border-radius: var(--radius-sm); display: block; }
@@ -1685,6 +1676,16 @@ p.content-synopsis .sk-line { display: block; }
 /* 넘치면 가로로 민다. justify-content:center 는 넘칠 때 앞쪽을 잘라 먹으므로 쓰지 않고,
    양 끝 아이템의 auto margin 으로 가운데를 잡는다 — 자리가 남을 때만 가운데로 모인다. */
 .feed-hero-works { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
+/* 가로 줄 스크롤바 — 기본 두께는 포스터 아래를 두껍게 가른다. 있는 줄만 알면 되니 얇게. */
+.feed-hero-works, .feed-strip { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.feed-hero-works::-webkit-scrollbar, .feed-strip::-webkit-scrollbar { height: 4px; }
+.feed-hero-works::-webkit-scrollbar-track, .feed-strip::-webkit-scrollbar-track { background: transparent; }
+.feed-hero-works::-webkit-scrollbar-thumb, .feed-strip::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 2px;
+}
+.feed-hero-works:hover::-webkit-scrollbar-thumb, .feed-strip:hover::-webkit-scrollbar-thumb {
+  background: var(--text-secondary);
+}
 .feed-hero-works > :first-child { margin-left: auto; }
 .feed-hero-works > :last-child { margin-right: auto; }
 .feed-hero-work {
@@ -1785,6 +1786,51 @@ p.content-synopsis .sk-line { display: block; }
 .feed-ratings-empty p { margin: 0; font-size: 13.5px; color: var(--text-secondary); }
 .feed-ratings-empty p.sub { margin-top: 4px; font-size: 12px; color: var(--subtext); }
 .feed-ratings-empty .btn { margin-top: 12px; }
+/* 본 작품 선반의 따라붙는 접기 알약 (components/profile/WatchedShelf.tsx)
+   수백 편을 펼쳐 놓고 한참 내려간 자리에서도 한 번에 접을 수 있어야 한다.
+   화면 아래 가운데 — 손이 닿는 자리이고, 위쪽 헤더·고정 바와 섞이지 않는다.
+   dock 은 자리만 잡고(클릭을 통과시킨다) 알약만 눌린다. */
+.shelf-dock {
+  position: fixed; left: 240px; right: 0; bottom: 24px; z-index: 90;
+  display: flex; justify-content: center; pointer-events: none;
+}
+.shelf-bar {
+  pointer-events: auto;
+  display: inline-flex; align-items: center; gap: 10px;
+  max-width: min(92vw, 520px);
+  padding: 7px 7px 7px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-full); box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.15s var(--ease);
+}
+.shelf-bar-title { flex: 0 0 auto; font-size: 13.5px; font-weight: 800; color: var(--text); white-space: nowrap; }
+.shelf-bar-note {
+  min-width: 0; font-size: 12px; font-weight: 700; color: var(--subtext);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.shelf-bar-close {
+  flex-shrink: 0;
+  padding: 6px 14px; border-radius: var(--radius-full);
+  font-size: 12.5px; font-weight: 800; color: #fff;
+  background: var(--primary); border: none; cursor: pointer;
+  transition: var(--duration) var(--ease);
+}
+.shelf-bar-close:hover { background: var(--primary-dark); }
+/* 좁은 화면 — 사이드바가 없고, 하단 탭바(.mobile-nav) 위로 띄운다.
+   이 블록은 반드시 위 기본 규칙 **뒤**에 있어야 한다(같은 명시도라 순서로 이긴다). */
+@media (max-width: 768px) {
+  .shelf-dock { left: 0; bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .shelf-bar { max-width: 94vw; }
+}
+
+/* 비어 있거나 감춰진 칸의 자리표 (components/profile/FeedBlank.tsx)
+   — 칸을 지우지 않는 이유는 그 파일 주석에 적어 뒀다 */
+.feed-blank {
+  text-align: center; padding: 18px 16px;
+  border: 1px dashed var(--border); border-radius: var(--radius-md); background: var(--card);
+}
+.feed-blank p { margin: 0; font-size: 13px; color: var(--subtext); }
+
 .feed-more {
   display: block; width: 100%; margin-top: 8px; padding: 8px;
   font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
@@ -1880,3 +1926,92 @@ p.content-synopsis .sk-line { display: block; }
   font-size: 12px; font-weight: 700; color: var(--text-secondary);
 }
 .crop-zoom input { flex: 1; accent-color: var(--primary); }
+
+/* ── 관심 (팔로우) ─────────────────────────────────────────
+   등록은 남의 프로필에서, 보는 건 관심 피드에서. 알림은 없다 —
+   남의 별점마다 알림이 오면 사람들은 알림 자체를 끈다. */
+.feed-follow {
+  margin-top: 2px; padding: 6px 16px; border-radius: var(--radius-full);
+  font-size: 12.5px; font-weight: 700; cursor: pointer;
+  background: var(--emphasis); color: var(--on-emphasis); border: 1px solid var(--emphasis);
+  transition: var(--duration) var(--ease);
+}
+.feed-follow:hover:not(:disabled) { opacity: .88; }
+.feed-follow:disabled { opacity: .5; cursor: default; }
+/* 이미 담은 상태 — 눌러서 뺄 수 있다는 걸 '빈 버튼'으로 말한다 */
+.feed-follow.on { background: transparent; color: var(--text-secondary); border-color: var(--border); }
+
+/* 관심 등록한 사람들 줄 */
+.follow-people {
+  display: flex; gap: 14px; overflow-x: auto; padding: 2px 2px 12px;
+}
+.follow-person {
+  width: 56px; flex-shrink: 0; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.follow-person-nick {
+  max-width: 100%; font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* 관심 피드 한 줄 */
+.follow-row {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border-light); transition: background var(--duration) var(--ease);
+}
+.follow-row:last-child { border-bottom: none; }
+.follow-row:hover { background: var(--bg); }
+.follow-row-poster { width: 34px; flex-shrink: 0; }
+.follow-row-main { flex: 1; min-width: 0; }
+.follow-row-who { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
+.follow-row-who .disc-author { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
+.follow-row-who .disc-time { margin-left: auto; }
+.follow-row-title {
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.follow-row-work { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--link); }
+
+/* 본 작품 카드의 아래 버튼 줄 — 시청 연도 · 추천 담기 */
+.watched-actions { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.watched-rec {
+  padding: 2px 8px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 10.5px; font-weight: 700; color: var(--subtext);
+  transition: var(--duration) var(--ease);
+}
+button.watched-rec:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.watched-rec.on { background: var(--primary-50); border-color: var(--primary-light); color: var(--primary); }
+.watched-rate {
+  padding: 2px 8px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 10.5px; font-weight: 800; color: var(--subtext);
+  font-variant-numeric: tabular-nums; transition: var(--duration) var(--ease);
+}
+button.watched-rate:hover:not(.on) { border-color: var(--text-secondary); color: var(--text-secondary); }
+
+/* 별점 시트 — 시트 틀(.sheet)은 프로필 사진 것을 그대로 쓰고 안쪽만 다르다 */
+.rate-head { padding: 16px 16px 4px; text-align: center; }
+.rate-title { font-size: 15px; font-weight: 800; color: var(--heading); }
+.rate-sub { margin-top: 3px; font-size: 11.5px; color: var(--subtext); }
+.rate-grid {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px; padding: 14px 16px 16px;
+}
+.rate-num {
+  height: 46px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 15px; font-weight: 800; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; transition: var(--duration) var(--ease);
+}
+.rate-num:hover:not(.on) { border-color: var(--text-secondary); color: var(--text); }
+
+/* '추천작만' — 줄 세우기 토글 옆에 붙는 거르개. 토글은 '어떤 차례로', 이건 '무엇만' 이라
+   같은 줄에 두되 분절 토글 안에 넣지 않고 점선 칩으로 떼어 놓는다. 켜면 진한 상태가 된다. */
+.feed-reconly {
+  padding: 6px 12px; border-radius: var(--radius-full); font-size: 13px; font-weight: 700;
+  border: 1px dashed var(--border); background: var(--card); color: var(--subtext); cursor: pointer;
+  transition: var(--duration) var(--ease);
+}
+.feed-reconly:hover { border-color: var(--primary); color: var(--primary); }
+.feed-reconly.active { border-style: solid; background: var(--primary); border-color: var(--primary); color: #fff; }
