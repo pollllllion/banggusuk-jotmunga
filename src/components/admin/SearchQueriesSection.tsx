@@ -61,13 +61,45 @@ export function SearchQueriesSection({ days }: { days: number }) {
   )
 }
 
+/**
+ * 표를 무엇으로 세울까.
+ *
+ * 칸 순서(클릭·노출·CTR·평균 순위)는 구글 서치콘솔·네이버 서치어드바이저와 맞춰 둔다 —
+ * 두 도구를 오가며 보는 표라 순서가 다르면 매번 헷갈린다. 대신 **정렬**을 고르게 한다.
+ *
+ * '놓치는 순'이 이 표의 쓸모다. 지금 방좋은 노출 61,000 에 클릭 540(CTR 0.9%) —
+ * 부족한 건 노출이 아니라 전환이다. 손댈 곳은 '노출은 많은데 안 눌리는 검색어'인데,
+ * 클릭순으로 세우면 그것들이 아래쪽에 묻힌다(연옥 살인마들의 자치구역: 노출 2,260·클릭 3).
+ */
+const SORTS = [
+  { key: 'clicks', label: '클릭순', hint: '실제로 사람을 데려온 검색어부터' },
+  { key: 'impressions', label: '노출순', hint: '검색엔진이 우리를 가장 많이 보여준 검색어부터' },
+  { key: 'missed', label: '놓치는 순', hint: '노출은 많은데 안 눌리는 것부터 — 손댈 곳이 여기 모인다' },
+] as const
+type SortKey = typeof SORTS[number]['key']
+
+/** 놓친 클릭 — 이 검색어가 평균만큼만 눌렸어도 더 왔을 수. 노출이 적으면 자연히 작아진다 */
+function missedClicks(r: Row, avgCtr: number): number {
+  return Math.max(0, r.impressions * avgCtr - r.clicks)
+}
+
 function QueryTable({ title, note, rows, empty }: {
   title: string; note: string; rows: Row[]; empty: string
 }) {
-  // 클릭 많은 순. 서버도 같은 순서로 주지만 여기서 한 번 더 세운다 —
-  // 순위 번호를 붙인 표라서 순서가 흔들리면 번호가 거짓말이 된다.
-  const sorted = [...rows].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
-  const maxClicks = sorted.reduce((m, r) => Math.max(m, r.clicks), 0)
+  const [sort, setSort] = useState<SortKey>('clicks')
+
+  const totalClicksAll = rows.reduce((n, r) => n + r.clicks, 0)
+  const totalImpressionsAll = rows.reduce((n, r) => n + r.impressions, 0)
+  const avgCtr = totalImpressionsAll ? totalClicksAll / totalImpressionsAll : 0
+
+  const sorted = [...rows].sort((a, b) => {
+    if (sort === 'impressions') return b.impressions - a.impressions || b.clicks - a.clicks
+    if (sort === 'missed') return missedClicks(b, avgCtr) - missedClicks(a, avgCtr) || b.impressions - a.impressions
+    return b.clicks - a.clicks || b.impressions - a.impressions
+  })
+  const barValue = (r: Row) =>
+    sort === 'impressions' ? r.impressions : sort === 'missed' ? missedClicks(r, avgCtr) : r.clicks
+  const barMax = sorted.reduce((m, r) => Math.max(m, barValue(r)), 0)
   const totalClicks = sorted.reduce((n, r) => n + r.clicks, 0)
   const totalImpressions = sorted.reduce((n, r) => n + r.impressions, 0)
 
@@ -79,6 +111,20 @@ function QueryTable({ title, note, rows, empty }: {
         <>
           <p className="qtable-total">
             검색어 <b>{sorted.length}</b>개 · 클릭 <b>{totalClicks.toLocaleString()}</b> · 노출 <b>{totalImpressions.toLocaleString()}</b>
+            {!!avgCtr && <> · 평균 CTR <b>{(avgCtr * 100).toFixed(1)}%</b></>}
+          </p>
+          <div className="filter-bar" style={{ marginBottom: 6 }}>
+            {SORTS.map(o => (
+              <button
+                key={o.key}
+                className={`filter-btn ${sort === o.key ? 'active' : ''}`}
+                title={o.hint}
+                onClick={() => setSort(o.key)}
+              >{o.label}</button>
+            ))}
+          </div>
+          <p className="settings-note" style={{ marginBottom: 8 }}>
+            {SORTS.find(o => o.key === sort)!.hint}
           </p>
           {/* 숫자마다 이름을 달아 준다 — '18 327' 만 있으면 무엇이 무엇인지 매번 헤아리게 된다.
               머리글을 한 번 달아 두면 아래 줄들은 숫자만 읽으면 된다. */}
@@ -98,9 +144,9 @@ function QueryTable({ title, note, rows, empty }: {
                 <span className="qtable-rank">{i + 1}</span>
                 <span className="qtable-query" title={r.query}>
                   {r.query}
-                  {/* 막대는 클릭 기준 — 줄을 세운 기준과 같아야 눈이 헷갈리지 않는다 */}
+                  {/* 막대는 **지금 세운 기준**으로 그린다 — 다른 값으로 그리면 정렬이 안 된 것처럼 보인다 */}
                   <span className="qtable-bar">
-                    <span style={{ width: `${maxClicks ? Math.max(2, Math.round((r.clicks / maxClicks) * 100)) : 0}%` }} />
+                    <span style={{ width: `${barMax ? Math.max(2, Math.round((barValue(r) / barMax) * 100)) : 0}%` }} />
                   </span>
                 </span>
                 <span className="num strong">{r.clicks.toLocaleString()}</span>
