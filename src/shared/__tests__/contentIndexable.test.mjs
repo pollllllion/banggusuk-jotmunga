@@ -74,3 +74,23 @@ describe('isIndexableContent', () => {
     expect(isIndexableContent(null)).toBe(false)
   })
 })
+
+describe('TMDB 평점 줄', () => {
+  const base = { id: 'x', type: 'drama', title: '테스트 작품', reviewCount: 0 }
+
+  it('우리 별점이 없으면 TMDB 평점을 밝혀 적는다', () => {
+    const lines = contentBodyLines({ ...base, voteAverage: 7.42, voteCount: 128 }, TODAY)
+    expect(lines).toContain('TMDB 평점 7.4/10 (128명)')
+  })
+
+  it('우리 별점이 있으면 우리 것만 쓴다', () => {
+    const lines = contentBodyLines({ ...base, reviewCount: 3, avgRating: 8, voteAverage: 7.4, voteCount: 128 }, TODAY)
+    expect(lines).toContain('평점 8.0/10 (별점 3개)')
+    expect(lines.some(l => l.includes('TMDB'))).toBe(false)
+  })
+
+  it('표본이 10명 미만이면 쓰지 않는다 — 3명이 준 10점은 평점이 아니다', () => {
+    const lines = contentBodyLines({ ...base, voteAverage: 10, voteCount: 3 }, TODAY)
+    expect(lines.some(l => l.includes('TMDB'))).toBe(false)
+  })
+})

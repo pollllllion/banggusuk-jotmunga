@@ -14,7 +14,7 @@
  * 있는데 페이지는 noindex 인 모순이 생긴다.
  */
 
-import { TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming } from './contentSeo.mjs'
+import { TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming, hasTmdbRating } from './contentSeo.mjs'
 
 /**
  * 색인 대상이 되기 위한 최소 본문 길이(자).
@@ -46,7 +46,11 @@ export function contentBodyLines(c, today = todayKey()) {
     c.creators?.length ? `연출·제작: ${c.creators.join(', ')}` : '',
     cast.length ? `출연: ${cast.join(', ')}` : '',
     c.synopsis ? String(c.synopsis).trim() : '',
-    c.reviewCount > 0 ? `평점 ${Number(c.avgRating).toFixed(1)}/10 (별점 ${c.reviewCount}개)` : '',
+    c.reviewCount > 0
+      ? `평점 ${Number(c.avgRating).toFixed(1)}/10 (별점 ${c.reviewCount}개)`
+      // 우리 별점이 없으면 TMDB 평점이라도 — 검색해 오는 사람 다섯 중 하나가 평점을 찾는다.
+      // 출처를 붙여 남의 수치를 우리 것처럼 보이지 않게 한다
+      : (hasTmdbRating(c) ? `TMDB 평점 ${Number(c.voteAverage).toFixed(1)}/10 (${c.voteCount}명)` : ''),
   ].filter(Boolean)
 }
 

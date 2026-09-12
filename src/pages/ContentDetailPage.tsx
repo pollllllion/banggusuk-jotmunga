@@ -20,7 +20,7 @@ import { scoreColor, scoreLabel } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
 import { SITE_URL } from '@/utils/seo'
 import {
-  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
+  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, hasTmdbRating,
 } from '@/shared/contentSeo.mjs'
 import { isIndexableContent } from '@/shared/contentIndexable.mjs'
 import { getPushState, enablePush } from '@/utils/push'
@@ -280,6 +280,19 @@ export function ContentDetailPage() {
               </div>
               <Stars score={avgRating} size={16} />
               <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
+              {/* 우리 별점이 없을 때만 TMDB 평점을 보여준다.
+                  네이버 유입 검색어 다섯 중 하나가 "○○ 평점"인데(2026-09-12 실측) 우리 별점이 달린
+                  작품은 2,300개 중 11개다 — 평점을 찾아온 사람이 '아직 별점 없음' 한 줄만 보고 나갔다.
+                  남의 수치이므로 출처를 붙이고, 우리 별점 자리(큰 숫자)는 비워 둔 채로 아래에 적는다. */}
+              {!ratingCount && hasTmdbRating(content) && (
+                <div className="score-tmdb">
+                  <span className="score-tmdb-label">TMDB 평점</span>
+                  <span className="score-tmdb-val" style={{ color: scoreColor(content.voteAverage!) }}>
+                    {content.voteAverage!.toFixed(1)}
+                  </span>
+                  <span className="score-tmdb-cnt">· {content.voteCount!.toLocaleString('ko-KR')}명</span>
+                </div>
+              )}
               {expertRating.count > 0 && (
                 <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
                   <span className="score-expert-label">👑 좋문가 평점</span>

@@ -45,6 +45,14 @@ function providerNames(c) {
  * "○○ 예능 아직 리뷰가 없습니다." 같은 빈 문장이 검색결과에 그대로 노출된다.
  * 그래서 가진 사실(공개일·OTT·장르·출연·편성)을 순서대로 채워 넣는다.
  */
+/**
+ * TMDB 평점을 쓸 만한가.
+ * 표본이 너무 적으면(<10명) 숫자가 튄다 — 3명이 10점 준 작품을 '평점 10'이라 쓰면 거짓말에 가깝다.
+ */
+export function hasTmdbRating(c) {
+  return typeof c.voteAverage === 'number' && c.voteAverage > 0 && (c.voteCount || 0) >= 10
+}
+
 export function buildContentDescription(c, today = todayKey()) {
   const typeLabel = TYPE_LABELS[c.type] || '작품'
   const upcoming = isUpcoming(c, today)
@@ -81,9 +89,17 @@ export function buildContentDescription(c, today = todayKey()) {
     if (facts.length) parts.push(`${facts.join(', ')}.`)
   }
 
-  // 3) 평점은 실제 리뷰가 있을 때만
-  if (!upcoming && c.reviewCount > 0) {
-    parts.push(`평점 ${Number(c.avgRating).toFixed(1)}/10 · 리뷰 ${c.reviewCount}개.`)
+  // 3) 평점.
+  //    네이버 유입 검색어의 5분의 1이 "○○ 평점 / 관람평"이다(2026-09-12 실측 — 클릭 186 중 36).
+  //    그런데 우리 별점이 달린 작품은 2,300개 중 11개뿐이라, 그 사람들이 검색결과에서 보는 건
+  //    평점 얘기가 한 줄도 없는 설명이었다. 우리 별점이 없으면 TMDB 평점이라도 밝혀 준다
+  //    — 남의 수치를 우리 것처럼 쓰지 않도록 출처를 붙여서.
+  if (!upcoming) {
+    if (c.reviewCount > 0) {
+      parts.push(`평점 ${Number(c.avgRating).toFixed(1)}/10 · 리뷰 ${c.reviewCount}개.`)
+    } else if (hasTmdbRating(c)) {
+      parts.push(`TMDB 평점 ${Number(c.voteAverage).toFixed(1)}/10 (${c.voteCount.toLocaleString('ko-KR')}명).`)
+    }
   }
 
   return parts.join(' ')
