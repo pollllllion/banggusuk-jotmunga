@@ -242,24 +242,6 @@ export function AnalyticsTab() {
             empty="아직 검색 기록이 없어요."
           />
 
-          <div className="settings-section">
-            <h3>구글 검색어를 보려면</h3>
-            <p className="settings-desc">
-              구글은 2011년부터 리퍼러에서 검색어를 지웁니다. 사이트가 아무리 열심히 기록해도
-              <b> ‘google.com 에서 왔다’ 까지만</b> 알 수 있어요. 실제 검색어·노출수·순위는
-              <b> Google Search Console</b> 에서만 볼 수 있습니다.
-            </p>
-            <ol className="settings-desc" style={{ paddingLeft: 18, lineHeight: 2 }}>
-              <li>search.google.com/search-console 에서 속성 추가 → <b>ottcal.com</b></li>
-              <li>소유 확인은 <b>HTML 태그</b> 방식이 제일 쉬워요 (메타 태그 한 줄)</li>
-              <li>확인되면 사이트맵 <b>https://ottcal.com/sitemap.xml</b> 제출</li>
-            </ol>
-            <p className="settings-note">
-              메타 태그를 받으면 알려주세요 — index.html 에 넣어 배포해 드릴게요.
-              네이버는 <b>서치어드바이저</b>가 같은 역할을 합니다.
-            </p>
-          </div>
-
           {/* 설정이라 맨 아래 — 숫자를 보러 온 화면이지 스위치를 만지러 온 화면이 아니다 */}
           <DeviceToggle />
         </>
