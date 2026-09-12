@@ -2,23 +2,17 @@
 
 댓글·추천이 달리면 **폰으로 울리게** 하는 장치. 한 번만 해두면 끝이다.
 
-## 현재 상태 — 🚧 아직 연결 안 됨 (2026-09-09)
+## 현재 상태 — ✅ 연결 완료 (2026-09-12)
 
-코드는 전부 리포에 있고 배포도 됐다. **남은 건 아래 1~3 (Supabase 대시보드 작업)뿐이다.**
+Edge Function 배포 · 시크릿 4개 · DB 트리거까지 전부 붙었다. `ACTIVITY_PUSH_READY` 도 true.
 
-멈춘 이유: `VAPID_PRIVATE_KEY` 를 못 찾았다.
-- 이 PC 의 `.env` 에 없다
-- GitHub Actions 시크릿에 있지만 **GitHub 은 한 번 넣은 시크릿을 다시 못 꺼낸다**
-- → **다른 PC 의 `방좋/.env`** 에 있을 가능성이 크다. 그 PC 주인이 확인해야 한다
+- `VAPID_PRIVATE_KEY` 는 **찾았다** — 데스크톱 `.env` 에 있었다. 키를 새로 만들지 않았으므로
+  기존 구독 3대(아이폰 2 · 안드로이드 1)가 그대로 살아 있다
+- 시크릿은 `node --env-file=.env scripts/push-secrets.mjs <PUSH_HOOK_SECRET>` 로 한 번에 올린다
+  (`.env` 에서 읽어 CLI 로 바로 넘긴다 — 값을 파일로 떨구지 않는다)
+- 웹훅은 `migration_push_webhook.sql` 을 SQL Editor 에서 실행해 트리거로 붙였다
 
-없으면 키 쌍을 새로 만들면 되지만, **기존 구독 3대가 무효**가 되어 그분들이 알림을
-다시 켜야 한다. 그 경우 `src/utils/push.ts` 의 `DEFAULT_VAPID_PUBLIC` 과
-GitHub 시크릿·변수도 함께 갈아야 한다.
-
-연결을 마치면 `src/pages/NotificationSettingsPage.tsx` 의 `ACTIVITY_PUSH_READY` 를
-`true` 로 바꿔 배포할 것 — 그때까지 설정 화면에 "준비 중" 안내가 뜬다.
-
-그동안에도 **종 아이콘 알림은 정상 동작한다.** 공개일 알림(GitHub Actions 크론)도 그대로다.
+다시 손볼 일이 생기면 아래 1~3 을 그대로 따라 하면 된다.
 
 ## 지금 구조
 

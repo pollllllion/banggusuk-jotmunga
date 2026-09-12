@@ -21,7 +21,7 @@ type ActivityPref = { key: 'notifyComment' | 'notifyReply' | 'notifyLike'; label
  * supabase/README-push.md 에 있다. **연결한 뒤 이 값을 true 로 바꿀 것.**
  * (클라이언트가 연결 여부를 알아낼 방법이 없어서 손으로 든다)
  */
-const ACTIVITY_PUSH_READY = false
+const ACTIVITY_PUSH_READY = true
 
 const ACTIVITY_PREFS: ActivityPref[] = [
   { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남겼을 때' },
