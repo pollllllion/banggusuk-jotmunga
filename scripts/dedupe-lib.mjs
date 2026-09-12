@@ -24,6 +24,28 @@ export const keepScore = c =>
 
 const yearOf = c => c.releaseYear ?? (c.releaseDate ? +c.releaseDate.slice(0, 4) : null)
 
+/** 두 행의 공개일 차이(일). 한쪽이라도 없으면 null */
+const dateGap = (a, b) => {
+  if (!a.releaseDate || !b.releaseDate) return null
+  const ms = Math.abs(new Date(a.releaseDate) - new Date(b.releaseDate))
+  return Number.isFinite(ms) ? ms / 86400_000 : null
+}
+
+const castNames = c => new Set((c.castMembers || []).map(m => norm(m && m.name)).filter(Boolean))
+
+/**
+ * 출연진이 얼마나 겹치나 → { n, ratio }
+ * ratio 는 **적은 쪽 기준**이다. 한쪽 행에 배우가 2명만 등록돼 있어도
+ * 그 2명이 다 겹치면 같은 작품으로 볼 근거가 된다.
+ */
+export function castMatch(a, b) {
+  const A = castNames(a), B = castNames(b)
+  if (!A.size || !B.size) return { n: 0, ratio: 0 }
+  let n = 0
+  for (const x of B) if (A.has(x)) n++
+  return { n, ratio: n / Math.min(A.size, B.size) }
+}
+
 /**
  * 아무 정보도 없는 빈 껍데기 행 — 포스터·줄거리·공개일·연도·회차가 전부 비었고 화제도 0.
  * TMDB에 잘못 올라온 유령 항목(예: '킬러들의 쇼핑몰' tv/329791 — 방영일·회차·줄거리 없음)을
@@ -51,6 +73,17 @@ export function sameWork(a, b) {
     if (synA && synA === synB) return '줄거리 동일'
     if (a.releaseDate && a.releaseDate === b.releaseDate &&
         a.numberOfEpisodes && a.numberOfEpisodes === b.numberOfEpisodes) return '공개일·회차 동일'
+
+    // 짧은 드라마·웹드라마는 줄거리도 회차도 비어 있는 채로 TMDB 에 두 번 올라오곤 한다.
+    // (실제: '언팔로우' 2/19·2/22, '썸머 피버' 8/4·8/6 — 출연진이 통째로 같았다)
+    // 남는 판별 축은 출연진이다. 동명이작은 배우가 겹치지 않는다 —
+    // '기프트'(야구 코치물 vs 휠체어 럭비물)는 겹치는 배우가 0명이라 여기 안 걸린다.
+    const cast = castMatch(a, b)
+    const gap = dateGap(a, b)
+    if (cast.n >= 2 && gap !== null && gap <= 7) return '출연진 2명 이상 겹침 · 공개일 일주일 내'
+    // 한쪽에 배우가 한둘만 등록된 행 — 그 적은 인원이 절반 넘게 겹치고 공개일이 같은 날이면 같은 작품
+    // (실제: '자정의 편의점' — 한쪽은 '민유원', 다른 쪽은 'Min Yuwon' 이라 이름으로는 하나만 겹친다)
+    if (cast.n >= 1 && cast.ratio >= 0.5 && gap === 0) return '출연진 대부분 겹침 · 같은 날 공개'
     return null
   }
   if (a.id.startsWith('tmdb-') && b.id.startsWith('tmdb-')) {

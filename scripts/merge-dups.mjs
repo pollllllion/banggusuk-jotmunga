@@ -4,6 +4,12 @@
  *   npm run dedupe            # 탐지만 (읽기 전용 리포트)
  *   npm run dedupe -- --apply # 실제 병합 (백업 JSON 남김)
  *
+ * 매일 새벽 TMDB 수집(.github/workflows/ingest.yml) 직후 --apply 로 자동 실행된다.
+ * 중복은 수집이 만들어 내므로 수집 옆에 붙여 두는 게 맞다 — 사람이 대시보드를
+ * 열어 눌러야만 정리되는 구조면 안 누르는 날이 곧 쌓이는 날이다.
+ * 자동으로 합치는 건 근거가 분명한 것뿐이고, 동명이작 후보는 '확인 필요'로 남겨
+ * Actions 요약에 경고로 띄운다(사람이 봐야 한다).
+ *
  * 왜 RPC(merge_content)를 안 쓰나: 그 함수는 is_admin() = auth.uid() 기준이라
  * 로그인 세션이 필요하다. 스크립트는 세션이 없으므로 SUPABASE_SERVICE_KEY 로
  * 같은 절차(참조 이전 → 원본 삭제 → 재집계)를 그대로 재현한다. 절차가 바뀌면
@@ -17,13 +23,22 @@ import fs from 'fs'
 import path from 'path'
 import { planMerges } from './dedupe-lib.mjs'
 
-const url = process.env.VITE_SUPABASE_URL
+// URL 은 다른 스크립트(db.mjs·ingest-tmdb.mjs)와 같은 규칙 — CI 에는 .env 가 없다
+const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const key = process.env.SUPABASE_SERVICE_KEY
 const APPLY = process.argv.includes('--apply')
 
-if (!url || !key) {
-  console.error('VITE_SUPABASE_URL / SUPABASE_SERVICE_KEY 가 필요합니다 (.env).')
+if (!key) {
+  console.error('SUPABASE_SERVICE_KEY 가 필요합니다 (.env 또는 Actions 시크릿).')
   process.exit(1)
+}
+
+/** GitHub Actions 요약/경고로 올린다. 로컬에서는 아무 일도 안 한다. */
+function notice(lines) {
+  if (!lines.length) return
+  for (const l of lines) console.log(`::warning::${l}`)
+  const f = process.env.GITHUB_STEP_SUMMARY
+  if (f) fs.appendFileSync(f, `### 동명이작 가능 — 사람이 확인할 것\n\n${lines.map(l => `- ${l}`).join('\n')}\n`, 'utf8')
 }
 const H = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }
 
@@ -54,6 +69,7 @@ console.log(`작품 ${contents.length}개 · 중복 후보 그룹 ${dupGroups}�
 if (!plan.length) console.log('자동 병합할 중복 없음.')
 for (const m of plan) console.log(`  병합: ${m.from} → ${m.into}  (${m.label} — ${m.why})`)
 for (const r of review) console.log(`  ⚠ 확인 필요(동명이작 가능): ${r.title} [${r.type}] — ${r.ids.join(' / ')}`)
+notice(review.map(r => `${r.title} [${r.type}] — ${r.ids.join(' / ')}`))
 
 if (!plan.length || !APPLY) {
   if (plan.length) console.log('\n실제로 합치려면: npm run dedupe -- --apply')

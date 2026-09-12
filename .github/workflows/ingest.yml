@@ -31,3 +31,23 @@ jobs:
           # 필요시 더 많이 긁으려면 PAGES 조정 (기본 3)
           PAGES: '3'
         run: node scripts/ingest-tmdb.mjs
+
+      # 중복은 수집이 만든다 — 정리도 수집 옆에 붙여 둔다.
+      # 근거가 분명한 것만 자동으로 합치고, 동명이작 후보는 이 실행의 요약에
+      # 경고로 남는다(예: '기프트' — 야구 코치물 vs 휠체어 럭비물).
+      # 수집이 실패해도 기존 중복은 정리해 둔다.
+      - name: 중복 작품 병합
+        if: always()
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/merge-dups.mjs --apply
+
+      # 병합은 되돌리기 어렵다 — 직전 상태를 90일 남긴다
+      - name: 병합 백업 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-backup
+          path: scripts/merge-backup-*.json
+          retention-days: 90
+          if-no-files-found: ignore

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { norm, keepScore, sameWork, planMerges } from '../dedupe-lib.mjs'
+import { norm, keepScore, sameWork, planMerges, castMatch } from '../dedupe-lib.mjs'
 
 /** 2026-08-01 실제 병합했던 행들(요약) — 규칙이 바뀌어도 이 판정은 유지돼야 한다 */
 const row = (id, extra = {}) => ({
@@ -65,6 +65,56 @@ describe('keepScore — 어느 행을 남기나', () => {
   it('공개일·메타데이터가 있는 TMDB 행이 시드 행보다 우선', () => {
     const tmdb = row('tmdb-mv-1', { tmdbId: 1, releaseDate: '2026-08-05', posterUrl: 'x', castMembers: [{}] })
     expect(keepScore(tmdb)).toBeGreaterThan(keepScore(row('c3', { posterUrl: 'x', popularity: 95 })))
+  })
+})
+
+/** 출연진 축 — 2026-09-12 실제로 남아 있던 중복들 */
+const cast = (...names) => ({ castMembers: names.map(name => ({ name })) })
+
+describe('castMatch', () => {
+  it('겹치는 인원과 비율(적은 쪽 기준)을 센다', () => {
+    const a = { ...cast('서정현', '곽건희', '김주영', '이하진') }
+    const b = { ...cast('서정현', '곽건희') }
+    expect(castMatch(a, b)).toEqual({ n: 2, ratio: 1 })
+  })
+
+  it('한쪽이 비어 있으면 0', () => {
+    expect(castMatch({ ...cast('가') }, {}).n).toBe(0)
+  })
+})
+
+describe('sameWork — 출연진으로 가르기', () => {
+  const tmdb = (id, extra) => ({ id: `tmdb-dr-${id}`, type: 'drama', tmdbId: id, synopsis: '', ...extra })
+
+  it('출연진 2명 이상 + 공개일 일주일 내면 같은 작품 (언팔로우·썸머 피버)', () => {
+    const a = tmdb(314976, { releaseDate: '2026-02-22', ...cast('장환석', '김주영') })
+    const b = tmdb(332984, { releaseDate: '2026-02-19', ...cast('장환석', '김주영') })
+    expect(sameWork(a, b)).toMatch(/출연진 2명/)
+  })
+
+  it('배우가 한둘뿐인 행은 절반 넘게 겹치고 같은 날이어야 한다 (자정의 편의점)', () => {
+    // 한쪽은 '민유원', 다른 쪽은 'Min Yuwon' — 이름으로 겹치는 건 채연희 하나뿐이다
+    const a = tmdb(331890, { releaseDate: '2026-06-13', ...cast('채연희', '민유원') })
+    const b = tmdb(324854, { releaseDate: '2026-06-13', ...cast('채연희', 'Min Yuwon', 'Jang Danbi') })
+    expect(sameWork(a, b)).toMatch(/같은 날/)
+  })
+
+  it('동명이작은 배우가 안 겹쳐서 걸리지 않는다 (기프트)', () => {
+    const a = tmdb(302987, { releaseDate: '2026-12-05', ...cast('김우빈', '서은수', '서현우') })
+    const b = tmdb(314647, { releaseDate: '2026-04-12', ...cast('츠츠미 신이치', '야마다 유키') })
+    expect(sameWork(a, b)).toBeNull()
+  })
+
+  it('배우가 겹쳐도 공개일이 멀면 합치지 않는다 — 시즌제가 통째로 합쳐지면 안 된다', () => {
+    const a = tmdb(1, { releaseDate: '2026-01-01', ...cast('가', '나', '다') })
+    const b = tmdb(2, { releaseDate: '2027-01-01', ...cast('가', '나', '다') })
+    expect(sameWork(a, b)).toBeNull()
+  })
+
+  it('한쪽 출연진이 비어 있으면 판단하지 않는다', () => {
+    const a = tmdb(1, { releaseDate: '2026-01-01', ...cast('가', '나') })
+    const b = tmdb(2, { releaseDate: '2026-01-01' })
+    expect(sameWork(a, b)).toBeNull()
   })
 })
 
