@@ -17,10 +17,9 @@ alter table public.page_views
   add column if not exists "bot"     boolean not null default false,
   add column if not exists "botName" text;
 
-comment on column public.page_views."bot" is
-  '검색엔진 크롤러 등 사람이 아닌 방문. 사람 집계에서 뺀다.';
-comment on column public.page_views."botName" is
-  '봇 부류 이름만(Googlebot·네이버 Yeti…). User-Agent 원문은 저장하지 않는다.';
+-- "bot"     : 검색엔진 크롤러 등 사람이 아닌 방문. 사람 집계에서 뺀다.
+-- "botName" : 봇 부류 이름만(Googlebot·네이버 Yeti 등). User-Agent 원문은 저장하지 않는다.
+-- (COMMENT ON 구문은 Supabase SQL Editor 에서 한 번 구문 오류를 냈다 — 문서용이라 뺐다)
 
 create index if not exists idx_page_views_human
   on public.page_views("createdAt" desc) where not "internal" and not "bot";
