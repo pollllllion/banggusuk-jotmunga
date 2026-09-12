@@ -68,33 +68,48 @@ function QueryTable({ title, note, rows, empty, showPosition }: {
   // 클릭 많은 순. 서버도 같은 순서로 주지만 여기서 한 번 더 세운다 —
   // 순위 번호를 붙인 표라서 순서가 흔들리면 번호가 거짓말이 된다.
   const sorted = [...rows].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
-  // 막대는 **줄을 세운 기준과 같은 값**(클릭)으로 그린다.
-  // 노출수로 그리면 클릭순으로 정렬된 목록에서 막대만 들쭉날쭉해 정렬이 안 된 것처럼 보인다.
-  const max = sorted.reduce((m, r) => Math.max(m, r.clicks), 0)
+  const maxClicks = sorted.reduce((m, r) => Math.max(m, r.clicks), 0)
+  const totalClicks = sorted.reduce((n, r) => n + r.clicks, 0)
+  const totalImpressions = sorted.reduce((n, r) => n + r.impressions, 0)
+
   return (
     <div className="settings-section">
       <h3>{title}</h3>
       <p className="settings-desc">{note}</p>
-      {!rows.length ? <p className="settings-note">{empty}</p> : (
-        <div className="stat-list ranked">
-          {sorted.map((r, i) => (
-            <div key={r.query} className="stat-row">
-              {/* 순위를 앞에 둔다 — 검색어는 길이가 제각각이라 번호가 없으면 몇 등인지 세게 된다 */}
-              <span className="stat-rank">{i + 1}</span>
-              <span className="stat-label" title={r.query}>{r.query}</span>
-              <span className="stat-bar">
-                <span className="stat-bar-fill" style={{ width: `${max ? Math.max(2, Math.round((r.clicks / max) * 100)) : 0}%` }} />
-              </span>
-              <span className="stat-value">
-                {r.clicks.toLocaleString()}
-                <small>
-                  노출 {r.impressions.toLocaleString()}
-                  {showPosition && r.position ? ` · ${r.position}위` : ''}
-                </small>
-              </span>
+      {!sorted.length ? <p className="settings-note">{empty}</p> : (
+        <>
+          <p className="qtable-total">
+            검색어 <b>{sorted.length}</b>개 · 클릭 <b>{totalClicks.toLocaleString()}</b> · 노출 <b>{totalImpressions.toLocaleString()}</b>
+          </p>
+          {/* 숫자마다 이름을 달아 준다 — '18 327' 만 있으면 무엇이 무엇인지 매번 헤아리게 된다.
+              머리글을 한 번 달아 두면 아래 줄들은 숫자만 읽으면 된다. */}
+          <div className={`qtable ${showPosition ? 'has-pos' : ''}`}>
+            <div className="qtable-head">
+              <span />
+              <span>검색어</span>
+              <span className="num">클릭</span>
+              <span className="num">노출</span>
+              <span className="num">CTR</span>
+              {showPosition && <span className="num">평균 순위</span>}
             </div>
-          ))}
-        </div>
+            {sorted.map((r, i) => (
+              <div key={r.query} className="qtable-row">
+                <span className="qtable-rank">{i + 1}</span>
+                <span className="qtable-query" title={r.query}>
+                  {r.query}
+                  {/* 막대는 클릭 기준 — 줄을 세운 기준과 같아야 눈이 헷갈리지 않는다 */}
+                  <span className="qtable-bar">
+                    <span style={{ width: `${maxClicks ? Math.max(2, Math.round((r.clicks / maxClicks) * 100)) : 0}%` }} />
+                  </span>
+                </span>
+                <span className="num strong">{r.clicks.toLocaleString()}</span>
+                <span className="num">{r.impressions.toLocaleString()}</span>
+                <span className="num dim">{r.impressions ? `${((r.clicks / r.impressions) * 100).toFixed(1)}%` : '-'}</span>
+                {showPosition && <span className="num dim">{r.position ? r.position.toFixed(1) : '-'}</span>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   )

@@ -1050,16 +1050,51 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .score-mine b { font-size: 14px; }
 
 /* 우리 별점이 없을 때 자리를 지키는 TMDB 평점 — 남의 수치라 작게, 출처를 달고 */
-/* 유입 검색어 순위 번호 — 칸이 하나 늘어나므로 열 정의를 다시 한다. 1~3위만 진하게 */
-.stat-list.ranked .stat-row { grid-template-columns: 22px minmax(0, 1fr) 90px auto; }
-.stat-rank {
+/* 유입 검색어 표 — 숫자마다 이름이 붙은 표. '18 327' 만 있으면 매번 헤아리게 된다 */
+.qtable { display: flex; flex-direction: column; }
+.qtable-total { font-size: 12px; color: var(--subtext); margin-bottom: 8px; }
+.qtable-total b { color: var(--text); font-weight: 700; }
+
+.qtable-head, .qtable-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 54px 62px 58px;
+  align-items: center; gap: 8px;
+}
+.qtable.has-pos .qtable-head, .qtable.has-pos .qtable-row {
+  grid-template-columns: 26px minmax(0, 1fr) 54px 62px 58px 64px;
+}
+.qtable-head {
+  font-size: 11px; color: var(--subtext); font-weight: 700;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.qtable-row {
+  padding: 8px 0; border-bottom: 1px solid var(--border-light); font-size: 13px;
+}
+.qtable-row:last-child { border-bottom: 0; }
+
+.qtable-rank {
   text-align: right; font-size: 12px; font-weight: 700;
   color: var(--subtext); font-variant-numeric: tabular-nums;
 }
-.stat-list.ranked .stat-row:nth-child(-n+3) .stat-rank { color: var(--primary); }
+.qtable-row:nth-child(-n+4) .qtable-rank { color: var(--primary); }   /* 머리글이 첫째 칸이라 +1 */
+
+.qtable-query { min-width: 0; display: flex; flex-direction: column; gap: 4px; color: var(--text); }
+.qtable-query > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qtable-bar { height: 3px; border-radius: 999px; background: var(--border-light); overflow: hidden; }
+.qtable-bar span { display: block; height: 100%; background: var(--primary); border-radius: 999px; }
+
+.qtable .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+.qtable .num.strong { font-weight: 800; color: var(--text); }
+.qtable .num.dim { color: var(--subtext); font-size: 12px; }
 
 @media (max-width: 768px) {
-  .stat-list.ranked .stat-row { grid-template-columns: 18px minmax(0, 1fr) 56px auto; }
+  /* 좁은 화면에서는 CTR·평균 순위를 접는다 — 클릭과 노출이 먼저다 */
+  .qtable-head, .qtable-row,
+  .qtable.has-pos .qtable-head, .qtable.has-pos .qtable-row {
+    grid-template-columns: 22px minmax(0, 1fr) 46px 52px;
+    gap: 6px; font-size: 12px;
+  }
+  .qtable-head > :nth-child(n+5), .qtable-row > :nth-child(n+5) { display: none; }
 }
 
 .score-tmdb {
