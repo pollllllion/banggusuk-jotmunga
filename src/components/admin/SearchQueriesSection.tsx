@@ -49,11 +49,10 @@ export function SearchQueriesSection({ days }: { days: number }) {
         note="Search Console 이 준 값이라 우리 기록과 무관하게 정확해요. 매일 새벽 자동으로 받아옵니다."
         rows={data?.google ?? []}
         empty="아직 받아온 검색어가 없어요. GSC_SERVICE_ACCOUNT_JSON 시크릿을 넣으면 다음 새벽부터 쌓입니다."
-        showPosition
       />
       <QueryTable
         title="네이버에서 검색해 들어온 말"
-        note="네이버는 API 가 없어서 손으로 옮겨요. 서치어드바이저는 상위 30개·90일치만 보관하니, 붙여넣어 두면 그 뒤로도 남습니다."
+        note="네이버는 API 가 없어서 손으로 옮겨요. 서치어드바이저는 상위 30개·90일치만 보관하니, 붙여넣어 두면 그 뒤로도 남습니다. 평균 순위는 네이버가 주지 않아 빈칸입니다."
         rows={data?.naver ?? []}
         empty="아직 붙여넣은 검색어가 없어요."
       />
@@ -62,8 +61,8 @@ export function SearchQueriesSection({ days }: { days: number }) {
   )
 }
 
-function QueryTable({ title, note, rows, empty, showPosition }: {
-  title: string; note: string; rows: Row[]; empty: string; showPosition?: boolean
+function QueryTable({ title, note, rows, empty }: {
+  title: string; note: string; rows: Row[]; empty: string
 }) {
   // 클릭 많은 순. 서버도 같은 순서로 주지만 여기서 한 번 더 세운다 —
   // 순위 번호를 붙인 표라서 순서가 흔들리면 번호가 거짓말이 된다.
@@ -83,14 +82,16 @@ function QueryTable({ title, note, rows, empty, showPosition }: {
           </p>
           {/* 숫자마다 이름을 달아 준다 — '18 327' 만 있으면 무엇이 무엇인지 매번 헤아리게 된다.
               머리글을 한 번 달아 두면 아래 줄들은 숫자만 읽으면 된다. */}
-          <div className={`qtable ${showPosition ? 'has-pos' : ''}`}>
+          {/* 구글·네이버가 같은 칸 구성을 쓴다. 네이버는 순위를 주지 않아 '-' 로 남는데,
+              칸을 아예 없애면 두 표가 달라 보여 같은 것을 비교하는 중이라는 느낌이 깨진다 */}
+          <div className="qtable cols-4">
             <div className="qtable-head">
               <span />
               <span>검색어</span>
               <span className="num">클릭</span>
               <span className="num">노출</span>
               <span className="num">CTR</span>
-              {showPosition && <span className="num">평균 순위</span>}
+              <span className="num">평균 순위</span>
             </div>
             {sorted.map((r, i) => (
               <div key={r.query} className="qtable-row">
@@ -105,7 +106,7 @@ function QueryTable({ title, note, rows, empty, showPosition }: {
                 <span className="num strong">{r.clicks.toLocaleString()}</span>
                 <span className="num">{r.impressions.toLocaleString()}</span>
                 <span className="num dim">{r.impressions ? `${((r.clicks / r.impressions) * 100).toFixed(1)}%` : '-'}</span>
-                {showPosition && <span className="num dim">{r.position ? r.position.toFixed(1) : '-'}</span>}
+                <span className="num dim">{r.position ? r.position.toFixed(1) : '-'}</span>
               </div>
             ))}
           </div>

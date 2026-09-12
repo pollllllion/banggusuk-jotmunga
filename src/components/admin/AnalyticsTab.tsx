@@ -4,6 +4,9 @@ import { isInternalDevice, setInternalDevice } from '@/utils/analytics'
 import { SearchQueriesSection } from './SearchQueriesSection'
 import type { AnalyticsSummary } from '@/api/social'
 
+/** 요일 — 주말에 누가 오는지 보려면 날짜만으로는 매번 달력을 봐야 한다 */
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
 const RANGES = [
   { days: 1, label: '오늘' },
   { days: 7, label: '7일' },
@@ -180,12 +183,28 @@ export function AnalyticsTab() {
             {!data.daily.length ? (
               <p className="settings-note">아직 기록이 없어요.</p>
             ) : (
-              <div className="stat-list">
-                {[...data.daily].reverse().map(d => (
-                  <div key={d.day} className="stat-row">
-                    <span className="stat-label">{d.day.slice(5).replace('-', '. ')}</span>
-                    <Bar value={d.views} max={dailyMax} />
-                    <span className="stat-value">{d.views.toLocaleString()}<small>방문 {d.visitors}</small></span>
+              // 유입 검색어 표와 같은 모양을 쓴다 — 한 화면에 표가 여럿인데 모양이 제각각이면
+              // 볼 때마다 어느 숫자가 무엇인지 다시 익혀야 한다
+              <div className="qtable">
+                <div className="qtable-head">
+                  <span />
+                  <span>날짜</span>
+                  <span className="num">방문자</span>
+                  <span className="num">페이지뷰</span>
+                  <span className="num">1인당</span>
+                </div>
+                {[...data.daily].reverse().map((d, i) => (
+                  <div key={d.day} className="qtable-row">
+                    <span className="qtable-rank">{i === 0 ? '●' : ''}</span>
+                    <span className="qtable-query">
+                      {d.day.slice(5).replace('-', '. ')} ({WEEKDAYS[new Date(d.day + 'T00:00:00+09:00').getDay()]})
+                      <span className="qtable-bar">
+                        <span style={{ width: `${dailyMax ? Math.max(2, Math.round((d.views / dailyMax) * 100)) : 0}%` }} />
+                      </span>
+                    </span>
+                    <span className="num strong">{d.visitors.toLocaleString()}</span>
+                    <span className="num">{d.views.toLocaleString()}</span>
+                    <span className="num dim">{d.visitors ? (d.views / d.visitors).toFixed(1) : '-'}</span>
                   </div>
                 ))}
               </div>

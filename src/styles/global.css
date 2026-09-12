@@ -1057,11 +1057,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 .qtable-head, .qtable-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 54px 62px 58px;
+  /* 순위 · 이름 · 숫자 칸들. 숫자 칸 수만 표마다 다르다(cols-3 / cols-4) */
+  grid-template-columns: 26px minmax(0, 1fr) repeat(3, 58px);
   align-items: center; gap: 8px;
 }
-.qtable.has-pos .qtable-head, .qtable.has-pos .qtable-row {
-  grid-template-columns: 26px minmax(0, 1fr) 54px 62px 58px 64px;
+.qtable.cols-4 .qtable-head, .qtable.cols-4 .qtable-row {
+  grid-template-columns: 26px minmax(0, 1fr) repeat(4, 58px);
 }
 .qtable-head {
   font-size: 11px; color: var(--subtext); font-weight: 700;
@@ -1090,8 +1091,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 @media (max-width: 768px) {
   /* 좁은 화면에서는 CTR·평균 순위를 접는다 — 클릭과 노출이 먼저다 */
   .qtable-head, .qtable-row,
-  .qtable.has-pos .qtable-head, .qtable.has-pos .qtable-row {
-    grid-template-columns: 22px minmax(0, 1fr) 46px 52px;
+  .qtable.cols-4 .qtable-head, .qtable.cols-4 .qtable-row {
+    grid-template-columns: 22px minmax(0, 1fr) 48px 54px;
     gap: 6px; font-size: 12px;
   }
   .qtable-head > :nth-child(n+5), .qtable-row > :nth-child(n+5) { display: none; }
