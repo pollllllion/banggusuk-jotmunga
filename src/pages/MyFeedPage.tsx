@@ -14,6 +14,7 @@ import { TYPE_LABELS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
 import type { Content } from '@/types'
 import { clickable } from '@/utils/a11y'
+import { InstallHintRow } from '@/components/pwa/InstallHintRow'
 
 /** 찜한 작품 가로 줄에 세울 최대 개수 — 그 이상은 어차피 밀어서 보지 않는다
  *  (본 작품 쪽 줄 세우기·필터는 WatchedShelf 가 갖고 있다) */
@@ -198,6 +199,10 @@ export function MyFeedPage() {
   return (
     <>
       <Seo title="내 피드" noindex />
+
+      {/* 앱으로 쓰기 — 하단 내비에서 한 번에 닿는 화면이 여기라 안내를 여기 둔다.
+          캘린더·토론방은 보러 온 것을 가리면 안 되는 화면이라 넣지 않는다. */}
+      <InstallHintRow />
 
       {/* 인생작품·프로필·취향·별점·많이 본 장르는 남의 프로필(/u/:id)과 같은 것을 쓴다 —
           본인이 꾸민 그대로 남에게 보여야 꾸미는 뜻이 있다. */}

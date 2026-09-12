@@ -1036,6 +1036,30 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* ── 작품 상세: 좋문가 평점 분리 표시 ─────────────────────── */
 .score-box-label { font-size: 11px; font-weight: 700; color: var(--subtext); margin-bottom: 2px; }
+/* '앱으로 쓰기' 한 줄 (내 피드 맨 위) — 눈에는 띄되 화면을 먹지 않게 */
+.install-hint {
+  display: flex; align-items: stretch; gap: 4px; margin-bottom: 14px;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.install-hint-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: none; border: 0; cursor: pointer; text-align: left;
+}
+.install-hint-main img { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; }
+.install-hint-main > span { min-width: 0; flex: 1; }
+.install-hint-main b { display: block; font-size: 13px; font-weight: 700; color: var(--heading); }
+.install-hint-main small {
+  display: block; font-size: 11px; color: var(--subtext); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.install-hint-arrow { flex-shrink: 0; font-size: 18px; color: var(--subtext); }
+.install-hint-close {
+  flex-shrink: 0; width: 34px; background: none; border: 0; cursor: pointer;
+  color: var(--subtext); font-size: 13px;
+}
+.install-hint-close:hover { color: var(--text); }
+
 /* 홈 화면에 추가 안내 — 기기별 절차. 평소엔 숨어 있고 설정에서 열린다 */
 .install-guide-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
 .install-guide-head img { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; }
