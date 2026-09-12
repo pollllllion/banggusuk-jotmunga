@@ -1035,7 +1035,33 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* ── 작품 상세: 좋문가 평점 분리 표시 ─────────────────────── */
 .score-box-label { font-size: 11px; font-weight: 700; color: var(--subtext); margin-bottom: 2px; }
+/* 작품 페이지의 '별점 남기기' — 전체 평점 바로 아래, 누르면 시트가 열린다 */
+.score-mine {
+  margin-top: 10px; width: 100%; padding: 7px 10px;
+  border: 1px solid var(--primary); border-radius: var(--radius-sm);
+  background: transparent; color: var(--primary);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.score-mine:hover { background: var(--primary); color: #fff; }
+.score-mine:hover b { color: #fff !important; }
+.score-mine.on { border-color: var(--border); color: var(--text-secondary); }
+.score-mine.on:hover { background: var(--card-hover, var(--card)); color: var(--text); }
+.score-mine b { font-size: 14px; }
+
 /* 우리 별점이 없을 때 자리를 지키는 TMDB 평점 — 남의 수치라 작게, 출처를 달고 */
+/* 유입 검색어 순위 번호 — 칸이 하나 늘어나므로 열 정의를 다시 한다. 1~3위만 진하게 */
+.stat-list.ranked .stat-row { grid-template-columns: 22px minmax(0, 1fr) 90px auto; }
+.stat-rank {
+  text-align: right; font-size: 12px; font-weight: 700;
+  color: var(--subtext); font-variant-numeric: tabular-nums;
+}
+.stat-list.ranked .stat-row:nth-child(-n+3) .stat-rank { color: var(--primary); }
+
+@media (max-width: 768px) {
+  .stat-list.ranked .stat-row { grid-template-columns: 18px minmax(0, 1fr) 56px auto; }
+}
+
 .score-tmdb {
   display: flex; align-items: baseline; justify-content: center; gap: 5px;
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-light);

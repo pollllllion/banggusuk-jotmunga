@@ -71,9 +71,11 @@ function QueryTable({ title, note, rows, empty, showPosition }: {
       <h3>{title}</h3>
       <p className="settings-desc">{note}</p>
       {!rows.length ? <p className="settings-note">{empty}</p> : (
-        <div className="stat-list">
-          {rows.map(r => (
+        <div className="stat-list ranked">
+          {rows.map((r, i) => (
             <div key={r.query} className="stat-row">
+              {/* 순위를 앞에 둔다 — 검색어는 길이가 제각각이라 번호가 없으면 몇 등인지 세게 된다 */}
+              <span className="stat-rank">{i + 1}</span>
               <span className="stat-label" title={r.query}>{r.query}</span>
               <span className="stat-bar">
                 <span className="stat-bar-fill" style={{ width: `${max ? Math.max(2, Math.round(((r.impressions || r.clicks) / max) * 100)) : 0}%` }} />

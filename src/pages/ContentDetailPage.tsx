@@ -10,6 +10,7 @@ import { Poster } from '@/components/content/Poster'
 import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { CurationBacklinks } from '@/components/content/CurationBacklinks'
 import { RelatedContents } from '@/components/content/RelatedContents'
+import { RatingSheet } from '@/components/content/RatingSheet'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
@@ -39,6 +40,8 @@ export function ContentDetailPage() {
   const rerender = () => setTick(t => t + 1)
   // 본 작품 등록은 서버 왕복이 있다 — 오가는 동안 두 번 눌리지 않게 잠근다
   const [watchBusy, setWatchBusy] = useState(false)
+  /** 별점 시트가 열려 있나 */
+  const [rateOpen, setRateOpen] = useState(false)
 
   // 줄거리·출연진은 시작 로드에서 빠져 있다(용량 절감) — 상세로 들어온 지금 그 한 행만 채운다.
   // 다 오기 전(loading)·못 받았을 때(error)를 구분해야 '정보 없는 작품'으로 오해받지 않는다.
@@ -87,6 +90,52 @@ export function ContentDetailPage() {
   const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
   const alerted = user ? DS.isContentAlerted(user.id, content.id) : false
   const watched = user ? DS.isWatched(user.id, content.id) : false
+  /** 내가 이 작품에 매긴 별점 (글 없이 매긴 것 — watched.rating) */
+  const myRating = user
+    ? DS.getUserWatched(user.id).find(w => w.contentId === content.id)?.rating ?? null
+    : null
+
+  /**
+   * 별점 매기기.
+   *
+   * 예전엔 별점을 매기려면 이 화면에서 '본 작품'으로 담고 → 내 피드로 가서 → 목록에서 찾아
+   * 눌러야 했다. 세 단계다. 그래서 작품 2,300개 중 별점이 달린 건 11개뿐이었고,
+   * "○○ 평점"으로 검색해 들어온 사람(네이버 유입의 5분의 1)이 볼 것이 없었다.
+   * 작품 앞에 서 있는 지금 한 번에 끝낸다.
+   *
+   * 아직 본 작품으로 안 담았으면 담으면서 매긴다 — 별점을 매겼다는 건 봤다는 뜻이다.
+   */
+  const openRating = () => {
+    if (!isAccount) { toast('별점은 로그인(고정닉) 후 매길 수 있어요.'); return }
+    // 글로 매긴 별점이 있으면 그쪽이 원본이다. 두 곳에서 따로 매기면 어느 게 진짜인지 알 수 없다
+    const posted = user && DS.getDiscussionsByContent(content.id)
+      .find(d => d.authorId === user.id && d.rating != null)
+    if (posted) { toast(`이 작품엔 글로 매긴 별점(★ ${posted.rating})이 있어요. 그 글에서 고쳐주세요.`); return }
+    setRateOpen(true)
+  }
+
+  const pickRating = async (rating: number | null) => {
+    setRateOpen(false)
+    if (!user) return
+    try {
+      if (!watched && rating != null) {
+        await DS.registerWatched({
+          contentId: content.id, type: content.type, title: content.title,
+          posterUrl: content.posterUrl, platform: content.platform,
+          releaseYear: content.releaseYear, synopsis: content.synopsis,
+          genres: content.genres, creators: content.creators,
+        })
+      }
+      await DS.updateWatchedRating(user.id, content.id, rating)
+      DS.recomputeContentRating(content.id)
+      toast(rating != null
+        ? (watched ? `★ ${rating} 로 매겼어요.` : `★ ${rating} · 본 작품에도 담았어요.`)
+        : '별점을 지웠어요.')
+      rerender()
+    } catch {
+      toast('별점을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
+    }
+  }
 
   /**
    * 본 작품 등록 — 내 피드에 담는다. 찜과 다르다:
@@ -284,6 +333,12 @@ export function ContentDetailPage() {
                   네이버 유입 검색어 다섯 중 하나가 "○○ 평점"인데(2026-09-12 실측) 우리 별점이 달린
                   작품은 2,300개 중 11개다 — 평점을 찾아온 사람이 '아직 별점 없음' 한 줄만 보고 나갔다.
                   남의 수치이므로 출처를 붙이고, 우리 별점 자리(큰 숫자)는 비워 둔 채로 아래에 적는다. */}
+              {/* 별점 남기기 — 큰 숫자(전체 평점) 바로 아래. 한 번 눌러 고르면 끝난다 */}
+              <button type="button" className={`score-mine ${myRating != null ? 'on' : ''}`} onClick={openRating}>
+                {myRating != null
+                  ? <>내 별점 <b style={{ color: scoreColor(myRating) }}>{myRating}</b></>
+                  : '별점 남기기'}
+              </button>
               {!ratingCount && hasTmdbRating(content) && (
                 <div className="score-tmdb">
                   <span className="score-tmdb-label">TMDB 평점</span>
@@ -318,6 +373,15 @@ export function ContentDetailPage() {
         {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
         <CurationBacklinks contentId={content.id} />
         </>
+      )}
+
+      {rateOpen && (
+        <RatingSheet
+          title={content.title}
+          rating={myRating}
+          onPick={pickRating}
+          onClose={() => setRateOpen(false)}
+        />
       )}
 
       {/* 작품 → 작품 링크. 탭과 무관하게 늘 보인다 — 여기서 다음 작품으로 넘어간다

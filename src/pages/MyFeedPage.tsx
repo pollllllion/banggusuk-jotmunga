@@ -5,6 +5,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { RegisterWatchedModal, type RegisterMode } from '@/components/content/RegisterWatchedModal'
+import { RatingSheet } from '@/components/content/RatingSheet'
 import { EditContentModal } from '@/components/content/EditContentModal'
 import { ProfileShowcase } from '@/components/profile/ProfileShowcase'
 import { WatchedShelf, type WatchedEntry } from '@/components/profile/WatchedShelf'
@@ -296,30 +297,12 @@ export function MyFeedPage() {
       {/* 별점 시트 — 열 개를 한눈에 늘어놓고 한 번 눌러 끝낸다.
           지금 점수는 색으로 짚어 주고, 같은 점수를 다시 누르면 그냥 닫힌다(바꿀 게 없다). */}
       {ratingFor && (
-        <div className="sheet-overlay" onClick={e => { if (e.target === e.currentTarget) setRatingFor(null) }}>
-          <div className="sheet" role="dialog" aria-label="별점 매기기">
-            <div className="sheet-group">
-              <div className="rate-head">
-                <div className="rate-title">{ratingFor.content.title}</div>
-                <div className="rate-sub">1점부터 10점까지 · 매긴 점수는 작품 평점에 들어가요</div>
-              </div>
-              <div className="rate-grid">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                  <button
-                    key={n}
-                    className={`rate-num ${ratingFor.rating === n ? 'on' : ''}`}
-                    style={ratingFor.rating === n ? { background: scoreColor(n), borderColor: 'transparent', color: '#fff' } : undefined}
-                    onClick={() => pickRating(n)}
-                  >{n}</button>
-                ))}
-              </div>
-              {ratingFor.rating != null && (
-                <button className="sheet-item danger" onClick={() => pickRating(null)}>별점 지우기</button>
-              )}
-            </div>
-            <button className="sheet-item sheet-cancel" onClick={() => setRatingFor(null)}>취소</button>
-          </div>
-        </div>
+        <RatingSheet
+          title={ratingFor.content.title}
+          rating={ratingFor.rating}
+          onPick={pickRating}
+          onClose={() => setRatingFor(null)}
+        />
       )}
 
       {showModal && (
