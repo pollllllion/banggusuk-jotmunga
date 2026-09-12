@@ -42,6 +42,15 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node scripts/merge-dups.mjs --apply
 
+      # 구글 유입 검색어 — 우리 사이트에서는 알 수 없는 값이라 Search Console 에서 받아 온다.
+      # 며칠치를 겹쳐 받는다(구글 수치는 2~3일 뒤에도 늘어난다). 키가 없으면 건너뛴다.
+      - name: 구글 유입 검색어 수집
+        if: always()
+        env:
+          GSC_SERVICE_ACCOUNT_JSON: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/fetch-gsc.mjs --days=10
+
       # 병합은 되돌리기 어렵다 — 직전 상태를 90일 남긴다
       - name: 병합 백업 보관
         if: always()

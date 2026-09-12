@@ -16,6 +16,7 @@
     "ingest": "node --env-file-if-exists=.env scripts/ingest-tmdb.mjs",
     "sync:ott": "node --env-file-if-exists=.env scripts/sync-tmdb-ott.mjs",
     "dedupe": "node --env-file-if-exists=.env scripts/merge-dups.mjs",
+    "gsc": "node --env-file-if-exists=.env scripts/fetch-gsc.mjs",
     "clean:media": "node --env-file-if-exists=.env scripts/clean-media.mjs",
     "payload": "node --env-file-if-exists=.env scripts/payload-check.mjs",
     "migrate:status": "node --env-file-if-exists=.env scripts/migrate-status.mjs",

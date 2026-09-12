@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as DS from '@/api/dataService'
 import { isInternalDevice, setInternalDevice } from '@/utils/analytics'
+import { SearchQueriesSection } from './SearchQueriesSection'
 import type { AnalyticsSummary } from '@/api/social'
 
 const RANGES = [
@@ -78,14 +79,14 @@ function DeviceToggle() {
 }
 
 /**
- * 방문 통계 — 방문자·페이지뷰·유입 경로·사이트 안 검색어.
+ * 방문 통계 — 방문자·페이지뷰·유입 경로·유입 검색어·사이트 안 검색어.
  *
- * ⚠️ **밖에서 뭘 검색해 들어왔는지는 여기 없다.** 브라우저가 referrer 에서 검색어를
- *    지우고 도메인만 넘긴다(2026-09-09 실측 — 네이버도 'https://search.naver.com/' 만 온다).
- *    구글·네이버 검색어는 Search Console / 서치어드바이저 에서 봐야 하고,
- *    아래 안내에 연결 방법을 적어 뒀다.
- *    '사이트 안 검색어'는 우리 검색창에 친 말이라 성격이 다르다 —
- *    "들어와서 뭘 찾다가 못 찾았나"를 본다.
+ * 검색어가 두 종류라 헷갈리기 쉽다. 성격이 아예 다르다.
+ *   **유입 검색어**   밖에서 뭘 검색해 들어왔나. 우리 기록으로는 절대 알 수 없다 —
+ *                    브라우저가 referrer 에서 검색어를 지우고 도메인만 넘긴다
+ *                    (2026-09-09 실측 — 네이버도 'https://search.naver.com/' 만 온다).
+ *                    그래서 검색엔진 쪽에서 받아 온다(SearchQueriesSection).
+ *   **사이트 안 검색어** 들어와서 우리 검색창에 친 말. "뭘 찾다가 못 찾았나"를 본다.
  */
 export function AnalyticsTab() {
   const [days, setDays] = useState(7)
@@ -190,6 +191,9 @@ export function AnalyticsTab() {
               </div>
             )}
           </div>
+
+          {/* 밖에서 뭘 검색해 들어왔나 — 검색엔진에서 받아 온 값이라 아래 '사이트 안 검색어'와 다르다 */}
+          <SearchQueriesSection days={days} />
 
           <Table
             title="크롤러가 긁어간 양"
