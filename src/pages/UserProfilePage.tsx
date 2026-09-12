@@ -58,9 +58,12 @@ export function UserProfilePage() {
       if (!alive) return
       const items = rows
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .map(w => {
+        .map((w): WatchedEntry | null => {
           const c = DS.getContentById(w.contentId)
-          return c ? { content: c, rating: w.rating ?? null } : null
+          if (!c) return null
+          // 남의 프로필에서도 글로 매긴 별점이 보여야 한다
+          const { rating, postId } = DS.displayRatingFor(id!, c.id, w.rating)
+          return { content: c, rating, postId }
         })
         .filter((i): i is WatchedEntry => !!i)
       setWatched(items)

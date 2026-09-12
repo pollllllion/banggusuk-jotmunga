@@ -18,7 +18,12 @@ import type { Content, ContentType } from '@/types'
  */
 
 /** 선반 항목 = 작품 + 그 사람이 매긴 별점 */
-export interface WatchedEntry { content: Content; rating: number | null }
+export interface WatchedEntry {
+  content: Content
+  rating: number | null
+  /** 그 별점이 글에 딸린 것이면 글 id. 여기서 고칠 수 없고 그 글로 보내야 한다 */
+  postId?: string | null
+}
 
 /** 줄 세우기: 작품(개봉) 연도별 · 별점 높은 순 */
 type GroupMode = 'release' | 'rating'

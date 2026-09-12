@@ -36,6 +36,22 @@ export function getUserRatingForContent(userId: string, contentId: string): Disc
 }
 
 /**
+ * 이 사람이 이 작품에 매긴 별점 — **글로 매긴 것까지 함께** 본다.
+ *
+ * 별점이 두 곳에 있다: 글(discussions.rating)과 본 작품(watched.rating). 내 피드 카드는
+ * watched.rating 만 읽어서, 글을 쓰며 별점을 준 작품은 카드에 아무것도 안 떴다
+ * (남의 프로필에서도 똑같이 비어 보였다).
+ *
+ * 글 쪽을 먼저 본다 — 평점 집계(recomputeContentRating)도 같은 순서다.
+ * postId 가 있으면 그 별점은 글에 딸린 것이라 여기서 고칠 수 없다.
+ */
+export function displayRatingFor(userId: string, contentId: string, watchedRating: number | null | undefined) {
+  const post = getUserRatingForContent(userId, contentId)
+  if (post) return { rating: post.rating ?? null, postId: post.id }
+  return { rating: watchedRating ?? null, postId: null as string | null }
+}
+
+/**
  * 평점 재집계 — 캐시만 갱신(즉시 표시용). DB 는 트리거가 같은 규칙으로 맞춘다
  * (supabase/migration_watched_rating.sql 의 recompute_content_rating).
  *

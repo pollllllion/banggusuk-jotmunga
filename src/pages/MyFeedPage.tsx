@@ -37,9 +37,12 @@ export function MyFeedPage() {
   const items = useMemo<WatchedEntry[]>(() => {
     if (!user) return []
     return DS.getUserWatched(user.id)
-      .map(w => {
+      .map((w): WatchedEntry | null => {
         const c = DS.getContentById(w.contentId)
-        return c ? { content: c, rating: w.rating ?? null } : null
+        if (!c) return null
+        // 글로 매긴 별점도 함께 본다 — 그쪽이 먼저다(집계와 같은 순서)
+        const { rating, postId } = DS.displayRatingFor(user.id, c.id, w.rating)
+        return { content: c, rating, postId }
       })
       .filter((i): i is WatchedEntry => Boolean(i))
   }, [user, tick])
@@ -141,15 +144,13 @@ export function MyFeedPage() {
    *
    * 이미 그 작품에 별점 단 토론글이 있으면 여기서 못 매긴다 — 1작품 1별점이고,
    * 두 곳에서 다른 점수를 매기면 어느 쪽이 내 평가인지 알 수 없다.
+   * 그 경우 **"글에서 고치세요" 라고 말만 하지 않고 그 글로 데려간다** — 어느 글인지
+   * 찾는 일을 사람에게 넘기지 않는다.
    */
   const openRating = (e: React.MouseEvent, it: WatchedEntry) => {
     e.stopPropagation()
     if (!isAccount) { toast('별점은 로그인(고정닉) 후 매길 수 있어요.'); return }
-    const posted = DS.getDiscussions().find(d => d.authorId === user.id && d.contentId === it.content.id && d.rating != null)
-    if (posted) {
-      toast(`이 작품엔 글로 매긴 별점(★ ${posted.rating})이 있어요. 그 글에서 고쳐주세요.`)
-      return
-    }
+    if (it.postId) { navigate(`/talk/${it.postId}`); return }
     setRatingFor(it)
   }
 
@@ -181,7 +182,7 @@ export function MyFeedPage() {
             className={`watched-rate ${it.rating != null ? 'on' : ''}`}
             style={it.rating != null ? { background: scoreColor(it.rating), borderColor: 'transparent', color: '#fff' } : undefined}
             onClick={e => openRating(e, it)}
-            title="별점 매기기"
+            title={it.postId ? '글로 매긴 별점 — 누르면 그 글로 갑니다' : '별점 매기기'}
           >{it.rating != null ? `★ ${it.rating}` : '별점'}</button>
           {/* 추천작에 담기 — 목록을 훑다가 '이건 권할 만하다' 싶을 때 바로 누른다.
               따로 추천 칸을 두고 거기서 검색해 담는 것보다 여기가 자연스럽다.
