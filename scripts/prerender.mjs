@@ -35,6 +35,7 @@ import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, schemaTypeOf,
 } from '../src/shared/contentSeo.mjs'
 import { contentBodyLines, isIndexableContent } from '../src/shared/contentIndexable.mjs'
+import { pickRelated } from '../src/shared/relatedContents.mjs'
 import {
   buildCurationDescription, buildCurationJsonLd, curationBodyLines, publishBlockers,
 } from '../src/shared/curationSeo.mjs'
@@ -215,6 +216,14 @@ async function main() {
   for (const d of discussions) talkCount.set(d.contentId, (talkCount.get(d.contentId) || 0) + 1)
 
   // ── 작품 상세 ──────────────────────────────────────────────
+  // 이웃 링크를 걸 후보 — 색인 대상만 모은다. noindex 로 막아 둔 얇은 페이지를
+  // 가리키면 앞에서 아껴 둔 크롤 예산을 도로 흘려보내는 셈이다.
+  const linkPool = contents.filter(c => SAFE_ID.test(c.id)
+    && isIndexableContent(c, { today, discussionCount: talkCount.get(c.id) || 0 }))
+
+  // 이웃 링크로 이미 누가 가리켜 준 작품 — 아래 /browse 목록에서 뺀다
+  const linkedFromContent = new Set()
+
   let thin = 0
   for (const c of contents) {
     if (!SAFE_ID.test(c.id)) { skipped.push(`content:${c.id}`); continue }
@@ -233,11 +242,23 @@ async function main() {
       jsonLd: indexable ? buildContentJsonLd(c, SITE_URL) : null,
     })
     const backlinks = curationsByContent.get(c.id) || []
-    const body = backlinks.length
-      ? contentBody(c, today) + `\n      <section><h2>이 작품이 실린 글</h2><ul>`
-        + backlinks.map(x => `<li><a href="/curation/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
-        + `</ul></section>`
-      : contentBody(c, today)
+    // 작품 → 작품 이웃 링크. 앱(RelatedContents)과 같은 함수로 골라, 크롤러와 사람이
+    // 같은 그물을 보게 한다. 이게 없으면 작품 페이지는 전부 막다른 길이다.
+    const related = pickRelated(c, linkPool)
+    for (const r of related) linkedFromContent.add(r.id)
+    const body = [
+      contentBody(c, today),
+      backlinks.length
+        ? `<section><h2>이 작품이 실린 글</h2><ul>`
+          + backlinks.map(x => `<li><a href="/curation/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
+          + `</ul></section>`
+        : '',
+      related.length
+        ? `<section><h2>이런 작품도</h2><ul>`
+          + related.map(x => `<li><a href="/content/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
+          + `</ul></section>`
+        : '',
+    ].filter(Boolean).join('\n      ')
     writePage(`content/${c.id}`, render(template, head, body))
     n++
   }
@@ -288,6 +309,11 @@ async function main() {
     n++
   }
 
+  // 이웃 링크가 닿지 않은 작품만 목록에 싣는다.
+  // 전부 실으면 /browse 원본 HTML 이 gzip 13KB → 41KB 로 뛴다. 사람에겐 안 보이는 블록을
+  // 위해 모바일 전송량을 3배로 낼 이유가 없다 — 필요한 건 "아무도 안 가리키는 작품"뿐이다.
+  const browseFallback = linkPool.filter(c => !linkedFromContent.has(c.id))
+
   // ── 목록 페이지 ────────────────────────────────────────────
   // 앱의 BrowsePage / DiscussionRoomPage 가 쓰는 문구와 맞춘다
   writePage('browse', render(template, headBlock({
@@ -297,10 +323,12 @@ async function main() {
   }), [
     `<h1>작품 둘러보기</h1>`,
     `<ul>`,
-    // 크롤러가 여기서 타고 들어갈 링크는 색인 대상 작품으로 채운다
-    contents.filter(c => SAFE_ID.test(c.id) && isIndexableContent(c, { today, discussionCount: talkCount.get(c.id) || 0 }))
-      .slice(0, 500)
-      .map(c => `<li><a href="/content/${esc(c.id)}">${esc(c.title)}</a></li>`).join('\n        '),
+    // 크롤러가 여기서 타고 들어갈 링크는 색인 대상 작품 **전부**.
+    // 예전엔 500개만 실었는데 나머지는 사이트 안에서 아무도 가리키지 않는 외딴섬이 됐다
+    // (서치콘솔 "발견됨 - 현재 색인이 생성되지 않음"의 정체). 작품끼리 거는 이웃 링크
+    // (pickRelated)로도 전부에 닿지는 않아서, 이 목록이 마지막 안전망이다.
+    // 이 <ul> 은 프리렌더 블록 안이라 main.tsx 가 앱 실행 직전에 지운다 — 사람 눈엔 안 보인다.
+    browseFallback.map(c => `<li><a href="/content/${esc(c.id)}">${esc(c.title)}</a></li>`).join('\n        '),
     `</ul>`, NAV,
   ].join('\n      ')))
   n++
@@ -387,7 +415,7 @@ async function main() {
   }
   // 둘러보기 목록은 500개까지만 링크한다(나머지는 sitemap 이 담당)
   if (contents.length > 500) {
-    console.log(`[prerender]   /browse 정적 목록에는 상위 500개만 링크됨 (전체 ${contents.length}개는 sitemap.xml 로 전달)`)
+    console.log(`[prerender]   작품끼리 이웃 링크로 ${linkedFromContent.size}개가 연결됨 · 남은 ${browseFallback.length}개는 /browse 목록이 받는다`)
   }
 }
 

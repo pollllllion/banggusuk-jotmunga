@@ -9,6 +9,7 @@ import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { DiscussionBoard } from '@/components/content/DiscussionBoard'
 import { CurationBacklinks } from '@/components/content/CurationBacklinks'
+import { RelatedContents } from '@/components/content/RelatedContents'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { Stars } from '@/components/ui/Score'
 import { Seo } from '@/components/seo/Seo'
@@ -305,6 +306,10 @@ export function ContentDetailPage() {
         <CurationBacklinks contentId={content.id} />
         </>
       )}
+
+      {/* 작품 → 작품 링크. 탭과 무관하게 늘 보인다 — 여기서 다음 작품으로 넘어간다
+          (작품 페이지가 서로를 안 가리키면 크롤러에게도 사람에게도 막다른 길이다) */}
+      <RelatedContents content={content} />
 
       {/* TMDB 출처는 탭과 상관없이 늘 보인다 — 위 줄거리가 TMDB 자료라서
           '정보' 탭에서만 밝히면 글 탭에서는 출처 없이 그 자료를 쓰는 셈이 된다 */}

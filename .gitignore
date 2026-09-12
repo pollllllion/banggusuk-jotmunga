@@ -25,3 +25,6 @@ scripts/signals.local.json
 # 디자인 시안 작업 폴더 — 캔버스는 Artifact 로 올라가 있고, 씨앗 html 한 장이 2.4MB 다
 # (에디터가 통째로 박혀 있음). 리포에 둘 이유가 없다.
 design/
+
+# supabase CLI 로컬 캐시
+supabase/.temp/

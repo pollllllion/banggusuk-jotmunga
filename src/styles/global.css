@@ -1323,6 +1323,28 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .cur-backlinks .cur-backlink-title { font-size: 14px; font-weight: 700; color: var(--info); }
 .cur-backlinks li:hover .cur-backlink-title { text-decoration: underline; }
 
+/* "이런 작품도" — 작품 → 작품 이웃 링크. 가로로 흘려 보여 목록처럼 길어지지 않게 한다 */
+.related-works { margin-top: 24px; }
+.related-works h2 { font-size: 15px; font-weight: 800; color: var(--heading); margin-bottom: 10px; }
+.related-row {
+  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.related-row::-webkit-scrollbar { height: 6px; }
+.related-row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.related-item {
+  flex: 0 0 120px; scroll-snap-align: start; text-decoration: none; color: inherit;
+  transition: transform var(--duration) var(--ease);
+}
+.related-item:hover { transform: translateY(-3px); }
+.related-item:hover .c-title { text-decoration: underline; }
+.related-item .c-title { font-size: 13px; font-weight: 700; margin-top: 7px; color: var(--heading); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.related-item .c-meta { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+
+@media (max-width: 768px) {
+  .related-item { flex-basis: 104px; }
+}
+
 /* 홈 상단 최신 기획 글 배너 */
 .cal-curation {
   display: flex; align-items: center; gap: 14px; cursor: pointer;
