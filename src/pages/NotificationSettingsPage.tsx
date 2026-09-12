@@ -11,7 +11,10 @@ import type { User } from '@/types'
 import { clickable } from '@/utils/a11y'
 
 /** 폰 알림 스위치 한 줄 — profiles 의 한 칸에 대응한다 */
-type ActivityPref = { key: 'notifyComment' | 'notifyReply' | 'notifyLike'; label: string; hint: string }
+type ActivityPref = {
+  key: 'notifyComment' | 'notifyReply' | 'notifyLike' | 'notifyFollow'
+  label: string; hint: string
+}
 
 /**
  * 댓글·추천의 폰 푸시 발송 장치가 연결됐나.
@@ -27,6 +30,7 @@ const ACTIVITY_PREFS: ActivityPref[] = [
   { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남겼을 때' },
   { key: 'notifyReply', label: '내가 댓글 단 글에 새 댓글', hint: '대화가 이어질 때. 알림이 잦다면 이것부터 끄세요.' },
   { key: 'notifyLike', label: '내 글·댓글 추천', hint: '누가 내 글이나 댓글을 추천했을 때' },
+  { key: 'notifyFollow', label: '관심 있는 사람의 새 글', hint: '내가 관심에 담은 사람이 글을 올렸을 때' },
 ]
 
 /**

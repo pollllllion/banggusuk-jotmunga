@@ -27,6 +27,8 @@ export interface User {
   notifyReply?: boolean
   /** 내 글·댓글이 추천되면 알림 */
   notifyLike?: boolean
+  /** 관심에 담은 사람이 새 글을 올리면 알림 (migration_follow_post_notify) */
+  notifyFollow?: boolean
   // ── 내 피드 칸별 공개 여부 (migration_feed_privacy · 미적용이면 undefined = 공개) ──
   /** 내가 매긴 별점을 남에게 보여줄지 */
   showRatings?: boolean
@@ -217,7 +219,7 @@ export interface DiscussionComment {
 }
 
 // ── Notification ────────────────────────────────────────────
-export type NotificationType = 'like' | 'dislike' | 'comment' | 'reply'
+export type NotificationType = 'like' | 'dislike' | 'comment' | 'reply' | 'post'
 
 export interface Notification {
   id: string

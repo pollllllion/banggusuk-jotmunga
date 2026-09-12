@@ -14,7 +14,9 @@ import type { NotificationType } from '@/types'
 export type NotifyTarget = { userId: string; type: NotificationType; message: string }
 
 /** 받는 사람의 알림 설정 (profiles 의 세 칸 · migration_notify_prefs) */
-export type NotifyPrefs = { notifyComment?: boolean; notifyReply?: boolean; notifyLike?: boolean }
+export type NotifyPrefs = {
+  notifyComment?: boolean; notifyReply?: boolean; notifyLike?: boolean; notifyFollow?: boolean
+}
 
 /** 받는 사람 id → 그 사람의 설정. 못 찾으면 undefined 를 주면 된다(= 켜짐). */
 export type PrefsLookup = (userId: string) => NotifyPrefs | null | undefined
@@ -38,6 +40,7 @@ export function wantsNotification(prefs: NotifyPrefs | null | undefined, type: N
   if (!prefs) return true
   if (type === 'comment') return prefs.notifyComment !== false
   if (type === 'reply') return prefs.notifyReply !== false
+  if (type === 'post') return prefs.notifyFollow !== false
   return prefs.notifyLike !== false   // like · dislike
 }
 

@@ -65,20 +65,25 @@ export function SearchQueriesSection({ days }: { days: number }) {
 function QueryTable({ title, note, rows, empty, showPosition }: {
   title: string; note: string; rows: Row[]; empty: string; showPosition?: boolean
 }) {
-  const max = rows.reduce((m, r) => Math.max(m, r.impressions || r.clicks), 0)
+  // 클릭 많은 순. 서버도 같은 순서로 주지만 여기서 한 번 더 세운다 —
+  // 순위 번호를 붙인 표라서 순서가 흔들리면 번호가 거짓말이 된다.
+  const sorted = [...rows].sort((a, b) => b.clicks - a.clicks || b.impressions - a.impressions)
+  // 막대는 **줄을 세운 기준과 같은 값**(클릭)으로 그린다.
+  // 노출수로 그리면 클릭순으로 정렬된 목록에서 막대만 들쭉날쭉해 정렬이 안 된 것처럼 보인다.
+  const max = sorted.reduce((m, r) => Math.max(m, r.clicks), 0)
   return (
     <div className="settings-section">
       <h3>{title}</h3>
       <p className="settings-desc">{note}</p>
       {!rows.length ? <p className="settings-note">{empty}</p> : (
         <div className="stat-list ranked">
-          {rows.map((r, i) => (
+          {sorted.map((r, i) => (
             <div key={r.query} className="stat-row">
               {/* 순위를 앞에 둔다 — 검색어는 길이가 제각각이라 번호가 없으면 몇 등인지 세게 된다 */}
               <span className="stat-rank">{i + 1}</span>
               <span className="stat-label" title={r.query}>{r.query}</span>
               <span className="stat-bar">
-                <span className="stat-bar-fill" style={{ width: `${max ? Math.max(2, Math.round(((r.impressions || r.clicks) / max) * 100)) : 0}%` }} />
+                <span className="stat-bar-fill" style={{ width: `${max ? Math.max(2, Math.round((r.clicks / max) * 100)) : 0}%` }} />
               </span>
               <span className="stat-value">
                 {r.clicks.toLocaleString()}

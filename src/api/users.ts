@@ -44,6 +44,7 @@ function profileToUser(p: any, email: string): User {
     notifyComment: p.notifyComment,
     notifyReply: p.notifyReply,
     notifyLike: p.notifyLike,
+    notifyFollow: p.notifyFollow,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
     avatarUrl: p.avatarUrl ?? null,
     showRatings: p.showRatings, showWatched: p.showWatched, showBookmarks: p.showBookmarks,
@@ -132,6 +133,7 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.notifyComment !== undefined) patch.notifyComment = updates.notifyComment
   if (updates.notifyReply !== undefined) patch.notifyReply = updates.notifyReply
   if (updates.notifyLike !== undefined) patch.notifyLike = updates.notifyLike
+  if (updates.notifyFollow !== undefined) patch.notifyFollow = updates.notifyFollow
   // 공개 취향 프로필
   if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl
   // 내 피드 칸별 공개 여부

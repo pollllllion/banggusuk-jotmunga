@@ -11,7 +11,7 @@
  *
  * 역할 분담 (2026-09-09에 정한 것):
  *   종 아이콘(사이트 안)  — **항상** 뜬다. 설정과 무관하다.
- *   폰 푸시               — profiles 의 notifyComment/notifyReply/notifyLike 로 켜고 끈다.
+ *   폰 푸시               — profiles 의 notifyComment/notifyReply/notifyLike/notifyFollow 로 켜고 끈다.
  *   즉 이 함수가 그 스위치를 읽는 **유일한** 곳이다.
  *
  * 배포·연결 순서는 supabase/README-push.md 참고.
@@ -39,6 +39,9 @@ const PREF_COLUMN: Record<string, string> = {
   reply: 'notifyReply',
   like: 'notifyLike',
   dislike: 'notifyLike',
+  // 관심 담은 사람의 새 글 — 알림 행은 사람이 아니라 DB 트리거가 만든다
+  // (누가 나를 담았는지는 아무에게도 보여주지 않기 위해서 · migration_follow_post_notify.sql)
+  post: 'notifyFollow',
 }
 
 /**

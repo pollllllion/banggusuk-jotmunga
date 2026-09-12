@@ -115,3 +115,18 @@ describe('likeNotifyTarget', () => {
     expect(likeNotifyTarget({ targetAuthorId: null, actorId: 'fan', actor: '팬', label: 'x', what: '댓글' })).toBeNull()
   })
 })
+
+describe('wantsNotification — 관심 있는 사람의 새 글', () => {
+  it('notifyFollow 를 끄면 post 푸시는 안 간다', () => {
+    expect(wantsNotification({ notifyFollow: false }, 'post')).toBe(false)
+  })
+
+  it('설정이 없으면 켜진 것으로 본다 — 마이그레이션 전에 알림이 통째로 사라지면 안 된다', () => {
+    expect(wantsNotification({}, 'post')).toBe(true)
+    expect(wantsNotification(undefined, 'post')).toBe(true)
+  })
+
+  it('다른 종류의 설정은 post 에 영향을 주지 않는다', () => {
+    expect(wantsNotification({ notifyComment: false, notifyLike: false }, 'post')).toBe(true)
+  })
+})
