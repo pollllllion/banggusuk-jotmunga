@@ -30,7 +30,7 @@ const ACTIVITY_PREFS: ActivityPref[] = [
   { key: 'notifyComment', label: '내 글에 댓글', hint: '내가 쓴 글에 누가 댓글을 남겼을 때' },
   { key: 'notifyReply', label: '내가 댓글 단 글에 새 댓글', hint: '대화가 이어질 때. 알림이 잦다면 이것부터 끄세요.' },
   { key: 'notifyLike', label: '내 글·댓글 추천', hint: '누가 내 글이나 댓글을 추천했을 때' },
-  { key: 'notifyFollow', label: '관심 있는 사람의 새 글', hint: '내가 관심에 담은 사람이 글을 올렸을 때' },
+  { key: 'notifyFollow', label: '관심', hint: '관심에 담은 사람이 글을 올렸을 때 · 누가 나를 관심에 담았을 때' },
 ]
 
 /**

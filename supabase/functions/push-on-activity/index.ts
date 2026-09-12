@@ -42,6 +42,8 @@ const PREF_COLUMN: Record<string, string> = {
   // 관심 담은 사람의 새 글 — 알림 행은 사람이 아니라 DB 트리거가 만든다
   // (누가 나를 담았는지는 아무에게도 보여주지 않기 위해서 · migration_follow_post_notify.sql)
   post: 'notifyFollow',
+  // 누가 나를 관심에 담았다 — 같은 설정 칸을 쓴다
+  follow: 'notifyFollow',
 }
 
 /**
@@ -126,7 +128,10 @@ Deno.serve(async (req) => {
       title: '방구석좋문가',
       body: record.message,
       // 알림을 누르면 그 글로 간다. reviewId 는 토론글 id 다(옛 이름 그대로).
-      url: record.reviewId ? `/talk/${record.reviewId}` : '/',
+      // 관심 알림('follow')만 예외 — 글이 아니라 그 사람 프로필을 가리킨다.
+      url: record.reviewId
+        ? (record.type === 'follow' ? `/u/${record.reviewId}` : `/talk/${record.reviewId}`)
+        : '/',
       // 같은 글의 알림이 여러 개 쌓이면 하나로 접힌다 — 폰이 도배되지 않게
       tag: `activity-${record.reviewId || record.id}`,
     })

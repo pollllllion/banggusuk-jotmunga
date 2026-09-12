@@ -98,8 +98,16 @@ export function ProfileShowcase({ user, watched, editable }: {
 
   /**
    * 관심 — 이 사람의 새 별점·글을 관심 피드(/follows)에서 모아 본다.
-   * 내 목록(profiles.follows)에만 남는다: 누가 나를 보는지는 이 서비스가 쓰지 않고,
-   * 남에게 밝히지도 않는다(팔로워 수를 세는 순간 그게 점수가 된다).
+   *
+   * 목록은 내 것(profiles.follows)에만 남는다. **팔로워 수·명단은 어디에도 보여주지 않는다**
+   * — 세는 순간 그게 점수가 된다.
+   *
+   * 담을 때 상대에게 알림은 보낸다(2026-09-13 결정). 그전까지는 담아도 상대가 몰라서
+   * 관심 기능이 사실상 죽어 있었다(전체에 관심 관계 1건). "누가 날 지켜본다"는 감각이
+   * 없으면 아무도 쓰지 않는다. 알림함에서 세어 보는 건 본인 알림함 안의 일이라
+   * 공개 지표가 되지 않는다 — 화면에 숫자를 붙이지 않는 선은 그대로 지킨다.
+   *
+   * 뺄 때는 알리지 않는다. 그건 상대가 알 이유가 없는 일이다.
    */
   const me = useAuthStore(s => s.user)
   const isAccount = useAuthStore(s => s.isAccount)
@@ -112,6 +120,12 @@ export function ProfileShowcase({ user, watched, editable }: {
     const list = me.follows ?? []
     try {
       await updateProfile({ follows: following ? list.filter(id => id !== user.id) : [...list, user.id] })
+      if (!following) {
+        // reviewId 자리에 내 id 를 넣는다 — 알림을 누르면 글이 아니라 내 프로필로 간다
+        void DS.insertNotifications([
+          DS.buildNotification(user.id, 'follow', me.id, `${me.nickname}님이 당신을 관심에 담았어요.`),
+        ])
+      }
       toast(following ? '관심에서 뺐어요.' : '관심에 담았어요. 관심 피드에서 모아 봐요.')
       rerender()
     } catch { toast('처리하지 못했어요.') }

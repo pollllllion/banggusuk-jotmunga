@@ -130,3 +130,14 @@ describe('wantsNotification — 관심 있는 사람의 새 글', () => {
     expect(wantsNotification({ notifyComment: false, notifyLike: false }, 'post')).toBe(true)
   })
 })
+
+describe("wantsNotification — '누가 나를 관심에 담았다'", () => {
+  it('새 글 알림과 같은 칸(notifyFollow)을 쓴다', () => {
+    expect(wantsNotification({ notifyFollow: false }, 'follow')).toBe(false)
+    expect(wantsNotification({ notifyFollow: true }, 'follow')).toBe(true)
+  })
+
+  it('설정이 없으면 켜진 것으로 본다', () => {
+    expect(wantsNotification(undefined, 'follow')).toBe(true)
+  })
+})

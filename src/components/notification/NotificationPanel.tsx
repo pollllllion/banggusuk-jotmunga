@@ -67,11 +67,13 @@ export function NotificationPanel() {
     if (next) void reload(true)   // 열 때는 간격 무시 — 확인하려고 누른 것이다
   }
 
-  const handleClick = (notifId: string, reviewId: string) => {
+  const handleClick = (notifId: string, reviewId: string, type: string) => {
     DS.markRead(notifId)
     setOpen(false)
     sync()
-    if (reviewId) navigate(`/talk/${reviewId}`)
+    if (!reviewId) return
+    // 관심 알림은 글이 아니라 **그 사람**을 가리킨다 (reviewId 에 상대 id 가 들어 있다)
+    navigate(type === 'follow' ? `/u/${reviewId}` : `/talk/${reviewId}`)
   }
 
   const handleMarkAll = () => {
@@ -102,7 +104,7 @@ export function NotificationPanel() {
               </div>
             ) : (
               notifs.map(n => (
-                <div key={n.id} className={`notif-item ${n.read ? '' : 'unread'}`} {...clickable(() => handleClick(n.id, n.reviewId))}>
+                <div key={n.id} className={`notif-item ${n.read ? '' : 'unread'}`} {...clickable(() => handleClick(n.id, n.reviewId, n.type))}>
                   <div className="notif-msg">{n.message}</div>
                   <div className="notif-time">{timeAgo(n.createdAt)}</div>
                 </div>

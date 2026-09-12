@@ -40,7 +40,9 @@ export function wantsNotification(prefs: NotifyPrefs | null | undefined, type: N
   if (!prefs) return true
   if (type === 'comment') return prefs.notifyComment !== false
   if (type === 'reply') return prefs.notifyReply !== false
-  if (type === 'post') return prefs.notifyFollow !== false
+  // 관심 관련 알림 두 종류가 한 칸을 쓴다 — '담은 사람의 새 글'(post)과 '누가 나를 담았다'(follow).
+  // 칸을 따로 두면 설정이 늘어나는 만큼 아무도 안 읽는다. 둘 다 관심 기능의 일부다.
+  if (type === 'post' || type === 'follow') return prefs.notifyFollow !== false
   return prefs.notifyLike !== false   // like · dislike
 }
 
