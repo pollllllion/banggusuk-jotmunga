@@ -176,7 +176,6 @@ export function AnalyticsTab() {
             그중 <b>검색으로 들어온 사람</b>이 밖에서 우리를 찾아온 방문자에 가장 가까운 숫자예요.
           </p>
 
-          <DeviceToggle />
 
           <div className="settings-section">
             <h3>일자별</h3>
@@ -260,6 +259,9 @@ export function AnalyticsTab() {
               네이버는 <b>서치어드바이저</b>가 같은 역할을 합니다.
             </p>
           </div>
+
+          {/* 설정이라 맨 아래 — 숫자를 보러 온 화면이지 스위치를 만지러 온 화면이 아니다 */}
+          <DeviceToggle />
         </>
       )}
     </>

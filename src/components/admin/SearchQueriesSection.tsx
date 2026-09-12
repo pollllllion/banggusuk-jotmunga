@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { useToastStore } from '@/components/ui/Toast'
 import { parseNaverKeywords } from '@/shared/naverKeywords.mjs'
+import { Pager } from '@/components/ui/Pager'
 
 type Row = { query: string; clicks: number; impressions: number; position?: number }
 type Summary = { days: number; google: Row[]; naver: Row[]; updatedAt: string | null }
@@ -71,6 +72,9 @@ export function SearchQueriesSection({ days }: { days: number }) {
  * 부족한 건 노출이 아니라 전환이다. 손댈 곳은 '노출은 많은데 안 눌리는 검색어'인데,
  * 클릭순으로 세우면 그것들이 아래쪽에 묻힌다(연옥 살인마들의 자치구역: 노출 2,260·클릭 3).
  */
+/** 한 쪽에 보여줄 줄 수 — 네이버 서치어드바이저와 같은 10개. 옮겨 볼 때 감각이 같다 */
+const PER_PAGE = 10
+
 const SORTS = [
   { key: 'clicks', label: '클릭순', hint: '실제로 사람을 데려온 검색어부터' },
   { key: 'impressions', label: '노출순', hint: '검색엔진이 우리를 가장 많이 보여준 검색어부터' },
@@ -87,6 +91,7 @@ function QueryTable({ title, note, rows, empty }: {
   title: string; note: string; rows: Row[]; empty: string
 }) {
   const [sort, setSort] = useState<SortKey>('clicks')
+  const [page, setPage] = useState(1)
 
   const totalClicksAll = rows.reduce((n, r) => n + r.clicks, 0)
   const totalImpressionsAll = rows.reduce((n, r) => n + r.impressions, 0)
@@ -97,6 +102,11 @@ function QueryTable({ title, note, rows, empty }: {
     if (sort === 'missed') return missedClicks(b, avgCtr) - missedClicks(a, avgCtr) || b.impressions - a.impressions
     return b.clicks - a.clicks || b.impressions - a.impressions
   })
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PER_PAGE))
+  // 정렬을 바꾸면 1쪽부터 — 3쪽을 보던 중에 기준이 바뀌면 어디를 보고 있는지 알 수 없다
+  const pageNow = Math.min(page, totalPages)
+  const pageRows = sorted.slice((pageNow - 1) * PER_PAGE, pageNow * PER_PAGE)
+
   const barValue = (r: Row) =>
     sort === 'impressions' ? r.impressions : sort === 'missed' ? missedClicks(r, avgCtr) : r.clicks
   const barMax = sorted.reduce((m, r) => Math.max(m, barValue(r)), 0)
@@ -119,7 +129,7 @@ function QueryTable({ title, note, rows, empty }: {
                 key={o.key}
                 className={`filter-btn ${sort === o.key ? 'active' : ''}`}
                 title={o.hint}
-                onClick={() => setSort(o.key)}
+                onClick={() => { setSort(o.key); setPage(1) }}
               >{o.label}</button>
             ))}
           </div>
@@ -139,9 +149,12 @@ function QueryTable({ title, note, rows, empty }: {
               <span className="num">CTR</span>
               <span className="num">평균 순위</span>
             </div>
-            {sorted.map((r, i) => (
+            {pageRows.map((r, i) => (
               <div key={r.query} className="qtable-row">
-                <span className="qtable-rank">{i + 1}</span>
+                {/* 1~3위만 진하게. 쪽이 넘어가도 실제 순위로 판단한다 */}
+                <span className={`qtable-rank ${(pageNow - 1) * PER_PAGE + i < 3 ? 'top' : ''}`}>
+                  {(pageNow - 1) * PER_PAGE + i + 1}
+                </span>
                 <span className="qtable-query" title={r.query}>
                   {r.query}
                   {/* 막대는 **지금 세운 기준**으로 그린다 — 다른 값으로 그리면 정렬이 안 된 것처럼 보인다 */}
@@ -156,6 +169,7 @@ function QueryTable({ title, note, rows, empty }: {
               </div>
             ))}
           </div>
+          <Pager page={pageNow} total={totalPages} onGo={setPage} />
         </>
       )}
     </div>

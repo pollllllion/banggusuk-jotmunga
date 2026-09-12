@@ -1077,7 +1077,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   text-align: right; font-size: 12px; font-weight: 700;
   color: var(--subtext); font-variant-numeric: tabular-nums;
 }
-.qtable-row:nth-child(-n+4) .qtable-rank { color: var(--primary); }   /* 머리글이 첫째 칸이라 +1 */
+.qtable-rank.top { color: var(--primary); }   /* 1~3위. 쪽이 넘어가도 실제 순위로 판단한다 */
+.qtable-row:nth-child(-n+4) .qtable-rank:not(.top) { color: var(--subtext); }
 
 .qtable-query { min-width: 0; display: flex; flex-direction: column; gap: 4px; color: var(--text); }
 .qtable-query > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
