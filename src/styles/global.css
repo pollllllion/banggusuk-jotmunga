@@ -1092,6 +1092,13 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .install-guide-steps li:only-child { padding-left: 0; }
 .install-guide-steps li:only-child::before { content: none; }
 
+/* 문장 안에 들어가는 버튼 그림 — 글자 크기를 따라가고 줄 높이를 밀지 않는다 */
+.install-guide-steps .glyph {
+  width: 1.15em; height: 1.15em; vertical-align: -0.22em;
+  margin: 0 1px; color: var(--text);
+}
+.install-guide-steps b { color: var(--text); font-weight: 700; }
+
 .install-guide-action { padding: 18px 20px 20px; }
 .install-guide-action .btn { width: 100%; }
 .install-guide-steps:last-child { padding-bottom: 22px; }
