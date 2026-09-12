@@ -31,13 +31,15 @@ export function InstallHintRow() {
   return (
     <>
       <div className="install-hint">
+        {/* 폰 폭(390px)에서 제목이 두 줄로 깨지지 않을 길이로 잡았다.
+            화살표(›)는 뺐다 — 오른쪽 ✕ 와 나란히 붙어 칸이 어수선해 보였고,
+            줄 전체가 눌리므로 있으나 없으나다. */}
         <button className="install-hint-main" onClick={() => setGuide(true)}>
           <img src="/icons/icon-192.png" alt="" />
           <span>
-            <b>앱으로 추가하면 알림도 받아요</b>
-            <small>홈 화면에 두면 주소창 없이 바로 열려요</small>
+            <b>홈 화면에 추가하기</b>
+            <small>주소창 없이 바로 열리고 알림도 받아요</small>
           </span>
-          <span className="install-hint-arrow">›</span>
         </button>
         <button
           className="install-hint-close"
