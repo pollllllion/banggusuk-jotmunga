@@ -16,7 +16,9 @@
  * VERSION 을 올리면 옛 캐시가 activate 때 정리된다. 배포마다 올릴 필요는 없다
  * (HTML 은 network-first, 자산은 해시라 낡은 게 섞이지 않는다).
  */
-const VERSION = 'v1'
+// v2 (2026-09-13): 로고를 바꿨다. 아이콘은 cache-first 라 버전을 올리지 않으면
+// 폰에 옛 번개 아이콘이 영원히 남는다 — 이럴 때가 버전을 올려야 하는 때다.
+const VERSION = 'v2'
 const SHELL = `ottcal-shell-${VERSION}`
 const ASSETS = `ottcal-assets-${VERSION}`
 const PAGES = `ottcal-pages-${VERSION}`
