@@ -58,20 +58,21 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
     <div className="sheet-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="sheet install-guide" role="dialog" aria-label="홈 화면에 추가">
         <div className="sheet-group">
+          {/* 로고를 가운데 위로. 글자 옆에 붙여 두니 폰에서 왼쪽 모서리에 처박힌 것처럼 보였다 */}
           <div className="install-guide-head">
             <img src="/icons/icon-192.png" alt="" />
-            <div>
-              <b>앱처럼 쓰기</b>
-              <span>홈 화면에 추가하면 주소창 없이 바로 열리고, 알림도 받을 수 있어요.</span>
-            </div>
+            <b>홈 화면에 추가</b>
+            <span>주소창 없이 바로 열리고, 알림도 받을 수 있어요</span>
           </div>
           <ol className="install-guide-steps">
             {steps().map((s, i) => <li key={i}>{s}</li>)}
           </ol>
           {prompt && !isStandalone() && (
-            <button className="btn btn-primary" disabled={busy} onClick={() => void install()}>
-              {busy ? '설치 창 여는 중...' : '홈 화면에 추가'}
-            </button>
+            <div className="install-guide-action">
+              <button className="btn btn-primary" disabled={busy} onClick={() => void install()}>
+                {busy ? '설치 창 여는 중...' : '홈 화면에 추가'}
+              </button>
+            </div>
           )}
         </div>
         <button className="sheet-item sheet-cancel" onClick={onClose}>닫기</button>
