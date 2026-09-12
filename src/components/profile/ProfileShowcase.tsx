@@ -107,7 +107,10 @@ export function ProfileShowcase({ user, watched, editable }: {
    * 없으면 아무도 쓰지 않는다. 알림함에서 세어 보는 건 본인 알림함 안의 일이라
    * 공개 지표가 되지 않는다 — 화면에 숫자를 붙이지 않는 선은 그대로 지킨다.
    *
-   * 뺄 때는 알리지 않는다. 그건 상대가 알 이유가 없는 일이다.
+   * **알림 행은 여기서 만들지 않는다.** follows 가 바뀌면 서버 트리거가 만든다
+   * (migration_follow_notify_server.sql). 처음엔 여기서 넣었는데, 홈 화면 PWA 로 쓰는
+   * 사람은 서비스워커가 옛 자산을 캐시해 새 코드가 돌지 않아 알림이 조용히 빠졌다.
+   * 뺄 때는 알리지 않는다 — 상대가 알 이유가 없는 일이다.
    */
   const me = useAuthStore(s => s.user)
   const isAccount = useAuthStore(s => s.isAccount)
@@ -120,12 +123,6 @@ export function ProfileShowcase({ user, watched, editable }: {
     const list = me.follows ?? []
     try {
       await updateProfile({ follows: following ? list.filter(id => id !== user.id) : [...list, user.id] })
-      if (!following) {
-        // reviewId 자리에 내 id 를 넣는다 — 알림을 누르면 글이 아니라 내 프로필로 간다
-        void DS.insertNotifications([
-          DS.buildNotification(user.id, 'follow', me.id, `${me.nickname}님이 당신을 관심에 담았어요.`),
-        ])
-      }
       toast(following ? '관심에서 뺐어요.' : '관심에 담았어요. 관심 피드에서 모아 봐요.')
       rerender()
     } catch { toast('처리하지 못했어요.') }
