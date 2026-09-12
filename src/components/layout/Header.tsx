@@ -154,7 +154,7 @@ export function Header() {
           <MenuIcon size={20} />
         </button>
         <a className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          <img className="logo-img" src="/logo-trim.png" alt="방구석좋문가" />
+          <img className="logo-img" src="/logo-ottcal.png" alt="오티티칼" />
         </a>
         <div className="search-wrap" ref={searchRef}>
           <div className="search-bar">

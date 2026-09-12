@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
     webpush.setVapidDetails(CONTACT, VAPID_PUBLIC, VAPID_PRIVATE)
 
     const payload = JSON.stringify({
-      title: '방구석좋문가',
+      title: '오티티칼',
       body: record.message,
       // 알림을 누르면 그 글로 간다. reviewId 는 토론글 id 다(옛 이름 그대로).
       // 관심 알림('follow')만 예외 — 글이 아니라 그 사람 프로필을 가리킨다.

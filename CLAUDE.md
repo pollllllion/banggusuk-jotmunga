@@ -1,4 +1,4 @@
-# 방좋 (방구석좆문가 / ottcal.com) — 작업 규칙
+# 방좋 (오티티칼 / ottcal.com) — 작업 규칙
 
 Vite + TS + Supabase 정적 SPA. 두 대의 PC에서 번갈아 작업한다.
 

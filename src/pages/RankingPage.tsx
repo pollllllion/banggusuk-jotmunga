@@ -37,9 +37,9 @@ export function RankingPage() {
 
   return (
     <>
-      <Seo title="방구석 레벨" noindex />
+      <Seo title="레벨" noindex />
       <div className="feed-header">
-        <h2 className="feed-title">방구석 레벨</h2>
+        <h2 className="feed-title">레벨</h2>
       </div>
 
       {/* 이달의 랭킹 */}

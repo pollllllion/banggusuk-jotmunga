@@ -7,7 +7,7 @@
  */
 
 export const SITE_URL = 'https://ottcal.com'
-export const SITE_NAME = '방구석좋문가'
+export const SITE_NAME = '오티티칼'
 export const SITE_TAGLINE = 'OTT 공개일·개봉일 캘린더'
 
 export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_TAGLINE}`
@@ -30,7 +30,7 @@ export function clampText(text, max = 155) {
   return clean.length <= max ? clean : `${clean.slice(0, max - 1).trimEnd()}…`
 }
 
-/** '작품명' → '작품명 | 방구석좋문가' (홈은 사이트명만) */
+/** '작품명' → '작품명 | 오티티칼' (홈은 사이트명만) */
 export function buildTitle(pageTitle) {
   const t = (pageTitle || '').trim()
   return t ? `${t} | ${SITE_NAME}` : DEFAULT_TITLE

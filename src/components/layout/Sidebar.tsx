@@ -29,7 +29,7 @@ export function Sidebar() {
   return (
     <nav className={`sidebar ${navDrawerOpen ? 'open' : ''}`}>
       <a className="sidebar-brand" onClick={() => navigate('/')}>
-        <img src="/logo-trim.png" alt="방구석좋문가" />
+        <img src="/logo-ottcal.png" alt="오티티칼" />
       </a>
       {BOARDS.map(b => (
         <div key={b.slug}>
@@ -50,14 +50,14 @@ export function Sidebar() {
         </div>
       ))}
 
-      {/* 방구석 레벨 — 유저 충분히 모이면 오픈. 그 전엔 관리자만 노출 */}
+      {/* 레벨 — 유저 충분히 모이면 오픈. 그 전엔 관리자만 노출 */}
       {isAdmin && (
         <>
           <div className="sidebar-divider" />
           <div
             className={`sidebar-item ${isActive('/ranking') ? 'active' : ''}`}
             onClick={() => navigate('/ranking')}>
-            방구석 레벨
+            레벨
           </div>
         </>
       )}

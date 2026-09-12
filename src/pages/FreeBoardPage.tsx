@@ -9,14 +9,14 @@ import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
 import '@/styles/discussion.css'
 
-/** 한 페이지에 보여줄 글 수 — 방구석토론방과 같게 */
+/** 한 페이지에 보여줄 글 수 — 토론방과 같게 */
 const PER_PAGE = 30
 
 
 /**
  * 자유방 — 작품에 묶이지 않는 게시판.
  *
- * 방구석토론방과 같은 discussions 표를 쓰되 board='relay' 로만 거른다(migration_free_board).
+ * 토론방과 같은 discussions 표를 쓰되 board='relay' 로만 거른다(migration_free_board).
  * 그래서 댓글·추천·조회수·신고·유동닉 비번은 토론방 것을 그대로 쓴다.
  * 다른 점은 두 가지뿐이다 — 작품 열이 없고(글에 작품이 없으니), 작품 타입 탭이 없다.
  */
@@ -48,7 +48,7 @@ export function FreeBoardPage() {
       <Seo
         path="/board/relay"
         title="자유방"
-        description="작품 얘기가 아니어도 괜찮은 방구석좋문가 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳."
+        description="작품 얘기가 아니어도 괜찮은 오티티칼 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳."
       />
       {/* 자유방은 칸이 하나뿐이라 뛰어갈 곳이 없다 — 제목만 붙여 둔다 */}
       <BoardTopbar

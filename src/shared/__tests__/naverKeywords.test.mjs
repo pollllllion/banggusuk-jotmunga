@@ -3,8 +3,8 @@ import { parseNaverKeywords } from '../naverKeywords.mjs'
 
 describe('parseNaverKeywords', () => {
   it('탭으로 나뉜 표 — 순위·검색어·클릭·노출', () => {
-    expect(parseNaverKeywords('1\t방구석좆문가\t12\t340\n2\t넷플릭스 공개일\t8\t210')).toEqual([
-      { query: '방구석좆문가', clicks: 12, impressions: 340 },
+    expect(parseNaverKeywords('1\t오티티칼\t12\t340\n2\t넷플릭스 공개일\t8\t210')).toEqual([
+      { query: '오티티칼', clicks: 12, impressions: 340 },
       { query: '넷플릭스 공개일', clicks: 8, impressions: 210 },
     ])
   })

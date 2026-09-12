@@ -101,7 +101,7 @@ export default function App() {
                 <Route path="/curation/:id" element={<CurationDetailPage />} />
                 <Route path="/board/:slug" element={<BoardPage />} />
                 <Route path="/content/:id" element={<ContentDetailPage />} />
-                {/* 리뷰는 토론글로 통합됨 — 옛 링크는 방구석토론방으로 보낸다 */}
+                {/* 리뷰는 토론글로 통합됨 — 옛 링크는 토론방으로 보낸다 */}
                 <Route path="/review/write" element={<Navigate to="/talk/write" replace />} />
                 <Route path="/review/write/:contentId" element={<Navigate to="/talk/write" replace />} />
                 <Route path="/review/*" element={<Navigate to="/talk" replace />} />

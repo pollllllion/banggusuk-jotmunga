@@ -20,7 +20,7 @@ export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카�
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
 export const BOARDS: { slug: string; label: string; path: string }[] = [
   { slug: 'calendar', label: '개봉·공개 캘린더', path: '/' },
-  { slug: 'talk',     label: '방구석토론방',     path: '/talk' },
+  { slug: 'talk',     label: '토론방',     path: '/talk' },
   { slug: 'relay',    label: '자유방',           path: '/board/relay' },
 ]
 

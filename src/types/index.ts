@@ -168,7 +168,7 @@ export interface Comment {
 }
 
 // ── Discussion (출시 전 수다방 · 작품 단위 기대평) ──────────
-/** 글이 속한 게시판 — 'talk' 방구석토론방(작품 필수) · 'relay' 자유방(작품 없음) */
+/** 글이 속한 게시판 — 'talk' 토론방(작품 필수) · 'relay' 자유방(작품 없음) */
 export type DiscussionBoard = 'talk' | 'relay'
 
 export interface Discussion {
@@ -198,7 +198,7 @@ export interface Discussion {
   createdAt: string
 }
 
-// 방구석토론방 게시글 댓글 (고정닉/유동닉)
+// 토론방 게시글 댓글 (고정닉/유동닉)
 export interface DiscussionComment {
   id: string
   discussionId: string

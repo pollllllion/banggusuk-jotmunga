@@ -25,7 +25,7 @@ import { clickable } from '@/utils/a11y'
 /** 댓글 정렬 — 디시 모바일의 '등록순 / 최신순'. 원댓글에만 건다(답글은 늘 달린 차례대로) */
 type CommentSort = 'old' | 'new'
 
-/** 방구석토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
+/** 토론방 게시글 상세 — 전체 페이지 (디시 스타일 창 전환). 제목·본문 + 댓글. */
 export function DiscussionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -454,7 +454,7 @@ export function DiscussionDetailPage() {
           <ShareButton
             className="disc-del"
             path={`/talk/${post.id}`}
-            title={post.title || '방구석좋문가'}
+            title={post.title || '오티티칼'}
             text={content ? `${content.title} — ${post.title || ''}` : (post.title || '')}
             label="이 글 공유하기">
             공유

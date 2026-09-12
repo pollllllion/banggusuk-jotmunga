@@ -92,7 +92,7 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
 }
 
 /** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 (푸터 문서 포함) */
-const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">방구석토론방</a> | <a href="/board/relay">자유방</a> | <a href="/curation">공개작 정리</a>`
+const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">토론방</a> | <a href="/board/relay">자유방</a> | <a href="/curation">공개작 정리</a>`
   + STATIC_PAGES.map(p => ` | <a href="${p.path}">${p.label}</a>`).join('')
   + `</nav>`
 
@@ -386,18 +386,18 @@ async function main() {
   const freePosts = discussions.filter(d => d.contentId == null)
 
   writePage('talk', render(template, headBlock({
-    title: '방구석토론방',
-    description: '영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방.',
+    title: '토론방',
+    description: '영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 토론방.',
     canonicalPath: '/talk',
   }), [
-    `<h1>방구석토론방</h1>`,
+    `<h1>토론방</h1>`,
     `<ul>`, listItems(talkPosts), `</ul>`, NAV,
   ].join('\n      ')))
   n++
 
   writePage('board/relay', render(template, headBlock({
     title: '자유방',
-    description: '작품 얘기가 아니어도 괜찮은 방구석좋문가 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳.',
+    description: '작품 얘기가 아니어도 괜찮은 오티티칼 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳.',
     canonicalPath: '/board/relay',
   }), [
     `<h1>자유방</h1>`,

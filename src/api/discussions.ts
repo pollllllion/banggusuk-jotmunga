@@ -1,5 +1,5 @@
 /**
- * 방구석 토론방 — 토론글(discussions) + 그 댓글(discussion_comments) + 유동닉 비번 RPC.
+ * 토론방 — 토론글(discussions) + 그 댓글(discussion_comments) + 유동닉 비번 RPC.
  *
  * 작품 평점(avgRating/reviewCount)은 별점을 단 토론글에서 집계한다 → recomputeContentRating.
  * (contents 캐시를 직접 손대므로 contents.ts 를 import 하지 않는다 — 순환 참조 방지)
@@ -15,7 +15,7 @@ import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notif
 export function getDiscussions(): Discussion[] { return load('discussions') }
 export function saveDiscussions(d: Discussion[]) { return store('discussions', d) }
 
-/** 게시판별 글 — board 컬럼이 없던 시절 글(undefined)은 전부 방구석토론방 글로 친다. */
+/** 게시판별 글 — board 컬럼이 없던 시절 글(undefined)은 전부 토론방 글로 친다. */
 export function getDiscussionsByBoard(board: DiscussionBoard): Discussion[] {
   return getDiscussions().filter(d => (d.board || 'talk') === board)
 }

@@ -20,7 +20,7 @@
 alter table public.discussions alter column "contentId" drop not null;
 
 -- 2) 어느 게시판 글인지 ---------------------------------------
---    기본값 'talk' — 지금까지 쌓인 글은 전부 방구석토론방 글이다.
+--    기본값 'talk' — 지금까지 쌓인 글은 전부 토론방 글이다.
 alter table public.discussions add column if not exists "board" text not null default 'talk';
 
 alter table public.discussions drop constraint if exists discussions_board_chk;

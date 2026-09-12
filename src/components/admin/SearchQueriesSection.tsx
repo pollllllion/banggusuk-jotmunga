@@ -219,7 +219,7 @@ function NaverPaste({ onSaved }: { onSaved: () => void }) {
       <textarea
         className="form-input"
         rows={6}
-        placeholder={'1\t방구석좆문가\t12\t340\n2\t넷플릭스 공개일\t8\t210'}
+        placeholder={'1\t오티티칼\t12\t340\n2\t넷플릭스 공개일\t8\t210'}
         value={text}
         onChange={e => setText(e.target.value)}
         style={{ width: '100%', marginTop: 8, fontFamily: 'monospace', fontSize: 13 }}

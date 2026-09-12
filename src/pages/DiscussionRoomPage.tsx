@@ -117,17 +117,17 @@ export function DiscussionRoomPage() {
     <>
       <Seo
         path="/talk"
-        title="방구석토론방"
-        description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 방구석토론방."
+        title="토론방"
+        description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 토론방."
       />
       {/* 좁은 화면에서 스크롤해도 위에 붙는 머리 — 어느 게시판인지, 어느 칸으로 갈지 */}
       <BoardTopbar
-        title="방구석토론방"
+        title="토론방"
         section={trending.length > 0 ? (atAll ? '전체 글' : '지금 뜨는 글') : undefined}
         action={<button className="btn btn-primary btn-small" onClick={openWrite}>토론하기</button>}
       />
       <div className="feed-header">
-        <h2 className="feed-title">방구석토론방</h2>
+        <h2 className="feed-title">토론방</h2>
         {/* 좁은 화면에서는 고정 바에 같은 버튼이 있어 접는다(CSS). 넓은 화면에는 고정 바가
             없으므로 여기가 유일한 진입점이다 — 지우면 데스크톱에서 글을 못 쓴다. */}
         <button className="btn btn-primary btn-small feed-header-write" onClick={openWrite}>토론하기</button>

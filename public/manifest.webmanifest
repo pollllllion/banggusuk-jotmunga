@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "방구석좋문가 - OTT 공개일·개봉일 캘린더",
-  "short_name": "방구석좋문가",
+  "name": "오티티칼 - OTT 공개일·개봉일 캘린더",
+  "short_name": "오티티칼",
   "description": "넷플릭스·디즈니+·티빙·웨이브 등 OTT 공개일과 영화 개봉일을 달력 하나로. 찜해두면 공개일에 알려드려요.",
   "lang": "ko",
   "dir": "ltr",
@@ -18,7 +18,7 @@
     { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "방구석토론방", "short_name": "토론방", "url": "/talk", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "토론방", "short_name": "토론방", "url": "/talk", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "토론글 쓰기", "short_name": "글쓰기", "url": "/talk/write", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "내 피드", "short_name": "내 피드", "url": "/feed", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]

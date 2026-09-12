@@ -288,7 +288,7 @@ export function CalendarPage() {
           className="cal-today-btn cal-share"
           path={sameMonth(cursor, thisMonth) ? '/' : `/?ym=${formatYm(cursor)}`}
           title={`${cursor.y}년 ${cursor.m + 1}월 개봉·공개 캘린더`}
-          text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 방구석좋문가`}
+          text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 오티티칼`}
           label={`${cursor.y}년 ${cursor.m + 1}월 캘린더 공유하기`}>
           공유
         </ShareButton>
@@ -502,7 +502,7 @@ export function CalendarPage() {
                 className="cal-act"
                 path={`/content/${selected.id}`}
                 title={selected.title}
-                text={`${selected.title} — 방구석좋문가`}
+                text={`${selected.title} — 오티티칼`}
                 label={`'${selected.title}' 공유하기`}
               />
               <button className="cal-act primary" onClick={() => navigate(`/content/${selected.id}`)}>

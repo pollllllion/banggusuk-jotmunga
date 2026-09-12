@@ -269,7 +269,7 @@ export function ContentDetailPage() {
           className="btn-like"
           path={`/content/${content.id}`}
           title={content.title}
-          text={`${content.title} — 방구석좋문가`}
+          text={`${content.title} — 오티티칼`}
           label={`'${content.title}' 공유하기`}
         >
           공유

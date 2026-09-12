@@ -1,5 +1,5 @@
 /**
- * 방구석좋문가 서비스워커 (PWA)
+ * 오티티칼 서비스워커 (PWA)
  * ------------------------------------------------------------
  * 이 앱은 정적 SPA + Supabase 다. 서버 렌더가 없으므로 프리캐시 목록을
  * 빌드 시점에 만들어 두지 않고, 런타임에 필요한 것만 골라 캐싱한다.
@@ -131,7 +131,7 @@ self.addEventListener('push', event => {
   let data = {}
   try { data = event.data ? event.data.json() : {} } catch { data = { body: event.data && event.data.text() } }
 
-  const title = data.title || '방구석좋문가'
+  const title = data.title || '오티티칼'
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',

@@ -91,7 +91,7 @@ export function AuthPage() {
   const pwMismatch = regPwConfirm && regPw !== regPwConfirm
 
   const subtitle = mode === 'login' ? '고정닉으로 로그인'
-    : mode === 'register' ? '방구석좋문가 고정닉 만들기'
+    : mode === 'register' ? '오티티칼 고정닉 만들기'
     : '비밀번호 재설정'
 
   return (
@@ -99,10 +99,7 @@ export function AuthPage() {
       <Seo title="로그인" noindex />
       <div className="auth-card fade-in">
         <div className="auth-logo-area">
-          <div className="auth-logo-big">&#9889;</div>
-        </div>
-        <div className="logo" style={{ justifyContent: 'center', marginBottom: 8 }}>
-          <span className="logo-text"><span>방구석</span>좋문가</span>
+          <img className="auth-logo-mark" src="/logo-ottcal.png" alt="오티티칼" />
         </div>
         <p className="auth-subtitle">{subtitle}</p>
         <p style={{ fontSize: 12, color: 'var(--subtext)', textAlign: 'center', marginBottom: 16 }}>

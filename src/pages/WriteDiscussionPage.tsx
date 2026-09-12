@@ -17,7 +17,7 @@ import type { Content, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
 
-/** 방구석토론방 글쓰기(통합) — 한 화면에서 작품 선택 + 본문 + 별점 + 스포일러.
+/** 토론방 글쓰기(통합) — 한 화면에서 작품 선택 + 본문 + 별점 + 스포일러.
  *  작품·본문은 필수, 나머지는 선택. 한 작품엔 별점을 한 번만 매길 수 있다.
  *  ?contentId=... 로 진입하면 해당 작품이 미리 선택된다.
  *  ?edit=<글id> 로 진입하면 그 글을 고쳐 쓴다(작품은 못 바꾼다). */
@@ -43,7 +43,7 @@ export function WriteDiscussionPage() {
   const isFree = board === 'relay'
   /** 목록으로 돌아갈 곳 */
   const boardPath = isFree ? '/board/relay' : '/talk'
-  const boardLabel = isFree ? '자유방' : '방구석토론방'
+  const boardLabel = isFree ? '자유방' : '토론방'
   const [picked, setPicked] = useState<Content | null>(
     editing ? DS.getContentById(editing.contentId) ?? null
       : preselected ? DS.getContentById(preselected) ?? null : null

@@ -12,7 +12,7 @@
 export const CONTACT_EMAIL = 'ottcal.help@gmail.com'
 
 /** 운영 주체 표기 (실명 대신 팀 명의) */
-export const OPERATOR = '방구석좋문가 운영팀'
+export const OPERATOR = '오티티칼 운영팀'
 
 /** 문서 최종 개정일 */
 const UPDATED = '2026-08-07'
@@ -24,13 +24,13 @@ export const STATIC_PAGES = [
     label: '서비스 소개',
     title: '서비스 소개',
     description:
-      '방구석좋문가(ottcal.com)는 OTT 공개일과 영화 개봉일을 달력 하나로 모아보고, 작품 이야기를 나누는 곳입니다.',
+      '오티티칼(ottcal.com)은 OTT 공개일과 영화 개봉일을 달력 하나로 모아보고, 작품 이야기를 나누는 곳입니다.',
     updated: UPDATED,
     sections: [
       {
         h: '무엇을 하는 서비스인가요',
         p: [
-          '방구석좋문가는 넷플릭스·디즈니+·티빙·웨이브 같은 OTT 공개일과 극장 개봉일을 한 달력에 모아 보여주는 서비스입니다. '
+          '오티티칼은 넷플릭스·디즈니+·티빙·웨이브 같은 OTT 공개일과 극장 개봉일을 한 달력에 모아 보여주는 서비스입니다. '
           + '"이거 언제 나오지?"를 찾아 여기저기 뒤지지 않게 하는 것이 목표입니다.',
           '공개일을 확인하는 데서 끝나지 않고, 그 작품을 두고 눈치 안 보고 떠들 수 있는 자리까지 함께 둡니다.',
         ],
@@ -41,7 +41,7 @@ export const STATIC_PAGES = [
           '개봉·공개 캘린더 — 월별로 공개 예정작과 D-day를 확인',
           '찜하고 알림받기 — 기다리는 작품을 담아두면 내 피드에서 모아보기',
           '작품방 — 작품별 정보·출연진·OTT 제공 정보와 그 작품 토론글',
-          '방구석토론방 — 기대평부터 방금 본 감상까지. 별점과 스포일러 표시를 붙여 글쓰기',
+          '토론방 — 기대평부터 방금 본 감상까지. 별점과 스포일러 표시를 붙여 글쓰기',
           '취향 프로필 — 인생작·선호 장르·좋아하는 감독을 공개 프로필로',
         ],
       },
@@ -68,13 +68,13 @@ export const STATIC_PAGES = [
     path: '/terms',
     label: '이용약관',
     title: '이용약관',
-    description: '방구석좋문가(ottcal.com) 서비스 이용약관입니다.',
+    description: '오티티칼(ottcal.com) 서비스 이용약관입니다.',
     updated: UPDATED,
     sections: [
       {
         h: '제1조 (목적)',
         p: [
-          `이 약관은 ${OPERATOR}(이하 "운영팀")이 제공하는 방구석좋문가(ottcal.com, 이하 "서비스")의 이용 조건과 절차, `
+          `이 약관은 ${OPERATOR}(이하 "운영팀")이 제공하는 오티티칼(ottcal.com, 이하 "서비스")의 이용 조건과 절차, `
           + '이용자와 운영팀의 권리·의무를 정하는 것을 목적으로 합니다.',
         ],
       },
@@ -175,7 +175,7 @@ export const STATIC_PAGES = [
     path: '/privacy',
     label: '개인정보 처리방침',
     title: '개인정보 처리방침',
-    description: '방구석좋문가(ottcal.com)가 수집하는 개인정보 항목과 이용·보관·파기 방침입니다.',
+    description: '오티티칼(ottcal.com)가 수집하는 개인정보 항목과 이용·보관·파기 방침입니다.',
     updated: UPDATED,
     sections: [
       {
@@ -273,13 +273,13 @@ export const STATIC_PAGES = [
     path: '/ads',
     label: '광고 문의',
     title: '광고 문의',
-    description: '방구석좋문가(ottcal.com) 광고·작품 프로모션 문의 안내입니다.',
+    description: '오티티칼(ottcal.com) 광고·작품 프로모션 문의 안내입니다.',
     updated: UPDATED,
     sections: [
       {
         h: '어떤 매체인가요',
         p: [
-          '방구석좋문가는 OTT 공개일·극장 개봉일 캘린더와 작품 커뮤니티를 함께 운영하는 사이트입니다. '
+          '오티티칼은 OTT 공개일·극장 개봉일 캘린더와 작품 커뮤니티를 함께 운영하는 사이트입니다. '
           + '"다음에 뭘 볼지" 정하려고 들어오는 방문자가 대부분이라, 신작 공개 시점의 노출과 궁합이 맞습니다.',
         ],
       },
