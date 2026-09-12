@@ -14,8 +14,9 @@ export const CONTACT_EMAIL = 'ottcal.help@gmail.com'
 /** 운영 주체 표기 (실명 대신 팀 명의) */
 export const OPERATOR = '오티티칼 운영팀'
 
-/** 문서 최종 개정일 */
-const UPDATED = '2026-08-07'
+/** 문서 최종 개정일. sitemap 의 lastmod 로도 쓰인다 — 내용이 바뀌면 같이 올린다.
+ *  2026-09-13: 사이트 이름이 방구석좋문가 → 오티티칼로 바뀌어 본문 전체가 갈렸다. */
+const UPDATED = '2026-09-13'
 
 export const STATIC_PAGES = [
   {
