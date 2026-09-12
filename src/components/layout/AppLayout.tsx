@@ -27,6 +27,8 @@ export function AppLayout() {
   const { navDrawerOpen, closeNavDrawer } = useUIStore()
   // 유동닉은 남기지 않는다 — 통계에 필요한 건 '회원이 얼마나 오나' 뿐이다
   const uid = useAuthStore(s => (s.isAccount ? s.user?.id ?? null : null))
+  // 관리자가 이 기기에서 로그인한 적이 있으면 그 뒤로는 로그아웃 상태의 방문도 '우리 것'이다
+  const isAdmin = useAuthStore(s => s.isAccount && s.user?.role === 'admin')
 
   /**
    * 방문 기록. 여기 한 곳에만 두면 새 화면을 만들어도 빠지지 않는다.
@@ -34,8 +36,8 @@ export function AppLayout() {
    */
   const search = searchParams.get('search')
   useEffect(() => {
-    trackPageView(pathname, { q: pathname === '/browse' ? search : null, uid })
-  }, [pathname, search, uid])
+    trackPageView(pathname, { q: pathname === '/browse' ? search : null, uid, admin: isAdmin })
+  }, [pathname, search, uid, isAdmin])
 
   /**
    * 스크롤 자리 — 새 화면은 맨 위부터, 뒤로 가기는 떠났던 자리부터.

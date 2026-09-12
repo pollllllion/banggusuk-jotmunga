@@ -259,7 +259,13 @@ export function markAllRead(userId: string) {
 // ── 방문 통계 (관리자) ──────────────────────────────────────
 export type AnalyticsSummary = {
   days: number
-  totals: { views: number; visitors: number; members: number }
+  totals: {
+    views: number; visitors: number; members: number
+    /** 우리(관리자) 기기 몫 — 위 숫자에서 이미 빠져 있다. "이만큼 뺐다"를 밝히는 용도 */
+    internalViews: number; internalVisitors: number
+    /** 검색엔진에서 넘어온 방문자 — 밖에서 우리를 찾아온 사람에 가장 가깝다 */
+    searchVisitors: number
+  }
   daily: { day: string; views: number; visitors: number }[]
   topPaths: { path: string; views: number; visitors: number }[]
   topRefs: { ref: string; views: number }[]

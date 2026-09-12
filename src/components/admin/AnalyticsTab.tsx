@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as DS from '@/api/dataService'
+import { isInternalDevice, setInternalDevice } from '@/utils/analytics'
 import type { AnalyticsSummary } from '@/api/social'
 
 const RANGES = [
@@ -42,6 +43,36 @@ function Table({ title, rows, empty, note }: {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * 이 기기를 통계에서 뺄지. 관리자로 로그인하면 자동으로 켜지지만,
+ * 남의 기기에서 잠깐 로그인한 경우엔 손으로 끌 수 있어야 한다.
+ */
+function DeviceToggle() {
+  const [on, setOn] = useState(isInternalDevice)
+  return (
+    <div className="settings-section">
+      <h3>이 기기</h3>
+      <div className="notif-pref-row">
+        <div className="notif-pref-text">
+          <span className="notif-pref-label">이 기기의 방문을 통계에서 빼기</span>
+          <span className="notif-pref-hint">
+            관리자로 로그인하면 자동으로 켜집니다. 로그아웃하고 둘러봐도 계속 빠져요.
+          </span>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label="이 기기의 방문을 통계에서 빼기"
+          className={on ? 'switch on' : 'switch'}
+          onClick={() => { setInternalDevice(!on); setOn(!on) }}>
+          <span className="switch-knob" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -105,7 +136,12 @@ export function AnalyticsTab() {
             <div className="stat-card">
               <span className="stat-card-label">방문자</span>
               <b>{data.totals.visitors.toLocaleString()}</b>
-              <small>기기·브라우저 기준</small>
+              <small>우리 기기 제외</small>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card-label">검색으로 들어온 사람</span>
+              <b>{(data.totals.searchVisitors ?? 0).toLocaleString()}</b>
+              <small>네이버·구글 등에서</small>
             </div>
             <div className="stat-card">
               <span className="stat-card-label">페이지뷰</span>
@@ -118,6 +154,16 @@ export function AnalyticsTab() {
               <small>이 기간에 들른 계정</small>
             </div>
           </div>
+
+          {/* 숫자에서 무엇을 뺐는지 화면에 밝힌다 — 안 밝히면 "왜 줄었지"가 된다 */}
+          <p className="settings-note" style={{ marginBottom: 16 }}>
+            <b>방문자</b>는 우리(관리자) 기기를 뺀 수예요
+            {data.totals.internalVisitors ? ` — 이 기간에 ${data.totals.internalVisitors}개 세션 · ${data.totals.internalViews.toLocaleString()}뷰를 뺐습니다` : ''}.
+            검색엔진 크롤러는 2026-09-12부터 아예 기록하지 않아요(그전 기록에는 섞여 있습니다).
+            <b> 검색으로 들어온 사람</b>이 밖에서 우리를 찾아온 방문자에 가장 가까운 숫자예요.
+          </p>
+
+          <DeviceToggle />
 
           <div className="settings-section">
             <h3>일자별</h3>

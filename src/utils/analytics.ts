@@ -26,6 +26,58 @@
 import { supabase } from '@/lib/supabaseClient'
 
 const SID_KEY = 'bangjot_sid'
+const INTERNAL_KEY = 'bangjot_internal'
+
+/**
+ * 크롤러는 세지 않는다.
+ *
+ * 봇도 JS 를 실행한다 — 구글이 우리 작품 페이지 1,292개를 색인하는 중이라, 막기 전엔
+ * 크롤러 방문이 '방문자'로 잡혔다(2026-09-12 실측: 1~2쪽만 보고 마는 세션 924개,
+ * 그중 903개가 서로 다른 작품 페이지). 관리자가 진짜 사람 수를 볼 수 없게 만든다.
+ *
+ * User-Agent 를 **보기만 하고 저장하지는 않는다.** 저장하면 개인 식별 정보가 된다.
+ */
+const BOT_UA = /bot|crawler|crawling|spider|slurp|yeti|bingpreview|duckduck|baidu|yandex|sogou|facebookexternalhit|embedly|quora link preview|skypeuripreview|whatsapp|telegrambot|twitterbot|slackbot|discordbot|headless|lighthouse|pagespeed|gtmetrix|chrome-lighthouse/i
+
+function isBot(): boolean {
+  try {
+    const nav = navigator as Navigator & { webdriver?: boolean }
+    return BOT_UA.test(nav.userAgent || '') || nav.webdriver === true
+  } catch {
+    return false
+  }
+}
+
+/** 개발 중 클릭이 실서비스 통계에 쌓이면 안 된다 — dev 서버와 localhost 는 건너뛴다 */
+function isLocal(): boolean {
+  try {
+    if (import.meta.env.DEV) return true
+    const h = location.hostname
+    return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * '우리 기기' 표시.
+ *
+ * 관리자가 이 브라우저에서 한 번이라도 로그인하면 켜 두고, 그 뒤로는 **로그아웃 상태로
+ * 돌아다녀도** 기록에 우리 것이라고 표시한다. 로그인 여부(uid)만으로 거르면
+ * 로그아웃하고 사이트를 둘러보는 순간 우리가 일반 방문자로 둔갑한다.
+ *
+ * 기록을 지우는 게 아니라 표시만 한다 — 나중에 '우리 것 포함'으로 보려면 원본이 있어야 한다.
+ */
+export function setInternalDevice(on: boolean) {
+  try {
+    if (on) localStorage.setItem(INTERNAL_KEY, '1')
+    else localStorage.removeItem(INTERNAL_KEY)
+  } catch { /* 사생활 보호 모드 — 이번 세션만 일반 방문자로 잡힌다 */ }
+}
+
+export function isInternalDevice(): boolean {
+  try { return localStorage.getItem(INTERNAL_KEY) === '1' } catch { return false }
+}
 
 /** 한국 시간 기준 오늘 (통계도 KST 로 끊는다) */
 function todayKst(): string {
@@ -76,8 +128,15 @@ const DEDUPE_MS = 1500
  * @param path  쿼리스트링을 뺀 경로
  * @param q     사이트 안 검색어 (검색 결과 화면일 때만)
  * @param uid   로그인 계정 id (유동닉이면 넘기지 않는다)
+ * @param admin 지금 관리자로 로그인해 있나 — 이 기기를 '우리 것'으로 표시한다
  */
-export function trackPageView(path: string, opts: { q?: string | null; uid?: string | null } = {}) {
+export function trackPageView(
+  path: string,
+  opts: { q?: string | null; uid?: string | null; admin?: boolean } = {},
+) {
+  if (isLocal() || isBot()) return
+  if (opts.admin) setInternalDevice(true)
+
   const q = (opts.q || '').trim().slice(0, 100) || null
   const key = path + '|' + (q || '')
   const now = Date.now()
@@ -90,6 +149,7 @@ export function trackPageView(path: string, opts: { q?: string | null; uid?: str
     q,
     sid: sessionId(),
     uid: opts.uid || null,
+    internal: isInternalDevice(),
   }).then(({ error }) => {
     // 마이그레이션 전이면 테이블이 없다 — 그때는 조용히 아무 일도 안 한 셈이 된다
     if (error && error.code !== '42P01') console.debug('[analytics]', error.message)
