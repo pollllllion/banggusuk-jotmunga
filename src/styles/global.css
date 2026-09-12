@@ -1036,6 +1036,18 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* ── 작품 상세: 좋문가 평점 분리 표시 ─────────────────────── */
 .score-box-label { font-size: 11px; font-weight: 700; color: var(--subtext); margin-bottom: 2px; }
+/* 홈 화면에 추가 안내 — 기기별 절차. 평소엔 숨어 있고 설정에서 열린다 */
+.install-guide-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+.install-guide-head img { width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0; }
+.install-guide-head b { display: block; font-size: 15px; color: var(--heading); margin-bottom: 3px; }
+.install-guide-head span { font-size: 12px; color: var(--subtext); line-height: 1.6; }
+.install-guide-steps {
+  margin: 0 0 14px; padding-left: 22px;
+  font-size: 13px; color: var(--text-secondary); line-height: 1.9;
+}
+.install-guide-steps li { padding-left: 2px; }
+.install-guide .btn-primary { width: 100%; }
+
 /* 작품 페이지의 '별점 남기기' — 전체 평점 바로 아래, 누르면 시트가 열린다 */
 .score-mine {
   margin-top: 10px; width: 100%; padding: 7px 10px;

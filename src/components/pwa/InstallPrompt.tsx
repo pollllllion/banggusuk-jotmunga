@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { InstallGuide } from './InstallGuide'
 import {
   isStandalone, isIosSafari,
   getInstallPrompt, clearInstallPrompt, onInstallPromptChange,
@@ -24,6 +25,7 @@ export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [iosHint, setIosHint] = useState(false)
   const [show, setShow] = useState(false)
+  const [guide, setGuide] = useState(false)
 
   useEffect(() => {
     if (isStandalone() || snoozed()) return
@@ -54,6 +56,7 @@ export function InstallPrompt() {
     close()
   }
 
+  if (guide) return <InstallGuide onClose={() => { setGuide(false); close() }} />
   if (!show || (!deferred && !iosHint)) return null
 
   return (
@@ -65,7 +68,10 @@ export function InstallPrompt() {
           ? <span>홈화면에 추가하면 주소창 없이 바로 열려요.</span>
           : <span>공유 <b>⎋</b> → <b>홈 화면에 추가</b>를 누르면 앱처럼 열려요.</span>}
       </div>
-      {deferred && <button className="btn btn-primary btn-small" onClick={install}>추가</button>}
+      {/* 크롬 계열은 한 번에 설치되고, 아이폰은 사람이 눌러야 해서 절차를 보여준다 */}
+      {deferred
+        ? <button className="btn btn-primary btn-small" onClick={install}>추가</button>
+        : <button className="btn btn-secondary btn-small" onClick={() => setGuide(true)}>방법 보기</button>}
       <button className="install-close" onClick={close} aria-label="닫기">✕</button>
     </div>
   )

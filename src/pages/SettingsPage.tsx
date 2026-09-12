@@ -7,6 +7,7 @@ import { isPasswordValid, getPasswordRules } from '@/utils/helpers'
 import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
 import { readTheme, applyTheme, watchSystemTheme, type Theme } from '@/utils/theme'
+import { InstallGuide } from '@/components/pwa/InstallGuide'
 
 const THEME_OPTIONS: { value: Theme; label: string; icon: string }[] = [
   { value: 'system', label: '시스템', icon: '🖥️' },
@@ -18,6 +19,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { user, isAccount, updateProfile, deleteAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
+  const [guideOpen, setGuideOpen] = useState(false)
   const [nickname, setNickname] = useState(user?.nickname || '')
   const [newPw, setNewPw] = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
@@ -114,6 +116,19 @@ export function SettingsPage() {
 
       {/* 알림은 종류가 셋(활동·공개일 푸시·신청 작품)이라 이 페이지에 다 넣으면 길어진다.
           여기서는 지금 상태만 한 줄로 보여주고 전용 페이지로 넘긴다. */}
+      {/* 앱으로 쓰기 — 자동 배너는 한 번 닫으면 14일 잠들고, 크롬이 설치 이벤트를
+          안 주면 아예 안 뜬다. 언제든 찾아올 수 있는 자리를 하나 둔다. */}
+      <div className="settings-section">
+        <h3>앱으로 쓰기</h3>
+        <button className="settings-link" onClick={() => setGuideOpen(true)}>
+          <span>
+            홈 화면에 추가
+            <small>주소창 없이 바로 열려요. 아이폰은 사파리에서만 됩니다.</small>
+          </span>
+          <span className="settings-link-arrow">›</span>
+        </button>
+      </div>
+
       <div className="settings-section">
         <h3>알림</h3>
         <button className="settings-link" onClick={() => navigate('/settings/notifications')}>
@@ -167,6 +182,7 @@ export function SettingsPage() {
           <button className="btn btn-danger-solid" onClick={handleDelete}>회원 탈퇴</button>
         </div>
       )}
+      {guideOpen && <InstallGuide onClose={() => setGuideOpen(false)} />}
     </>
   )
 }
