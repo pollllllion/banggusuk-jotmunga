@@ -105,6 +105,12 @@ export function AnalyticsTab() {
 
   const dailyMax = data?.daily.reduce((m, d) => Math.max(m, d.views), 0) ?? 0
 
+  // "이만큼 뺐다"를 한 줄로. 없는 항목은 아예 말하지 않는다
+  const excluded = [
+    data?.totals.internalViews ? `우리 ${data.totals.internalViews.toLocaleString()}뷰` : '',
+    data?.totals.botViews ? `크롤러 ${data.totals.botViews.toLocaleString()}뷰` : '',
+  ].filter(Boolean).join(' · ')
+
   return (
     <>
       <div className="admin-range">
@@ -153,14 +159,17 @@ export function AnalyticsTab() {
               <b>{data.totals.members.toLocaleString()}</b>
               <small>이 기간에 들른 계정</small>
             </div>
+            <div className="stat-card">
+              <span className="stat-card-label">크롤러</span>
+              <b>{(data.totals.botViews ?? 0).toLocaleString()}</b>
+              <small>사람 수에는 안 들어감</small>
+            </div>
           </div>
 
           {/* 숫자에서 무엇을 뺐는지 화면에 밝힌다 — 안 밝히면 "왜 줄었지"가 된다 */}
           <p className="settings-note" style={{ marginBottom: 16 }}>
-            <b>방문자</b>는 우리(관리자) 기기를 뺀 수예요
-            {data.totals.internalVisitors ? ` — 이 기간에 ${data.totals.internalVisitors}개 세션 · ${data.totals.internalViews.toLocaleString()}뷰를 뺐습니다` : ''}.
-            검색엔진 크롤러는 2026-09-12부터 아예 기록하지 않아요(그전 기록에는 섞여 있습니다).
-            <b> 검색으로 들어온 사람</b>이 밖에서 우리를 찾아온 방문자에 가장 가까운 숫자예요.
+            <b>방문자</b>는 사람만 센 수예요 — 우리(관리자) 기기와 크롤러를 뺐습니다{excluded && ` (${excluded})`}.
+            그중 <b>검색으로 들어온 사람</b>이 밖에서 우리를 찾아온 방문자에 가장 가까운 숫자예요.
           </p>
 
           <DeviceToggle />
@@ -181,6 +190,15 @@ export function AnalyticsTab() {
               </div>
             )}
           </div>
+
+          <Table
+            title="크롤러가 긁어간 양"
+            note="검색엔진이 우리 페이지를 얼마나 읽고 갔나. 사람 숫자에는 안 들어갑니다. 색인이 도는 속도를 여기서 봅니다."
+            rows={(data.bots ?? []).map(b => ({
+              label: b.name, value: b.views, sub: `${b.paths.toLocaleString()}개 화면`,
+            }))}
+            empty="아직 크롤러 기록이 없어요."
+          />
 
           <Table
             title="많이 본 화면"

@@ -265,6 +265,8 @@ export type AnalyticsSummary = {
     internalViews: number; internalVisitors: number
     /** 검색엔진에서 넘어온 방문자 — 밖에서 우리를 찾아온 사람에 가장 가깝다 */
     searchVisitors: number
+    /** 크롤러 몫 — 위 숫자에서 빠져 있다 */
+    botViews: number; botVisitors: number
   }
   daily: { day: string; views: number; visitors: number }[]
   topPaths: { path: string; views: number; visitors: number }[]
@@ -272,6 +274,8 @@ export type AnalyticsSummary = {
   /** 우리 사이트 검색창에 친 말. (밖에서 검색해 들어온 말은 브라우저가
    *  referrer 에서 지워 버려서 알 수 없다 — utils/analytics.ts 주석 참고) */
   topQueries: { q: string; count: number }[]
+  /** 어느 크롤러가 얼마나 긁고 갔나. 이름은 부류만(User-Agent 원문은 저장하지 않는다) */
+  bots: { name: string; views: number; paths: number }[]
 }
 
 /**

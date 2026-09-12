@@ -3,7 +3,7 @@
  *
  * 무엇을 남기고 무엇을 안 남기나:
  *   남긴다   경로(쿼리 제외) · 유입 **도메인만** · 사이트 안 검색어 ·
- *            하루짜리 세션 id · 로그인 계정 id
+ *            하루짜리 세션 id · 로그인 계정 id · 봇 여부와 그 **부류 이름**
  *   안 남긴다 IP · User-Agent · 전체 referrer URL · 유동닉 신원
  * 개인을 따라다니지 않는 게 목적이라 세션 id 를 **날마다 새로** 만든다.
  *
@@ -37,14 +37,36 @@ const INTERNAL_KEY = 'bangjot_internal'
  *
  * User-Agent 를 **보기만 하고 저장하지는 않는다.** 저장하면 개인 식별 정보가 된다.
  */
-const BOT_UA = /bot|crawler|crawling|spider|slurp|yeti|bingpreview|duckduck|baidu|yandex|sogou|facebookexternalhit|embedly|quora link preview|skypeuripreview|whatsapp|telegrambot|twitterbot|slackbot|discordbot|headless|lighthouse|pagespeed|gtmetrix|chrome-lighthouse/i
+const BOT_UA = /bot|crawler|crawling|spider|slurp|yeti|bingpreview|duckduck|baidu|yandex|sogou|facebookexternalhit|embedly|quora link preview|skypeuripreview|whatsapp|telegram|twitterbot|slackbot|discordbot|headless|lighthouse|pagespeed|gtmetrix|chrome-lighthouse/i
 
-function isBot(): boolean {
+/**
+ * 어느 봇인가 — **부류 이름만** 남긴다. User-Agent 원문은 저장하지 않는다.
+ * "구글이 우리를 얼마나 긁고 있나"는 색인 상황을 읽는 데 쓸모가 있어서 통계 탭에 보여준다.
+ */
+const BOT_KINDS: [RegExp, string][] = [
+  [/googlebot|google-inspectiontool|google favicon|storebot-google/i, 'Googlebot'],
+  [/yeti/i, '네이버 Yeti'],
+  [/bingbot|bingpreview|adidxbot/i, 'Bingbot'],
+  [/duckduck/i, 'DuckDuckBot'],
+  [/yandex/i, 'YandexBot'],
+  [/baidu/i, 'Baiduspider'],
+  [/sogou/i, 'Sogou'],
+  [/applebot/i, 'Applebot'],
+  [/gptbot|oai-searchbot|chatgpt-user|claudebot|anthropic|perplexity|ccbot|bytespider/i, 'AI 크롤러'],
+  [/facebookexternalhit|twitterbot|slackbot|discordbot|telegram|whatsapp|kakao|embedly|skypeuripreview|quora link preview/i, '링크 미리보기'],
+  [/headless|lighthouse|pagespeed|gtmetrix/i, '검사 도구'],
+]
+
+/** 봇이면 부류 이름, 사람이면 null */
+function botKind(): string | null {
   try {
     const nav = navigator as Navigator & { webdriver?: boolean }
-    return BOT_UA.test(nav.userAgent || '') || nav.webdriver === true
+    const ua = nav.userAgent || ''
+    for (const [re, name] of BOT_KINDS) if (re.test(ua)) return name
+    if (BOT_UA.test(ua) || nav.webdriver === true) return '기타 봇'
+    return null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -134,8 +156,11 @@ export function trackPageView(
   path: string,
   opts: { q?: string | null; uid?: string | null; admin?: boolean } = {},
 ) {
-  if (isLocal() || isBot()) return
+  if (isLocal()) return
   if (opts.admin) setInternalDevice(true)
+  // 봇도 남긴다 — 다만 봇이라고 표시해서 사람 숫자와 섞이지 않게 한다.
+  // (한때 아예 안 남겼는데, "구글이 얼마나 긁고 있나"를 볼 수 없어서 되살렸다)
+  const bot = botKind()
 
   const q = (opts.q || '').trim().slice(0, 100) || null
   const key = path + '|' + (q || '')
@@ -150,6 +175,8 @@ export function trackPageView(
     sid: sessionId(),
     uid: opts.uid || null,
     internal: isInternalDevice(),
+    bot: bot !== null,
+    botName: bot,
   }).then(({ error }) => {
     // 마이그레이션 전이면 테이블이 없다 — 그때는 조용히 아무 일도 안 한 셈이 된다
     if (error && error.code !== '42P01') console.debug('[analytics]', error.message)
