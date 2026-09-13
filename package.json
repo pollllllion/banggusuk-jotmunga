@@ -19,6 +19,7 @@
     "gsc": "node --env-file-if-exists=.env scripts/fetch-gsc.mjs",
     "clean:media": "node --env-file-if-exists=.env scripts/clean-media.mjs",
     "payload": "node --env-file-if-exists=.env scripts/payload-check.mjs",
+    "release-check": "node --env-file-if-exists=.env scripts/release-check.mjs",
     "migrate:status": "node --env-file-if-exists=.env scripts/migrate-status.mjs",
     "migrate:mark": "node --env-file-if-exists=.env scripts/migrate-status.mjs mark",
     "enrich": "node --env-file-if-exists=.env scripts/enrich-tmdb.mjs",
