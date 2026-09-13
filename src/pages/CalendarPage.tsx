@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { useAuthStore } from '@/stores/authStore'
+import { useDataStore } from '@/stores/dataStore'
 import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
 import { ContentInfo } from '@/components/content/ContentInfo'
@@ -150,6 +151,9 @@ export function CalendarPage() {
   const isMobile = useIsMobile()
   const perCell = isMobile ? MAX_PER_CELL_MOBILE : MAX_PER_CELL
 
+  // 부팅 스냅샷으로 그린 뒤 새 데이터가 오면 다시 묶어야 한다 — 캐시는 React 가 모르는 값이다
+  const dataVersion = useDataStore(s => s.dataVersion)
+
   // 최종 공개일(수동 우선) 기준으로 날짜별 그룹핑 + 필터. 같은 날짜는 화제도 내림차순.
   const byDate = useMemo(() => {
     const map: Record<string, Content[]> = {}
@@ -178,7 +182,8 @@ export function CalendarPage() {
       })
     }
     return map
-  }, [filter, ott, todayKey])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, ott, todayKey, dataVersion])
 
   // 이번 달 그리드 (일요일 시작)
   const weeks = useMemo(() => {

@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { UPCOMING_SEED } from '@/utils/upcomingSeed'
 import { CONTENT_LIST_COLS } from './contentColumns'
 import { CURATION_LIST_COLS } from './curationColumns'
+import { isSnapshotUsable, BOOT_SNAPSHOT_VERSION, type BootSnapshot } from '@/utils/bootSnapshot'
 
 export type Table =
   | 'users' | 'contents' | 'reviews' | 'comments'
@@ -230,8 +231,12 @@ async function fetchContentsByIds(ids: string[]): Promise<any[]> {
  *      때문에(DiscussionRoomPage), 이게 없으면 목록이 텅 빈 것처럼 보인다
  *   ③ 주소가 /content/:id 면 그 작품
  */
-async function loadContentsWindow() {
+/** 마지막 1단계가 받은 공개일 범위 — 부팅 스냅샷에 같이 적는다 */
+let lastWindow: { from: string; to: string } | null = null
+
+async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   const { from, to } = windowRange(baseMonthFromUrl())
+  lastWindow = { from, to }
   const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS)
     .gte('releaseDate', from).lte('releaseDate', to)
   if (error) { console.error('[supabase load] contents window', error.message) }
@@ -239,25 +244,31 @@ async function loadContentsWindow() {
 
   const have = new Set(rows.map((r: any) => r.id))
   const need = new Set<string>()
-  for (const d of cache.discussions) if (d.contentId && !have.has(d.contentId)) need.add(d.contentId)
-  for (const r of cache.reviews) if (r.contentId && !have.has(r.contentId)) need.add(r.contentId)
+  for (const d of src.discussions) if (d.contentId && !have.has(d.contentId)) need.add(d.contentId)
+  for (const r of src.reviews) if (r.contentId && !have.has(r.contentId)) need.add(r.contentId)
   const urlId = contentIdFromUrl()
   if (urlId && !have.has(urlId)) need.add(urlId)
 
   if (need.size) rows.push(...await fetchContentsByIds([...need]))
-  cache.contents = dedupeRows('contents', rows)
+  return dedupeRows('contents', rows)
 }
 
 /** 1단계 — 이게 끝나면 화면을 그려도 된다 */
 export async function loadEssential() {
+  // 다 받은 뒤 **한 번에** 캐시에 넣는다. 부팅 스냅샷으로 이미 화면이 떠 있을 수 있어서,
+  // 표마다 따로 바뀌면 그 사이 다시 그려질 때 '새 글 + 옛 작품 목록' 같은 어긋난 조합이 보인다.
+  // 받은 표만 넣는다 — 실패한 표는 기존 값을 두고, 받는 동안 사용자가 쓴 값도 덮지 않는다.
+  const fetched: Partial<Record<Table, any[]>> = {}
   // users(레거시 게스트)는 방문자 수만큼 늘어나는 표라 통째로 받지 않는다 — 아래서 따로.
   // contents 는 유일하게 큰 표라 따로 뺀다(나머지 전부 합쳐도 30KB 남짓).
   await Promise.all(TABLES.filter(t => t !== 'users' && t !== 'contents').map(async t => {
     const rows = await selectAllRows(t)
-    if (rows) cache[t] = rows
+    if (rows) fetched[t] = rows
   }))
-  await loadContentsWindow()
-  await loadGuestUsers()
+  fetched.contents = await loadContentsWindow({ ...cache, ...fetched })
+  const users = await loadGuestUsers({ ...cache, ...fetched })
+  if (users) fetched.users = users
+  Object.assign(cache, fetched)
   injectUpcomingSeed()
 }
 
@@ -297,7 +308,8 @@ export async function loadAll() {
  * 필요한 건 ① 이 브라우저의 게스트 계정 ② 글·댓글·차단·신고에 등장하는 작성자뿐이다.
  * (유동닉 글은 guestName 을 행에 직접 들고 있어서 대부분 이 테이블이 필요 없다)
  */
-async function loadGuestUsers() {
+/** 받은 행을 돌려준다. null = 실패(기존 캐시를 그대로 둔다) */
+async function loadGuestUsers(src: Record<Table, any[]>): Promise<any[] | null> {
   const ids = new Set<string>()
   try {
     // 옛 키(신원이 DB 에 있던 시절). 지금 게스트는 localStorage 에만 있어서 받을 행이 없다.
@@ -305,26 +317,26 @@ async function loadGuestUsers() {
     if (mine) ids.add(mine)
   } catch { /* 사생활 보호 모드 등에서 localStorage 접근 불가 */ }
 
-  for (const rows of [cache.reviews, cache.comments, cache.discussions, cache.discussion_comments]) {
+  for (const rows of [src.reviews, src.comments, src.discussions, src.discussion_comments]) {
     for (const r of rows) if (r.authorId) ids.add(r.authorId)
   }
-  for (const b of cache.blocks) { if (b.blockerId) ids.add(b.blockerId); if (b.blockedId) ids.add(b.blockedId) }
-  for (const r of cache.reports) if (r.reporterId) ids.add(r.reporterId)
+  for (const b of src.blocks) { if (b.blockerId) ids.add(b.blockerId); if (b.blockedId) ids.add(b.blockedId) }
+  for (const r of src.reports) if (r.reporterId) ids.add(r.reporterId)
 
   // 계정(profiles)에 있는 id 는 users 테이블에 없다 — 조회할 필요가 없다
-  const profileIds = new Set(cache.profiles.map((p: any) => p.id))
+  const profileIds = new Set(src.profiles.map((p: any) => p.id))
   const need = [...ids].filter(id => id && id !== 'deleted' && !profileIds.has(id))
-  if (!need.length) { cache.users = []; return }
+  if (!need.length) return []
 
   const rows: any[] = []
   // URL 길이 제한 때문에 나눠서 조회
   for (let i = 0; i < need.length; i += 100) {
     const chunk = need.slice(i, i + 100)
     const { data, error } = await supabase.from('users').select('*').in('id', chunk)
-    if (error) { console.error('[supabase load] users', error.message); return }
+    if (error) { console.error('[supabase load] users', error.message); return null }
     if (data) rows.push(...data)
   }
-  cache.users = rows
+  return rows
 }
 
 /**
@@ -340,6 +352,52 @@ export async function reloadUserScoped() {
     const rows = await selectAllRows(t)
     if (rows) cache[t] = rows
   }))
+}
+
+/**
+ * ── 부팅 스냅샷 ─────────────────────────────────────────────
+ * 다시 온 사람에게 첫 화면을 '로딩 중' 없이 그리려고, 1단계가 끝난 캐시를 localStorage 에 떠 둔다.
+ * 판정 규칙은 utils/bootSnapshot.ts. 크기는 npm run payload 의 '1단계 합계'(압축 전)와 같다.
+ *
+ * 유저별 표(USER_SCOPED: 찜·알림·신고…)는 넣지 않는다. 남의 PC 에 개인 활동이 남으면 안 되고,
+ * "로그인 상태 유지"를 끈 사람의 토큰은 탭을 닫으면 지워지는데 사본만 남는 것도 이상하다.
+ * 그 표들은 새로 받는 1초 사이에만 비어 보인다.
+ */
+const BOOT_KEY = 'ottcal_boot'
+
+export function saveBootSnapshot() {
+  if (!lastWindow) return
+  try {
+    const tables: Record<string, any[]> = {}
+    for (const t of TABLES) {
+      if (USER_SCOPED.includes(t)) continue
+      tables[t] = t === 'users' ? cache.users.map(({ password: _pw, ...u }: any) => u) : cache[t]
+    }
+    const snap: BootSnapshot = { v: BOOT_SNAPSHOT_VERSION, at: Date.now(), ...lastWindow, tables }
+    localStorage.setItem(BOOT_KEY, JSON.stringify(snap))
+  } catch {
+    // 용량 초과·사생활 보호 모드 — 옛 사본이 남아 헷갈리지 않게 지우고, 다음엔 평소처럼 뜬다
+    try { localStorage.removeItem(BOOT_KEY) } catch { /* 무시 */ }
+  }
+}
+
+/** 쓸 수 있는 사본이면 캐시에 채우고 true. 아니면 아무것도 건드리지 않고 false */
+export function restoreBootSnapshot(): boolean {
+  try {
+    const raw = localStorage.getItem(BOOT_KEY)
+    if (!raw) return false
+    const snap = JSON.parse(raw)
+    const { from, to } = windowRange(baseMonthFromUrl())
+    if (!isSnapshotUsable(snap, { now: Date.now(), from, to, contentId: contentIdFromUrl() })) return false
+    for (const t of TABLES) {
+      if (USER_SCOPED.includes(t)) continue
+      const rows = snap.tables[t]
+      if (Array.isArray(rows)) cache[t] = rows
+    }
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

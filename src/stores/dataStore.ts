@@ -12,11 +12,21 @@ import { create } from 'zustand'
 interface DataState {
   /** 작품 전체가 캐시에 들어왔나 */
   contentsComplete: boolean
+  /**
+   * 1단계 데이터를 새로 받아 캐시를 갈아끼울 때마다 오른다.
+   * 부팅 스냅샷으로 먼저 그린 화면을 새 데이터로 다시 그리게 하는 신호 — App 이 구독한다.
+   */
+  dataVersion: number
 }
 
 export const useDataStore = create<DataState>(() => ({
   contentsComplete: false,
+  dataVersion: 0,
 }))
+
+export function markDataRefreshed() {
+  useDataStore.setState(s => ({ dataVersion: s.dataVersion + 1 }))
+}
 
 export function markContentsComplete() {
   useDataStore.setState({ contentsComplete: true })

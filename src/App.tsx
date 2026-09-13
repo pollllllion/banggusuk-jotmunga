@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/authStore'
+import { useDataStore } from '@/stores/dataStore'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthGuard } from '@/guards/AuthGuard'
 import { AdminGuard } from '@/guards/AdminGuard'
@@ -80,6 +81,9 @@ function AppInit({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  // 부팅 스냅샷으로 먼저 그린 화면을, 새 데이터가 오면 통째로 다시 그린다(다시 마운트는 안 한다 —
+  // 그 사이 열어 둔 모달·입력이 날아가지 않게). 화면들은 캐시를 렌더 중에 읽으므로 이걸로 충분하다.
+  useDataStore(s => s.dataVersion)
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

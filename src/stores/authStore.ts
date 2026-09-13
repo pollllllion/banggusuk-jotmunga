@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import type { User } from '@/types'
 import * as DS from '@/api/dataService'
-import { supabase } from '@/lib/supabaseClient'
-import { setRemember } from '@/lib/authStorage'
+import { supabase, AUTH_TOKEN_KEY } from '@/lib/supabaseClient'
+import { setRemember, authStorage } from '@/lib/authStorage'
 import { readGuest, writeGuest, readLegacyGuestId, makeGuest, clearGuest, type GuestIdentity } from '@/lib/guestIdentity'
-import { markContentsComplete } from '@/stores/dataStore'
+import { markContentsComplete, markDataRefreshed } from '@/stores/dataStore'
 
 interface AuthResult { ok: boolean; error?: string; needsConfirm?: boolean }
 
@@ -121,10 +121,50 @@ async function withAttendance(account: User): Promise<User> {
   return att ? { ...account, streak: att.streak, visitDays: att.visitDays } : account
 }
 
+/**
+ * 다시 온 사람은 '로딩 중' 없이 지난번에 받아 둔 첫 화면 데이터(부팅 스냅샷)로 바로 그린다.
+ * 진짜 데이터는 init 이 평소대로 받아 갈아끼운다(보통 1초 안). 네트워크를 전혀 쓰지 않는다.
+ *
+ * 확신이 없으면 null → 예전처럼 다 받을 때까지 기다린다:
+ *   - 관리자 화면: 역할을 서버에서 확인하기 전에 열지 않는다
+ *   - 이메일 확인 링크 등 주소에 토큰이 실려 온 경우: supabase 가 먼저 처리해야 한다
+ *   - 토큰은 있는데 저장된 사용자와 안 맞는 경우
+ */
+function bootFromSnapshot(): { user: User; isAccount: boolean } | null {
+  try {
+    const { pathname, hash, search } = window.location
+    if (/^\/(admin|ranking)(\/|$)/.test(pathname)) return null
+    if (/access_token|error_description/.test(hash) || /[?&]code=/.test(search)) return null
+
+    let account: User | null = null
+    const token = AUTH_TOKEN_KEY ? authStorage.getItem(AUTH_TOKEN_KEY) : null
+    if (token) {
+      const tokenUserId = JSON.parse(token)?.user?.id
+      const stored = DS.getSession()
+      if (!tokenUserId || stored?.id !== tokenUserId) return null
+      account = stored
+    }
+
+    if (!DS.restoreBootSnapshot()) return null
+
+    if (account) {
+      // 저장된 role 은 이 브라우저 값이라 서버 확인 전엔 관리자로 올리지 않는다(init 이 곧 바로잡는다)
+      return { user: account.role === 'admin' ? { ...account, role: 'user' } : account, isAccount: true }
+    }
+    const guest = ensureGuest()
+    DS.setSession(guest)
+    return { user: guest, isAccount: false }
+  } catch {
+    return null
+  }
+}
+
+const boot = bootFromSnapshot()
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
-  initialized: false,
-  isAccount: false,
+  user: boot?.user ?? null,
+  initialized: boot !== null,
+  isAccount: boot?.isAccount ?? false,
 
   init: async () => {
     try {
@@ -136,6 +176,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // ⚠️ 여기서 기다리는 건 **1단계뿐**이다. 작품 전체(1,875KB)를 기다리면
       //    그만큼 흰 화면이 길어진다 — 나머지는 화면을 띄운 뒤 백그라운드로 받는다.
       await DS.loadEssential()
+      // 다음 방문에 바로 그릴 사본. 2단계(작품 전체 1.9MB)가 캐시에 섞이기 전에 떠야 한다.
+      DS.saveBootSnapshot()
       startBackgroundLoad()
       subscribeAuthChanges(set, get)
       const { data: { session } } = await supabase.auth.getSession()
@@ -147,16 +189,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await DS.reloadUserScoped()
         const user = await withAttendance(account)
         set({ user, isAccount: true, initialized: true })
+        markDataRefreshed()
         return
       }
       // 비로그인 = 게스트(유동닉)
       const guest = ensureGuest()
       DS.setSession(guest)
       set({ user: guest, isAccount: false, initialized: true })
+      markDataRefreshed()
       return
     } catch (e) {
       console.error('Init failed:', e)
     }
+    // 스냅샷으로 이미 그려 둔 사용자가 있으면 그대로 둔다 — 로그인 화면으로 튕기지 않게
+    if (get().user) { set({ initialized: true }); markDataRefreshed(); return }
     set({ user: null, initialized: true })
   },
 

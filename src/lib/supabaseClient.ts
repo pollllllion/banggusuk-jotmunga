@@ -16,6 +16,14 @@ const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) |
 export const isSupabaseConfigured = Boolean(url && anonKey)
 
 /**
+ * supabase-js 가 로그인 토큰을 저장하는 키(storageKey 기본값과 같은 규칙).
+ * 부팅 스냅샷으로 바로 그릴 때, 네트워크 없이 "로그인한 사람인가"를 보는 데 쓴다.
+ */
+export const AUTH_TOKEN_KEY = (() => {
+  try { return `sb-${new URL(url).hostname.split('.')[0]}-auth-token` } catch { return '' }
+})()
+
+/**
  * 자동 로그인은 여기서 정해진다.
  * 토큰을 보관하고(persistSession) 만료 전에 갱신하면(autoRefreshToken),
  * 브라우저를 껐다 켜도·폰을 며칠 뒤에 열어도 로그인 상태가 이어진다.
