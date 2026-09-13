@@ -340,8 +340,10 @@ function normalizeRow(x) {
     releaseDate: x.releaseDate,
     status: 'upcoming',
     popularity: Math.round(x.popularity || 0),
-    avgRating: 0,
-    reviewCount: 0,
+    // ★ avgRating·reviewCount 는 보내지 않는다 (2026-09-14) ★
+    //   upsert 가 merge-duplicates 라 이미 있는 작품에 0 을 덮어써서, 동기화될 때마다 이용자 별점이
+    //   0/0 으로 지워졌다(09-08·09-12 동기화 뒤 별점 있는 작품 8개가 0/0). 새 행은 DB 기본값 0 이 채운다.
+    //   평점은 recompute_content_rating(토론글·본 작품 별점 트리거)만 쓴다.
     createdBy: 'tmdb',
     createdAt: nowIso,
     // ── OTT 확장 필드 ──

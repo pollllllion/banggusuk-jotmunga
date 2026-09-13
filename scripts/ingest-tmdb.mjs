@@ -75,8 +75,8 @@ function toRow(type, m, dateField, genreMap, platform) {
     releaseDate: date,
     status: 'upcoming',
     popularity: Math.round(m.popularity || 0),
-    avgRating: 0,
-    reviewCount: 0,
+    // avgRating·reviewCount 는 보내지 않는다 — upsert(merge-duplicates)가 기존 작품의 이용자 별점을
+    // 0 으로 덮어쓴다. 새 행은 DB 기본값 0. (sync-tmdb-ott.mjs 와 같은 이유, 2026-09-14)
     createdBy: 'tmdb',
     createdAt: new Date().toISOString(),
     // verified 는 **일부러 안 보낸다**. contents.verified 의 기본값이 true 라
