@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
+import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { uuid } from '@/utils/helpers'
@@ -78,7 +78,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
   // alive 플래그 + clearTimeout 으로 이전 키 입력의 응답이 최신 결과를 덮지 않게 한다(경쟁 조건 방지).
   useEffect(() => {
     const q = query.trim()
-    if (q.length < 2) { setResults([]); setSearched(false); setLoading(false); return }
+    if (!isSearchableQuery(q)) { setResults([]); setSearched(false); setLoading(false); return }
     let alive = true
     setLoading(true)
     const timer = setTimeout(async () => {
@@ -125,7 +125,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
   const pickTmdb = (r: TmdbResult) => {
     const type = resultType(r)
     register({
-      contentId: tmdbContentId(type, r.tmdbId),
+      contentId: tmdbContentId(type, r.tmdbId, r.seasonNumber),
       type,
       title: r.title,
       posterUrl: r.posterUrl,
@@ -151,14 +151,14 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
   // TMDB 검색만으로는 절대 안 잡힌다 → 통합검색(Header)과 같은 소스를 여기서도 쓴다.
   const dbMatches = useMemo<Content[]>(() => {
     const q = query.trim()
-    if (q.length < 2) return []
+    if (!isSearchableQuery(q)) return []
     return DS.searchContents(q, 8).slice(0, 6)
   }, [query])
 
   // DB에 이미 있는 작품은 위쪽 목록에 나오므로 TMDB 결과에선 뺀다 (시즌 행이 있는 경우 포함)
   const tmdbResults = useMemo(() => {
     const shown = new Set(dbMatches.map(c => c.id))
-    return results.filter(r => !shown.has(tmdbContentId(resultType(r), r.tmdbId)))
+    return results.filter(r => !shown.has(tmdbContentId(resultType(r), r.tmdbId, r.seasonNumber)))
   }, [results, dbMatches, typeOverride])
 
   // 직접 등록 시, DB에 이미 있는 같은 작품 후보를 찾아 보여준다.
@@ -242,7 +242,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
 
             <div className="tmdb-results">
               {tmdbResults.map(r => (
-                <div key={r.kind + '-' + r.tmdbId} className="tmdb-result" {...clickable(() => { if (!saving) pickTmdb(r) })}>
+                <div key={`${r.kind}-${r.tmdbId}-${r.seasonNumber ?? ''}`} className="tmdb-result" {...clickable(() => { if (!saving) pickTmdb(r) })}>
                   {r.posterUrl
                     ? <img src={r.posterUrl} alt={r.title} />
                     : <div className="noimg">No Image</div>}

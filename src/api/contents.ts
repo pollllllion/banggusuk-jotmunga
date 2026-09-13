@@ -69,14 +69,20 @@ async function fetchContentDetail(id: string): Promise<DetailLoad> {
 }
 
 /**
- * 이 TMDB 작품이 이미 DB에 있나 — 통합검색의 TMDB 폴백에서 중복 노출을 막는 용도.
- * tmdbId 컬럼이 비어 있는 옛 행과 시즌별 행(tmdb-dr-123-s2)도 잡도록 행 id 로도 확인한다.
+ * 이 TMDB 작품(또는 그 시즌)이 이미 DB에 있나 — 통합검색의 TMDB 폴백에서 중복 노출을 막는 용도.
+ * tmdbId 컬럼이 비어 있는 옛 행도 잡도록 행 id 로도 확인한다.
+ * 시즌은 따로 따진다: TMDB 결과에 시즌이 펼쳐져 나오므로(withSeasons), 시즌2 행이 DB에 있다고
+ * 시리즈 본편이나 시즌3 까지 숨기면 안 된다.
  */
-export function hasTmdbContent(kind: 'movie' | 'tv', tmdbId: number): boolean {
+export function hasTmdbContent(kind: 'movie' | 'tv', tmdbId: number, seasonNumber?: number | null): boolean {
   const prefix = kind === 'movie' ? `tmdb-mv-${tmdbId}` : `tmdb-dr-${tmdbId}`
+  if (kind === 'tv' && seasonNumber && seasonNumber >= 2) {
+    const id = `${prefix}-s${seasonNumber}`
+    return getContents().some(c => c.id === id)
+  }
   return getContents().some(c =>
-    (c.tmdbId === tmdbId && (c.mediaType ?? kind) === kind) ||
-    c.id === prefix || c.id.startsWith(`${prefix}-`))
+    c.id === prefix ||
+    (c.tmdbId === tmdbId && (c.mediaType ?? kind) === kind && !c.seasonNumber && !/-s\d+$/.test(c.id)))
 }
 
 /**

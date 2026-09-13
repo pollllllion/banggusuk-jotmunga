@@ -391,11 +391,12 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
   }
 
   const pick = (r: TmdbResult) => {
-    const id = tmdbContentId(type, r.tmdbId)
+    const id = tmdbContentId(type, r.tmdbId, r.seasonNumber)
     const existing = DS.getContentById(id)
     if (existing) { onRegistered(existing, true); return }
     const created = DS.createContent({
       id, source: 'tmdb', manualOverride: true, type, verified: true,
+      ...(r.seasonNumber ? { seasonNumber: r.seasonNumber, eventType: 'season_release' as const } : {}),
       title: r.title,
       posterUrl: r.posterUrl,
       releaseYear: r.year,

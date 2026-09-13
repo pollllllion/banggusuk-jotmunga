@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
-import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
+import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import { GENRES, TYPE_LABELS } from '@/utils/constants'
 import type { Content, ContentType, User } from '@/types'
 import { clickable } from '@/utils/a11y'
@@ -50,7 +50,7 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
   const [tmdbLoading, setTmdbLoading] = useState(false)
   useEffect(() => {
     const query = q.trim()
-    if (!tmdbEnabled || query.length < 2) { setTmdbCands([]); setTmdbLoading(false); return }
+    if (!tmdbEnabled || !isSearchableQuery(query)) { setTmdbCands([]); setTmdbLoading(false); return }
     let alive = true
     setTmdbLoading(true)
     const timer = setTimeout(async () => {
@@ -64,7 +64,7 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
           if (!seen.has(id)) { seen.add(id); cands.push({ contentId: id, type: 'movie', r }) }
         }
         for (const r of tv) {
-          const id = tmdbContentId('drama', r.tmdbId)
+          const id = tmdbContentId('drama', r.tmdbId, r.seasonNumber)
           if (!seen.has(id)) { seen.add(id); cands.push({ contentId: id, type: tmdbTvType(r.genreIds), r }) }
         }
         setTmdbCands(cands.slice(0, 12))

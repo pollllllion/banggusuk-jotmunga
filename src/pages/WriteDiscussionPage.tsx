@@ -12,7 +12,7 @@ import { PosterUploader } from '@/components/content/PosterUploader'
 import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { normalizeTitle, scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
-import { searchTmdbAll, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
+import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
@@ -93,14 +93,14 @@ export function WriteDiscussionPage() {
    */
   useEffect(() => {
     const query = q.trim()
-    if (!tmdbEnabled || query.length < 2) { setTmdbHits([]); setTmdbLoading(false); return }
+    if (!tmdbEnabled || !isSearchableQuery(query)) { setTmdbHits([]); setTmdbLoading(false); return }
     let alive = true
     setTmdbLoading(true)
     const timer = setTimeout(async () => {
       try {
         const r = await searchTmdbAll(query)
         // 이미 DB에 있는 작품은 위쪽 목록에 나오므로 뺀다 (시즌별 행이 있는 경우 포함)
-        if (alive) setTmdbHits(r.filter(x => !DS.hasTmdbContent(x.kind, x.tmdbId)).slice(0, 8))
+        if (alive) setTmdbHits(r.filter(x => !DS.hasTmdbContent(x.kind, x.tmdbId, x.seasonNumber)).slice(0, 8))
       } catch {
         if (alive) setTmdbHits([])   // 실시간이라 키마다 토스트는 안 띄움
       } finally {
@@ -153,7 +153,7 @@ export function WriteDiscussionPage() {
     try {
       const type = tmdbResultType(r)
       setPicked(await DS.ensureContent({
-        contentId: tmdbContentId(type, r.tmdbId),
+        contentId: tmdbContentId(type, r.tmdbId, r.seasonNumber),
         type,
         title: r.title,
         posterUrl: r.posterUrl,

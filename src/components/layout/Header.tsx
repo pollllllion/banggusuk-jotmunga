@@ -7,7 +7,7 @@ import { NotificationPanel } from '@/components/notification/NotificationPanel'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
-import { smartSearchTmdb, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
+import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, ContentType } from '@/types'
 import { Avatar } from '@/components/profile/Avatar'
 import { clickable } from '@/utils/a11y'
@@ -50,7 +50,7 @@ export function Header() {
    */
   useEffect(() => {
     const q = searchQuery.trim()
-    if (!tmdbEnabled || q.length < 2) { setTmdbHits([]); setTmdbLoading(false); return }
+    if (!tmdbEnabled || !isSearchableQuery(q)) { setTmdbHits([]); setTmdbLoading(false); return }
     let alive = true
     setTmdbLoading(true)
     const timer = setTimeout(async () => {
@@ -62,7 +62,7 @@ export function Header() {
           tvs.map(r => ({ r, type: tmdbTvType(r.genreIds) })),
         )
         // 이미 DB에 있는 작품은 위쪽 로컬 결과에 나오므로 뺀다 (시즌별 행이 있는 경우 포함)
-        setTmdbHits(merged.filter(h => !DS.hasTmdbContent(h.type === 'movie' ? 'movie' : 'tv', h.r.tmdbId)).slice(0, 6))
+        setTmdbHits(merged.filter(h => !DS.hasTmdbContent(h.type === 'movie' ? 'movie' : 'tv', h.r.tmdbId, h.r.seasonNumber)).slice(0, 6))
       } catch {
         if (alive) setTmdbHits([])   // 실시간이라 키마다 토스트는 안 띄움
       } finally {
@@ -109,7 +109,7 @@ export function Header() {
     setRegistering(true)
     try {
       const content = await DS.ensureContent({
-        contentId: tmdbContentId(hit.type, hit.r.tmdbId),
+        contentId: tmdbContentId(hit.type, hit.r.tmdbId, hit.r.seasonNumber),
         type: hit.type,
         title: hit.r.title,
         posterUrl: hit.r.posterUrl,
