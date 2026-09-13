@@ -48,6 +48,10 @@ export interface TmdbResult {
   kind: 'movie' | 'tv'
   /** 통합 검색 결과를 한 줄로 섞을 때의 정렬 기준 */
   popularity: number
+  /** TMDB 투표 수 — 인기도가 얼마나 믿을 만한지(동점 정렬, standing) */
+  voteCount: number
+  /** 원어(ko·en·pt …) — 한국 작품을 동점에서 올린다 */
+  lang: string
   /** tv 의 시즌2+ 항목. TMDB 검색은 시즌을 따로 주지 않아 withSeasons 가 펼쳐 만든다 */
   seasonNumber?: number | null
 }
@@ -65,6 +69,8 @@ function mapResults(results: any[], kind: 'movie' | 'tv'): TmdbResult[] {
       genreIds: m.genre_ids || [],
       kind,
       popularity: Number(m.popularity) || 0,
+      voteCount: Number(m.vote_count) || 0,
+      lang: m.original_language || '',
     }
   })
 }
@@ -194,12 +200,27 @@ function relevance(m: TmdbResult, query: string): number {
   return s
 }
 
-/** 관련도 → 인기도 순 정렬 */
+const THIS_YEAR = new Date().getFullYear()
+
+/**
+ * 관련도가 같을 때의 순서. TMDB 인기도는 나라·영화/드라마 사이에 잘 안 맞는다 —
+ * "범죄도시" 에서 브라질 드라마 《범죄 도시(Impuros)》(인기도 8.6 · 투표 55)가 영화 《범죄도시》(7.9 · 568)를 눌렀다.
+ *  · 투표 수로 인기도의 신뢰도를 깎는다: 0표 ×0.33 · 55표 ×0.6 · 568표 ×0.92 · 990표~ ×1
+ *    단 공개 1년 안쪽(또는 예정작)은 투표가 덜 쌓였을 뿐이라 깎지 않는다 — 캘린더 사이트라 신작이 중요하다
+ *  · 한국 작품(원어 ko)은 ×1.5 — 이용자가 찾는 건 대개 한국어로 알려진 작품이다
+ */
+function standing(m: TmdbResult): number {
+  const fresh = m.year != null && m.year >= THIS_YEAR - 1
+  const trust = fresh ? 1 : Math.min(1, Math.log10((m.voteCount || 0) + 10) / 3)
+  return m.popularity * trust * (m.lang === 'ko' ? 1.5 : 1)
+}
+
+/** 관련도 → 동점이면 standing 순 정렬 */
 export function rankTmdbResults(list: TmdbResult[], query: string): TmdbResult[] {
   const q = query.trim()
   return list
-    .map(m => ({ m, r: relevance(m, q) }))
-    .sort((a, b) => b.r - a.r || b.m.popularity - a.m.popularity)
+    .map(m => ({ m, r: relevance(m, q), s: standing(m) }))
+    .sort((a, b) => b.r - a.r || b.s - a.s)
     .map(x => x.m)
 }
 
@@ -217,10 +238,14 @@ async function searchKind(kind: 'movie' | 'tv', raw: string): Promise<TmdbResult
   // 붙여 친 검색과 달라지는 원인이 된다 → 검색어 글자의 60% 를 넘게 한 단어로 덮을 때만 남긴다.
   // "배트맨 다크나이트"(다크나이트 5/8)는 남고, "다크 나이트"(나이트 3/5)·"스파이더맨 노 웨이 홈"
   // (스파이더맨 5/9) 같은 흔한 띄어쓰기에선 안 붙어서 붙여 친 결과와 같아진다.
-  const perWord = words.length <= 4
-    ? words.filter(w => isSearchableQuery(w)).map(w => searchWord(kind, w).catch(() => [] as TmdbResult[]))
-    : []
   const total = normLoose(raw).length
+  // 60% 를 못 넘는 단어의 결과는 아래 strong 에서 어차피 전부 버려진다 → 검색 자체를 안 한다.
+  // ("노 웨이 아웃" 은 단어별 요청이 0 이 된다. 예전엔 버릴 결과를 받느라 한 번에 33회를 보냈다)
+  const perWord = words.length <= 4
+    ? words
+      .filter(w => isSearchableQuery(w) && normLoose(w).length / total > 0.6)
+      .map(w => searchWord(kind, w).catch(() => [] as TmdbResult[]))
+    : []
   const strong = (m: TmdbResult) => {
     const t = normLoose(m.title), o = normLoose(m.originalTitle)
     return words.map(normLoose).some(k => k.length / total > 0.6 && (t.includes(k) || o.includes(k)))
@@ -278,9 +303,10 @@ function spacedLike(title: string, qn: string): string | null {
  * TMDB 컬렉션(시리즈 묶음, 영화만 있음)을 찾아 가장 위에 걸린 편 자리에 전 편을 한 덩어리로 넣는다.
  * 실패해도 원래 결과는 그대로 돌려준다.
  */
-async function withSeries(list: TmdbResult[], base: string, n: number | null): Promise<Expanded> {
+async function findSeries(list: TmdbResult[], base: string, n: number | null): Promise<{ groups: TmdbResult[][]; picks: TmdbResult[] }> {
+  const none = { groups: [], picks: [] }
   const bn = normLoose(base)
-  if (!bn) return { out: list, picks: [] }
+  if (!bn) return none
   try {
     // 컬렉션 검색도 띄어쓰기 단위라 "해리포터" 로는 《해리 포터 시리즈》가 안 나온다.
     // 이미 찾은 **영화** 제목에서 실제 띄어쓰기를 따온다: 《해리 포터와 마법사의 돌》 → "해리 포터".
@@ -293,25 +319,48 @@ async function withSeries(list: TmdbResult[], base: string, n: number | null): P
       .filter((c: any) => !seen.has(c.id) && seen.add(c.id))
       .filter((c: any) => normLoose(c.name).includes(bn) || normLoose(c.original_name).includes(bn))
       .slice(0, 2)
-    let out = list
+    const details = await Promise.all(cols.map((c: any) => tmdbGet(`/collection/${c.id}`).catch(() => null)))
+    const groups: TmdbResult[][] = []
     const picks: TmdbResult[] = []
-    for (const col of cols) {
-      const detail = await tmdbGet(`/collection/${col.id}`)
+    for (const detail of details) {
       const parts = mapResults(detail?.parts || [], 'movie')
         .sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999))
       if (parts.length < 2) continue
       const ids = new Set(parts.map(p => p.tmdbId))
-      const isPart = (m: TmdbResult) => m.kind === 'movie' && ids.has(m.tmdbId)
-      const at = out.findIndex(isPart)
-      if (at < 0) continue // 검색에 한 편도 안 걸린 시리즈는 끼워 넣지 않는다(엉뚱한 묶음 방지)
-      const rest = out.filter(m => !isPart(m))
-      out = [...rest.slice(0, at), ...parts, ...rest.slice(at)]
+      // 검색에 한 편도 안 걸린 시리즈는 끼워 넣지 않는다(엉뚱한 묶음 방지)
+      if (!list.some(m => m.kind === 'movie' && ids.has(m.tmdbId))) continue
+      groups.push(parts)
       if (n && parts[n - 1]) picks.push(parts[n - 1]) // "범죄도시4" → 4편
     }
-    return { out, picks }
+    return { groups, picks }
   } catch {
-    return { out: list, picks: [] }
+    return none
   }
+}
+
+/** 시리즈 묶음을 가장 위에 걸린 편 자리에 한 덩어리로 넣는다 (시즌 펼치기가 끝난 목록에 적용) */
+function applySeries(list: TmdbResult[], groups: TmdbResult[][]): TmdbResult[] {
+  let out = list
+  for (const parts of groups) {
+    const ids = new Set(parts.map(p => p.tmdbId))
+    const isPart = (m: TmdbResult) => m.kind === 'movie' && ids.has(m.tmdbId)
+    const at = out.findIndex(isPart)
+    if (at < 0) continue
+    const rest = out.filter(m => !isPart(m))
+    out = [...rest.slice(0, at), ...parts, ...rest.slice(at)]
+  }
+  return out
+}
+
+/**
+ * TMDB 에 가끔 있는 빈 껍데기 중복을 뺀다 — 같은 종류·같은 제목인데 날짜가 없는 항목
+ * (예: 《킬러들의 쇼핑몰》 #329791·#329792). 날짜 있는 진짜가 따로 있을 때만 빼므로 예정작은 남는다.
+ * 안 빼면 껍데기마다 시즌까지 펼쳐져 같은 줄이 세 벌씩 나왔다.
+ */
+function dropStubs(list: TmdbResult[]): TmdbResult[] {
+  const key = (m: TmdbResult) => `${m.kind}|${normLoose(m.title)}`
+  const dated = new Set(list.filter(m => m.year != null).map(key))
+  return list.filter(m => m.year != null || !dated.has(key(m)))
 }
 
 /** 시즌을 펼칠 드라마 수 (상위 몇 개). 작품마다 상세 조회가 1회 든다 */
@@ -378,16 +427,14 @@ async function searchPipeline(kinds: ('movie' | 'tv')[], query: string): Promise
     ? [searchKind(k, base), fetchSearchPage(k, raw)]
     : [searchKind(k, raw)]
   ).map(p => p.catch(() => [] as TmdbResult[])))
-  let list = rankTmdbResults(dedupe(lists.flat()), base)
-  const picks: TmdbResult[] = []
-  if (kinds.includes('tv')) {
-    const s = await withSeasons(list, n)
-    list = s.out; picks.push(...s.picks)
-  }
-  if (kinds.includes('movie')) {
-    const s = await withSeries(list, base, n)
-    list = s.out; picks.push(...s.picks)
-  }
+  let list = rankTmdbResults(dropStubs(dedupe(lists.flat())), base)
+  // 시즌 상세 조회와 시리즈(컬렉션) 찾기는 서로 기다릴 이유가 없다 — 동시에 보내 왕복 한 번을 줄인다
+  const [seasons, series] = await Promise.all([
+    kinds.includes('tv') ? withSeasons(list, n) : Promise.resolve<Expanded>({ out: list, picks: [] }),
+    kinds.includes('movie') ? findSeries(list, base, n) : Promise.resolve({ groups: [] as TmdbResult[][], picks: [] as TmdbResult[] }),
+  ])
+  list = applySeries(seasons.out, series.groups)
+  const picks = [...seasons.picks, ...series.picks]
   if (!picks.length) return list
   // 번호가 가리키는 항목을 맨 앞으로. 영화 4편과 드라마 시즌4 가 둘 다 있으면 검색어 그대로의
   // 제목이 먼저("범죄도시4" → 《범죄도시 4》가 《범죄 도시 시즌4》보다 위), 같으면 인기순.

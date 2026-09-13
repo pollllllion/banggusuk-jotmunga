@@ -12,7 +12,11 @@
  *   fail    ❌ 푸시 금지
  */
 
-/** git diff --unified=0 출력 → [{ file, isNew, isDeleted, added: [{ line, text }], removed: [text] }] */
+/**
+ * git diff --unified=0 출력 → [{ file, isNew, isDeleted, added: [{ line, text }], removed: [text], removedAt: [line] }]
+ * removedAt = 삭제가 일어난 **새 파일 기준** 위치(git 규칙상 순수 삭제면 그 직전 줄 번호). 삭제만 있는 변경이
+ * 어느 함수 안에서 일어났는지 알아야 해서 둔다(예: `set search_path` 한 줄만 지운 경우).
+ */
 export function parseDiff(text) {
   const files = []
   let cur = null
@@ -22,7 +26,7 @@ export function parseDiff(text) {
     const line = raw.replace(/\r$/, '')
     if (line.startsWith('diff --git ')) {
       const m = line.match(/ b\/(.+)$/)
-      cur = { file: m ? m[1] : '', isNew: false, isDeleted: false, added: [], removed: [] }
+      cur = { file: m ? m[1] : '', isNew: false, isDeleted: false, added: [], removed: [], removedAt: [] }
       files.push(cur)
       inHunk = false
       continue
@@ -37,7 +41,7 @@ export function parseDiff(text) {
     if (h) { inHunk = true; newLine = Number(h[1]); continue }
     if (!inHunk) continue
     if (line.startsWith('+')) { cur.added.push({ line: newLine, text: line.slice(1) }); newLine++ }
-    else if (line.startsWith('-')) cur.removed.push(line.slice(1))
+    else if (line.startsWith('-')) { cur.removed.push(line.slice(1)); cur.removedAt.push(newLine) }
   }
   return files
 }
@@ -145,17 +149,65 @@ export function checkStartupLoad(files, payload) {
 
 const sqlFiles = files => files.filter(f => /\.sql$/i.test(f.file))
 
+/** SQL 주석(-- 끝까지)을 지운다. "-- security definer 로 바꿈" 같은 주석에 속지 않게 */
+const stripSqlComments = s => s.replace(/--[^\n]*/g, '')
+
+/**
+ * SQL 전문 → 함수 정의 구간 [{ name, start, end, text }] (1부터 세는 줄 번호).
+ * 끝은 달러 인용 본문($$ · $body$)이 닫힌 뒤 문장 끝(;)까지 — Postgres 는 `$$ language sql security definer;`
+ * 처럼 본문 **뒤에** 속성을 쓰는 것도 허용해서, 본문 닫힘에서 자르면 그 선언을 놓친다.
+ */
+export function sqlFunctions(content) {
+  const lines = String(content).replace(/\r\n/g, '\n').split('\n')
+  const starts = []
+  lines.forEach((l, i) => { if (/^\s*create\s+(or\s+replace\s+)?function\b/i.test(l)) starts.push(i) })
+  return starts.map((s, k) => {
+    const limit = k + 1 < starts.length ? starts[k + 1] - 1 : lines.length - 1
+    const chunk = lines.slice(s, limit + 1).join('\n')
+    let end = limit
+    const open = chunk.match(/\$([A-Za-z_]\w*)?\$/)
+    if (open) {
+      const close = chunk.indexOf(open[0], open.index + open[0].length)
+      if (close >= 0) {
+        const semi = chunk.indexOf(';', close)
+        end = s + chunk.slice(0, semi >= 0 ? semi : close).split('\n').length - 1
+      }
+    }
+    const text = lines.slice(s, end + 1).join('\n')
+    return { name: (text.match(/function\s+([\w."]+)/i) || [])[1], start: s + 1, end: end + 1, text }
+  })
+}
+
+/**
+ * @param files parseDiff 결과. SQL 파일은 `content`(작업 트리의 파일 전문)가 있어야 정확하다 — 러너가 채운다.
+ *
+ * security definer 판정은 **바뀐 줄이 걸친 함수의 정의 전체**로 한다. 예전엔 추가된 줄만 봐서,
+ * 기존 함수 본문 한 줄만 고친 경우 `security definer` 선언이 안 바뀐 줄에 있어 통째로 놓쳤다.
+ * 정책·grant·RLS 해제는 문장 한 줄 단위라 추가된 줄만 본다(안 바뀐 줄은 이미 운영에 있는 것).
+ */
 export function checkRls(files) {
   const fail = []
   const review = []
   for (const f of sqlFiles(files)) {
-    const body = f.added.map(a => a.text).join('\n')
-    // 함수 단위로 잘라 security definer 인데 search_path 고정이 없는 것을 찾는다(스키마 하이재킹)
-    for (const chunk of body.split(/(?=create\s+(?:or\s+replace\s+)?function)/i)) {
-      if (!/create\s+(?:or\s+replace\s+)?function/i.test(chunk)) continue
-      const name = (chunk.match(/function\s+([\w.]+)/i) || [])[1]
-      if (/security\s+definer/i.test(chunk) && !/set\s+search_path/i.test(chunk)) fail.push(`${f.file}  ${name}: security definer 인데 set search_path 없음`)
-      else if (/security\s+definer/i.test(chunk)) review.push(`${f.file}  ${name}: security definer — 입력 검증(id 형식·소유자·비번)이 우회 경로가 되지 않는지`)
+    if (f.isDeleted) continue
+    if (f.content != null) {
+      const changed = [...f.added.map(a => a.line), ...(f.removedAt || []).flatMap(p => [p, p + 1])]
+      for (const fn of sqlFunctions(f.content)) {
+        if (!changed.some(n => n >= fn.start && n <= fn.end)) continue
+        const body = stripSqlComments(fn.text)
+        if (!/security\s+definer/i.test(body)) continue
+        if (!/set\s+search_path/i.test(body)) fail.push(`${f.file}:${fn.start}  ${fn.name}: security definer 인데 set search_path 없음`)
+        else review.push(`${f.file}:${fn.start}  ${fn.name}: security definer — 입력 검증(id 형식·소유자·비번)이 우회 경로가 되지 않는지`)
+      }
+    } else {
+      // 전문이 없으면(테스트 등) 추가된 줄만으로 판정 — 기존 함수의 일부만 바뀐 경우는 놓칠 수 있다
+      const body = stripSqlComments(f.added.map(a => a.text).join('\n'))
+      for (const chunk of body.split(/(?=create\s+(?:or\s+replace\s+)?function)/i)) {
+        if (!/create\s+(?:or\s+replace\s+)?function/i.test(chunk)) continue
+        const name = (chunk.match(/function\s+([\w."]+)/i) || [])[1]
+        if (/security\s+definer/i.test(chunk) && !/set\s+search_path/i.test(chunk)) fail.push(`${f.file}  ${name}: security definer 인데 set search_path 없음`)
+        else if (/security\s+definer/i.test(chunk)) review.push(`${f.file}  ${name}: security definer — 입력 검증(id 형식·소유자·비번)이 우회 경로가 되지 않는지`)
+      }
     }
     for (const a of f.added) {
       if (isComment(a.text)) continue

@@ -61,9 +61,14 @@ for (const file of untracked) {
   let text = ''
   try { text = readFileSync(file, 'utf8') } catch { /* 바이너리 등 */ }
   files.push({
-    file, isNew: true, isDeleted: false, removed: [],
+    file, isNew: true, isDeleted: false, removed: [], removedAt: [],
     added: text.split('\n').map((t, i) => ({ line: i + 1, text: t.replace(/\r$/, '') })),
   })
+}
+// SQL 은 전문을 붙인다 — RLS 검사가 바뀐 줄이 걸친 함수의 정의 전체를 봐야 해서(checkRls)
+for (const f of files) {
+  if (!/\.sql$/i.test(f.file) || f.isDeleted) continue
+  try { f.content = readFileSync(f.file, 'utf8') } catch { /* 없으면 추가된 줄만으로 판정 */ }
 }
 
 // ── 3. 기능 손실 ──

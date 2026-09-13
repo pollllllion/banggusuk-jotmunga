@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseDiff, checkBuildOutput, checkFeatureLoss, checkDataLayer, checkStartupLoad,
-  checkRls, checkPrerenderFields, checkMigrations, parseMigrateStatus, formatReport,
+  checkRls, sqlFunctions, checkPrerenderFields, checkMigrations, parseMigrateStatus, formatReport,
 } from '../release-check-lib.mjs'
 
 /** 테스트용 파일 항목 */
@@ -118,6 +118,68 @@ describe('checkRls', () => {
   })
   it('관련 변경이 없으면 통과', () => {
     expect(checkRls([file('src/a.ts', ['const x = 1'])]).status).toBe('pass')
+  })
+})
+
+describe('checkRls — 기존 SQL 파일 일부만 바뀐 경우 (파일 전문으로 판정)', () => {
+  // 1~3: 주석, 4~13: 위험한 함수(search_path 없음), 14: 빈 줄, 15~21: 안전한 함수
+  const content = [
+    '-- 옛 마이그레이션',
+    '-- 설명',
+    '',
+    'create or replace function public.risky(p text)',
+    'returns void',
+    'language plpgsql',
+    'security definer',
+    'as $$',
+    'begin',
+    "  update t set x = p;",
+    'end;',
+    '$$;',
+    'grant execute on function public.risky(text) to authenticated;',
+    '',
+    'create or replace function public.safe()',
+    'returns void language plpgsql',
+    'security definer',
+    'set search_path = public',
+    'as $body$ begin',
+    '  perform 1;',
+    'end $body$;',
+  ].join('\n')
+  const modified = (addedLines, removedAt = []) => ({
+    file: 'supabase/m.sql', isNew: false, isDeleted: false, content,
+    added: addedLines.map(([line, text]) => ({ line, text })), removed: removedAt.map(() => 'x'), removedAt,
+  })
+
+  it('함수를 구간으로 자른다 (달러 태그·본문 뒤 문장 끝까지)', () => {
+    const fns = sqlFunctions(content)
+    expect(fns.map(f => [f.name, f.start, f.end])).toEqual([['public.risky', 4, 12], ['public.safe', 15, 21]])
+  })
+
+  it('본문 한 줄만 고쳐도 선언이 안 바뀐 줄에 있는 security definer 를 잡는다', () => {
+    const r = checkRls([modified([[10, "  update t set x = upper(p);"]])])
+    expect(r.status).toBe('fail')
+    expect(r.detail[0]).toContain('public.risky')
+  })
+
+  it('search_path 줄만 지운 경우도 잡는다 (삭제 위치로 함수를 찾는다)', () => {
+    const withoutPath = content.replace('set search_path = public\n', '')
+    const f = { ...modified([], [17]), content: withoutPath }
+    const r = checkRls([f])
+    expect(r.status).toBe('fail')
+    expect(r.detail[0]).toContain('public.safe')
+  })
+
+  it('안전한 함수 본문만 바뀌면 확인 대상, 함수 밖(주석)만 바뀌면 통과', () => {
+    expect(checkRls([modified([[20, '  perform 2;']])]).status).toBe('review')
+    expect(checkRls([modified([[2, '-- 설명 고침']])]).status).toBe('pass')
+  })
+
+  it('본문 뒤에 쓴 security definer 와 주석 속 문구를 구분한다', () => {
+    const after = 'create function public.g() returns int as $$ select 1 $$\nlanguage sql security definer;'
+    expect(checkRls([{ file: 'supabase/n.sql', isNew: true, isDeleted: false, content: after, added: [{ line: 1, text: 'x' }], removed: [], removedAt: [] }]).status).toBe('fail')
+    const commented = 'create function public.h() returns int\n-- security definer 는 쓰지 않는다\nas $$ select 1 $$ language sql;'
+    expect(checkRls([{ file: 'supabase/n.sql', isNew: true, isDeleted: false, content: commented, added: [{ line: 1, text: 'x' }], removed: [], removedAt: [] }]).status).toBe('pass')
   })
 })
 
