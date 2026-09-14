@@ -19,6 +19,12 @@ export function isIos(): boolean {
     || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
 }
 
+/** 설치 기록을 계정에 남길 때 쓰는 기기 종류 */
+export function devicePlatform(): 'ios' | 'android' | 'desktop' {
+  if (isIos()) return 'ios'
+  return /Android/i.test(navigator.userAgent) ? 'android' : 'desktop'
+}
+
 /** iOS 에서 '홈 화면에 추가'가 가능한 브라우저인가 (사파리 계열만 된다) */
 export function isIosSafari(): boolean {
   if (!isIos()) return false
@@ -40,14 +46,36 @@ export interface BeforeInstallPromptEvent extends Event {
 let deferredPrompt: BeforeInstallPromptEvent | null = null
 const promptListeners = new Set<(e: BeforeInstallPromptEvent | null) => void>()
 
+/**
+ * 이 기기에 앱을 깔았는가 — 브라우저 탭으로 들어왔을 때도 알아야 권유를 멈출 수 있다.
+ * 설치된 앱 창과 브라우저는 저장소를 같이 쓴다. 그래서 앱으로 한 번 열리거나(standalone)
+ * 설치 완료 이벤트가 오면 표시해 두고, 크롬이 다시 설치 권유 이벤트를 주면(= 지웠다) 지운다.
+ */
+const INSTALLED_KEY = 'pwa-installed'
+
+function setInstalledMark(on: boolean) {
+  try {
+    if (on) localStorage.setItem(INSTALLED_KEY, '1')
+    else localStorage.removeItem(INSTALLED_KEY)
+  } catch { /* 사생활 보호 모드 */ }
+}
+
+export function wasInstalledHere(): boolean {
+  try { return localStorage.getItem(INSTALLED_KEY) === '1' } catch { return false }
+}
+
 if (typeof window !== 'undefined') {
+  if (isStandalone()) setInstalledMark(true)
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault()   // 크롬 기본 미니바를 막고 우리 배너로 대체
     deferredPrompt = e as BeforeInstallPromptEvent
+    // 크롬은 이미 설치된 앱에는 이 이벤트를 주지 않는다 — 왔다면 지웠거나 깐 적이 없다
+    setInstalledMark(false)
     promptListeners.forEach(fn => fn(deferredPrompt))
   })
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null
+    setInstalledMark(true)
     promptListeners.forEach(fn => fn(null))
   })
 }

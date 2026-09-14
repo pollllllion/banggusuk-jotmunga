@@ -5,6 +5,7 @@ import {
   imgSrcFromHtml, isProbablyGifUrl, MAX_FILES, MAX_MB,
 } from '@/utils/talkMedia'
 import { sanitizeRichText, richTextToPlain, extractImageUrls } from '@/utils/richText'
+import { youtubeId, youtubeWatchUrl } from '@/utils/youtube'
 
 /** 첨부거리 — 파일, 주소, 또는 "주소 우선 · 실패하면 이 파일" 쌍 */
 type MediaItem = File | string | { url: string; fallback: File }
@@ -50,12 +51,18 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
   const [dragging, setDragging] = useState(false)
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlInput, setUrlInput] = useState('')
+  const [ytOpen, setYtOpen] = useState(false)
+  const [ytInput, setYtInput] = useState('')
   const [len, setLen] = useState(() => richTextToPlain(html).length)
   const [shots, setShots] = useState(() => extractImageUrls(html).length)
 
   // 초기 내용만 한 번 넣는다 — 이후엔 브라우저가 들고 있는다(입력 중 커서가 튀지 않게)
   useEffect(() => {
-    if (editorRef.current && html) editorRef.current.innerHTML = html
+    if (editorRef.current && html) {
+      editorRef.current.innerHTML = html
+      // 저장할 때 contenteditable 속성은 정화로 빠진다 — 고쳐 쓰러 열면 영상 자리를 다시 한 덩이로 묶는다
+      editorRef.current.querySelectorAll('[data-yt]').forEach(el => el.setAttribute('contenteditable', 'false'))
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -116,6 +123,24 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
     remember(); sync()
   }
 
+  /**
+   * 커서 자리에 유튜브 영상 자리를 끼운다. 에디터 안에서는 주소가 적힌 카드로 보이고,
+   * 글 화면에서 플레이어가 된다(richText.renderVideoEmbeds). 카드는 한 덩이라 백스페이스로 통째로 지워진다.
+   */
+  const insertVideo = (id: string) => {
+    restore()
+    document.execCommand('insertHTML', false,
+      `<div data-yt="${id}" contenteditable="false">${youtubeWatchUrl(id)}</div><div><br></div>`)
+    remember(); sync()
+  }
+
+  const addVideo = () => {
+    const id = youtubeId(ytInput)
+    if (!id) { toast('유튜브 영상 주소가 아니에요.'); return }
+    setYtInput(''); setYtOpen(false)
+    insertVideo(id)
+  }
+
   /** 남은 자리만큼 잘라 하나씩 올리고, 성공한 것만 본문에 끼운다. */
   const addAll = async (items: MediaItem[]) => {
     if (!items.length) return
@@ -154,6 +179,9 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
 
     // 글은 서식 없이 — 남의 사이트 HTML 이 통째로 딸려 들어오는 걸 막는다
     const text = e.clipboardData.getData('text')
+    // 유튜브 주소 하나만 붙여넣으면 링크가 아니라 영상으로 들어간다
+    const ytId = text ? youtubeId(text) : null
+    if (ytId) { e.preventDefault(); remember(); insertVideo(ytId); return }
     if (text) { e.preventDefault(); document.execCommand('insertText', false, text); sync() }
   }
 
@@ -163,6 +191,8 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
     if (files.length) { addAll(files); return }
     const raw = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text')
     const url = raw.split('\n').map(s => s.trim()).find(s => s && !s.startsWith('#'))
+    const ytId = url ? youtubeId(url) : null
+    if (ytId) { insertVideo(ytId); return }
     if (url && looksLikeImageUrl(url)) addAll([url])
   }
 
@@ -208,8 +238,11 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
           <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => fileRef.current?.click()}>
             이미지·움짤
           </button>
-          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => setUrlOpen(o => !o)}>
+          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setYtOpen(false); setUrlOpen(o => !o) }}>
             주소로 넣기
+          </button>
+          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setUrlOpen(false); setYtOpen(o => !o) }}>
+            유튜브
           </button>
           <span className="talk-toolbar-hint">
             {busy ? '올리는 중…' : `커서 자리에 들어감 · 붙여넣기(Ctrl+V)·드래그&드롭 · ${shots}/${MAX_FILES}`}
@@ -226,6 +259,19 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUrl() } }}
             />
             <button type="button" className="btn btn-secondary btn-small" disabled={busy || !urlInput.trim()} onClick={addUrl}>붙이기</button>
+          </div>
+        )}
+
+        {ytOpen && (
+          <div className="talk-url-row">
+            <input
+              className="form-input" style={{ flex: 1, marginBottom: 0 }} autoFocus
+              placeholder="유튜브 주소 (본문에 바로 붙여넣어도 영상으로 들어가요)"
+              value={ytInput}
+              onChange={e => setYtInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVideo() } }}
+            />
+            <button type="button" className="btn btn-secondary btn-small" disabled={!ytInput.trim()} onClick={addVideo}>넣기</button>
           </div>
         )}
 

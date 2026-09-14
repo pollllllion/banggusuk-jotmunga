@@ -1,34 +1,53 @@
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { InstallGuide } from './InstallGuide'
+import { useAuthStore } from '@/stores/authStore'
 import {
-  isStandalone, isIosSafari,
+  isStandalone, isIosSafari, wasInstalledHere, devicePlatform,
   getInstallPrompt, clearInstallPrompt, onInstallPromptChange,
   type BeforeInstallPromptEvent,
 } from '@/utils/pwa'
 
 const SNOOZE_KEY = 'pwa-install-snoozed-at'
-const SNOOZE_DAYS = 14
 const SHOW_DELAY_MS = 4000
 
+/** 닫으면 하루 뒤 다시. PC 는 캘린더 첫 화면에서만, 폰은 어느 화면이든 */
+const SNOOZE_MS = 86400_000
+const isDesktop = () => window.matchMedia('(min-width: 769px)').matches
+
 function snoozed(): boolean {
-  const at = Number(localStorage.getItem(SNOOZE_KEY) || 0)
-  return at > 0 && Date.now() - at < SNOOZE_DAYS * 86400_000
+  try {
+    const at = Number(localStorage.getItem(SNOOZE_KEY) || 0)
+    return at > 0 && Date.now() - at < SNOOZE_MS
+  } catch { return false }
 }
 
 /**
  * 홈화면 설치 안내 배너.
  * - 안드로이드/크롬: 미리 잡아 둔 beforeinstallprompt 를 우리 UI 로 띄운다
  * - iOS 사파리: 프로그램적 설치가 없어서 '공유 → 홈 화면에 추가' 안내만 한다
- * 이미 설치해 실행 중이거나 최근에 닫았으면 뜨지 않는다.
+ * 이미 설치했거나(앱 창·이 브라우저에서 설치한 기록) 최근에 닫았으면 뜨지 않는다.
  */
 export function InstallPrompt() {
+  const { pathname } = useLocation()
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [iosHint, setIosHint] = useState(false)
   const [show, setShow] = useState(false)
   const [guide, setGuide] = useState(false)
+  const isAccount = useAuthStore(s => s.isAccount)
+  const installedOn = useAuthStore(s => s.user?.appInstalledOn)
+  const updateProfile = useAuthStore(s => s.updateProfile)
+  const installedOnThisKind = isAccount && !!installedOn?.includes(devicePlatform())
+
+  // 앱으로 열렸으면 계정에 기기 종류를 적는다 — 아이폰 사파리는 이 기록으로만 설치를 안다
+  useEffect(() => {
+    if (!isStandalone() || !isAccount || installedOnThisKind) return
+    // 칸이 없으면(마이그레이션 전) 저장만 실패한다. 배너 판단엔 영향이 없다
+    updateProfile({ appInstalledOn: [...(installedOn ?? []), devicePlatform()] }).catch(() => {})
+  }, [isAccount, installedOn, installedOnThisKind, updateProfile])
 
   useEffect(() => {
-    if (isStandalone() || snoozed()) return
+    if (isStandalone() || wasInstalledHere() || snoozed()) return
 
     // 마운트 전에 이미 도착했을 수 있다 — 먼저 꺼내 보고, 그 뒤 변화를 구독한다
     setDeferred(getInstallPrompt())
@@ -44,7 +63,7 @@ export function InstallPrompt() {
 
   const close = () => {
     setShow(false)
-    localStorage.setItem(SNOOZE_KEY, String(Date.now()))
+    try { localStorage.setItem(SNOOZE_KEY, String(Date.now())) } catch { /* 사생활 보호 모드 */ }
   }
 
   const install = async () => {
@@ -57,7 +76,9 @@ export function InstallPrompt() {
   }
 
   if (guide) return <InstallGuide onClose={() => { setGuide(false); close() }} />
-  if (!show || (!deferred && !iosHint)) return null
+  if (!show || (!deferred && !iosHint) || installedOnThisKind) return null
+  // PC 에서는 캘린더 첫 화면에만. 작품·글을 읽는 화면 구석을 계속 차지하지 않게
+  if (isDesktop() && pathname !== '/') return null
 
   return (
     <div className="install-banner" role="dialog" aria-label="홈화면에 추가">

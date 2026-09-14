@@ -42,6 +42,10 @@ export interface User {
   // ── 공개 취향 프로필 (다른 유저에게 공개 · 마이그레이션 후) ──
   /** 업로드한 프로필 사진 공개 URL. 없으면 빈 사람 실루엣 (migration_profile_avatar) */
   avatarUrl?: string | null
+  /** 앱(홈 화면)으로 연 적이 있는 기기 종류 — 'ios' | 'android' | 'desktop'.
+   *  아이폰은 사파리와 홈 화면 앱이 저장소를 따로 써서 기기만으로는 설치 여부를 모른다.
+   *  계정에 적어 두고 그 종류의 기기에선 설치 권유를 멈춘다 (migration_app_installed) */
+  appInstalledOn?: string[] | null
   tasteBio?: string | null        // 취향 한 줄 소개
   favoriteWorks?: string[]        // 인생작품 (content id 목록)
   /** 내가 손으로 고른 추천작 — 남에게 "이건 봐라" 하는 목록 (migration_recommend_follow) */

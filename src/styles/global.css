@@ -1036,12 +1036,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 
 /* ── 작품 상세: 좋문가 평점 분리 표시 ─────────────────────── */
 .score-box-label { font-size: 11px; font-weight: 700; color: var(--subtext); margin-bottom: 2px; }
-/* 설치 권유는 **폰에서만** 한다.
-   PC 크롬도 앱으로 설치되긴 하지만, 이 사이트는 폰에서 쓰는 물건이고
-   '홈 화면에 추가'라는 말 자체가 PC 에서는 맞지 않는다. 화면만 차지한다.
-   설정 → 앱으로 쓰기 는 남겨 둔다 — 찾아온 사람에게는 기기에 맞는 안내가 나간다. */
+/* 내 피드 맨 위 한 줄은 **폰에서만**. PC 에서는 캘린더 첫 화면 오른쪽 아래 배너
+   (.install-banner, 닫으면 하루)가 그 역할을 한다 — 두 자리에서 겹쳐 권하지 않는다. */
 @media (min-width: 769px) {
-  .install-hint, .install-banner { display: none; }
+  .install-hint { display: none; }
 }
 
 /* '앱으로 쓰기' 한 줄 (내 피드 맨 위) — 눈에는 띄되 화면을 먹지 않게.

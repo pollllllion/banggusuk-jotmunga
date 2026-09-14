@@ -47,6 +47,7 @@ function profileToUser(p: any, email: string): User {
     notifyFollow: p.notifyFollow,
     lastVisit: p.lastVisit ?? null, streak: p.streak ?? 0, visitDays: p.visitDays ?? 0,
     avatarUrl: p.avatarUrl ?? null,
+    appInstalledOn: Array.isArray(p.appInstalledOn) ? p.appInstalledOn : [],
     showRatings: p.showRatings, showWatched: p.showWatched, showBookmarks: p.showBookmarks,
     // jsonb 라 그대로 배열로 온다. 마이그레이션 전이면 undefined → 빈 목록으로 본다
     pinnedPosts: Array.isArray(p.pinnedPosts) ? p.pinnedPosts : [],
@@ -136,6 +137,8 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.notifyFollow !== undefined) patch.notifyFollow = updates.notifyFollow
   // 공개 취향 프로필
   if (updates.avatarUrl !== undefined) patch.avatarUrl = updates.avatarUrl
+  // 앱으로 연 기기 종류 — 설치 권유를 멈추는 데 쓴다
+  if (updates.appInstalledOn !== undefined) patch.appInstalledOn = updates.appInstalledOn
   // 내 피드 칸별 공개 여부
   if (updates.showRatings !== undefined) patch.showRatings = updates.showRatings
   if (updates.showWatched !== undefined) patch.showWatched = updates.showWatched

@@ -141,10 +141,18 @@ export async function updateDiscussion(id: string, updates: Partial<Discussion>)
   const ds = getDiscussions()
   const idx = ds.findIndex(d => d.id === id)
   if (idx < 0) return null
-  const updated = { ...ds[idx], ...updates, updatedAt: new Date().toISOString() }
+  const patch = { ...updates, updatedAt: new Date().toISOString() }
+  const updated = { ...ds[idx], ...patch }
   const next = [...ds]; next[idx] = updated
-  const res = await saveDiscussions(next)
-  if (!res.ok) { cache.discussions = ds; throw new SaveFailedError(res.error) }
+  cache.discussions = next
+  // upsert 가 아니라 update 로 바뀐 칸만 보낸다. upsert 는 INSERT 정책까지 검사해서
+  // 관리자가 남의 글을 고치면 거부된다(insert 는 본인 authorId 만 허용).
+  // RLS 에 막히면 에러 없이 0행이 돌아온다 — 고쳐진 행이 있는지 확인한다.
+  const { data, error } = await supabase.from('discussions').update(patch).eq('id', id).select('id')
+  if (error || !data?.length) {
+    cache.discussions = ds
+    throw new SaveFailedError(error?.message || '이 글을 고칠 권한이 없어요.')
+  }
   recomputeContentRating(updated.contentId)
   return updated
 }
@@ -274,10 +282,19 @@ export function hasReplies(commentId: string): boolean {
  */
 export async function deleteDiscussionComment(id: string): Promise<void> {
   const prev = getDiscussionComments()
-  const next = hasReplies(id)
-    ? prev.map(c => (c.id === id ? { ...c, body: '', deleted: true } : c))
-    : prev.filter(c => c.id !== id)
-  const res = await saveDiscussionComments(next)
+  if (hasReplies(id)) {
+    // 삭제 표시는 update 로 — upsert 는 INSERT 정책까지 검사해서 관리자가 남의 댓글에 걸면 거부된다.
+    // RLS 에 막히면 에러 없이 0행이 돌아오므로 고쳐진 행이 있는지 확인한다.
+    cache.discussion_comments = prev.map(c => (c.id === id ? { ...c, body: '', deleted: true } : c))
+    const { data, error } = await supabase.from('discussion_comments')
+      .update({ body: '', deleted: true }).eq('id', id).select('id')
+    if (error || !data?.length) {
+      cache.discussion_comments = prev
+      throw new SaveFailedError(error?.message || '이 댓글을 지울 권한이 없어요.')
+    }
+    return
+  }
+  const res = await saveDiscussionComments(prev.filter(c => c.id !== id))
   if (!res.ok) { cache.discussion_comments = prev; throw new SaveFailedError(res.error) }
 }
 

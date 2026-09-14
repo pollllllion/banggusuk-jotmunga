@@ -3,9 +3,11 @@
  *
  * 유동닉(로그인 없이)도 글을 쓰는 게시판이라 본문 HTML 을 그대로 믿으면 안 된다.
  * 저장할 때도, 화면에 그릴 때도 이 함수를 통과시킨다(둘 중 하나가 뚫려도 막히게).
- * 허용하는 건 글자 모양과 <img> 뿐 — 링크·스크립트·이벤트 속성은 전부 걷어낸다.
+ * 허용하는 건 글자 모양과 <img>, 유튜브 자리(<div data-yt="영상ID">) 뿐 — 링크·스크립트·이벤트 속성은 전부 걷어낸다.
  * <img> 는 본문에 끼워 넣는 짤이라 src 가 http(s) 인 것만 남긴다(data:·javascript: 차단).
+ * 유튜브는 iframe 을 저장하지 않고 ID 만 남긴다. 플레이어는 그릴 때 renderVideoEmbeds 가 만든다.
  */
+import { YT_ID_RE, youtubeWatchUrl, youtubeEmbedUrl } from './youtube'
 
 /** 남겨도 되는 태그 (글자 모양 계열 + 본문에 낀 짤) */
 const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'DIV', 'P', 'SPAN', 'FONT', 'IMG'])
@@ -73,6 +75,17 @@ function scrub(root: Element) {
       continue
     }
 
+    // 유튜브 자리: ID 가 형식에 맞을 때만 남기고, 안의 글은 보는 주소로 새로 쓴다
+    // (평문 본문에 링크가 남아 목록 미리보기·검색에서도 무슨 영상인지 보인다)
+    if (el.tagName === 'DIV' && el.hasAttribute('data-yt')) {
+      const id = el.getAttribute('data-yt') || ''
+      if (!YT_ID_RE.test(id)) { el.remove(); continue }
+      for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name)
+      el.setAttribute('data-yt', id)
+      el.textContent = youtubeWatchUrl(id)
+      continue
+    }
+
     for (const attr of Array.from(el.attributes)) {
       if (attr.name.toLowerCase() !== 'style') el.removeAttribute(attr.name)
     }
@@ -88,6 +101,33 @@ export function sanitizeRichText(dirty: string): string {
   const doc = new DOMParser().parseFromString(`<body>${dirty}</body>`, 'text/html')
   doc.body.querySelectorAll('script, style, iframe, object, embed, link, meta').forEach(el => el.remove())
   scrub(doc.body)
+  return doc.body.innerHTML
+}
+
+/**
+ * 정화된 본문의 유튜브 자리를 실제 플레이어로 바꾼다 — **화면에 그리기 직전에만.**
+ * 반드시 sanitizeRichText 를 먼저 거친 HTML 에 쓴다(정화가 iframe 을 지우므로 순서가 반대면 사라진다).
+ * iframe 주소는 검증한 ID 로 우리가 만든다 — 저장된 값에서 주소를 가져오지 않는다.
+ */
+export function renderVideoEmbeds(safeHtml: string): string {
+  if (!safeHtml || !safeHtml.includes('data-yt')) return safeHtml
+  const doc = new DOMParser().parseFromString(`<body>${safeHtml}</body>`, 'text/html')
+  doc.body.querySelectorAll('div[data-yt]').forEach(el => {
+    const id = el.getAttribute('data-yt') || ''
+    if (!YT_ID_RE.test(id)) { el.remove(); return }
+    const box = doc.createElement('div')
+    box.className = 'yt-embed'
+    const frame = doc.createElement('iframe')
+    frame.setAttribute('src', youtubeEmbedUrl(id))
+    frame.setAttribute('title', '유튜브 영상')
+    frame.setAttribute('loading', 'lazy')
+    frame.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share')
+    // 유튜브는 리퍼러가 없으면 재생을 거부한다(오류 153)
+    frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin')
+    frame.setAttribute('allowfullscreen', '')
+    box.appendChild(frame)
+    el.replaceWith(box)
+  })
   return doc.body.innerHTML
 }
 

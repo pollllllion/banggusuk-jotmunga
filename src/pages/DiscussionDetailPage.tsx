@@ -12,7 +12,7 @@ import { LevelTag } from '@/components/profile/LevelTag'
 import { Avatar } from '@/components/profile/Avatar'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
-import { sanitizeRichText } from '@/utils/richText'
+import { sanitizeRichText, renderVideoEmbeds } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { ShareButton } from '@/components/ui/ShareButton'
@@ -99,9 +99,11 @@ export function DiscussionDetailPage() {
   // 고정닉(계정)만 강조·프로필 링크 — 유동닉/레거시 방문객과 구분
   const isAccountAuthor = DS.isAccountId(post.authorId)
   const liked = user ? post.likes.includes(user.id) : false
-  const canDeleteAccount = !!user && isAccount && !isGuest && (user.id === post.authorId || user.role === 'admin')
-  // 수정은 글쓴이만 (관리자라도 남의 글 내용은 고치지 않는다 — 삭제만)
-  const canEdit = (!!user && isAccount && !isGuest && user.id === post.authorId) || isGuest
+  // 관리자는 누구 글이든 수정·삭제한다 — 유동닉 글도 비번 없이 (RLS: 본인 or 관리자)
+  const isAdmin = !!user && isAccount && user.role === 'admin'
+  const canDeleteAccount = isAdmin || (!!user && isAccount && !isGuest && user.id === post.authorId)
+  // 수정은 글쓴이 · 유동닉(비번 확인) · 관리자
+  const canEdit = (!!user && isAccount && !isGuest && user.id === post.authorId) || isGuest || isAdmin
   const comments = DS.getDiscussionCommentsByPost(post.id)
   /** 정렬은 원댓글에만 건다 — 답글까지 최신순으로 뒤집으면 주고받은 차례가 뒤엉킨다 */
   const rootComments = comments.filter(c => !c.parentId).sort((a, b) => {
@@ -159,7 +161,7 @@ export function DiscussionDetailPage() {
 
   /** 수정 — 계정 글은 바로, 유동닉 글은 비번을 먼저 확인하고 그 비번을 들고 넘어간다 */
   const editPost = async () => {
-    if (isGuest) {
+    if (isGuest && !isAdmin) {
       const pw = prompt('글 작성 시 입력한 비밀번호를 입력하세요.')
       if (!pw) return
       const ok = await DS.verifyGuestPost('discussions', post.id, pw)
@@ -270,7 +272,7 @@ export function DiscussionDetailPage() {
 
   const removeComment = async (c: { id: string; guestName?: string | null; authorId: string | null }) => {
     const cGuest = !!c.guestName
-    if (user && isAccount && !cGuest && (user.id === c.authorId || user.role === 'admin')) {
+    if (isAdmin || (user && isAccount && !cGuest && user.id === c.authorId)) {
       if (!confirm('이 댓글을 삭제할까요?')) return
       try { await DS.deleteDiscussionComment(c.id) } catch (e) { failToast(e); return }
       toast('삭제했습니다.'); rerender()
@@ -474,7 +476,7 @@ export function DiscussionDetailPage() {
         <div className="disc-detail-body">
           {/* 서식 있는 글은 HTML 로, 옛 글은 평문 그대로. 그릴 때 한 번 더 정화한다 */}
           {post.bodyHtml
-            ? <div className="disc-detail-text rich" dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.bodyHtml) }} />
+            ? <div className="disc-detail-text rich" dangerouslySetInnerHTML={{ __html: renderVideoEmbeds(sanitizeRichText(post.bodyHtml)) }} />
             : <p className="disc-detail-text">{post.body}</p>}
           {/* 짤은 본문 안에 낀다. 본문 밖에 따로 붙이던 시절의 글만 아래에 이어서 보여준다 */}
           {!post.bodyHtml?.includes('<img') && post.images?.length ? (

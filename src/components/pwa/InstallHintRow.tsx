@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { isStandalone } from '@/utils/pwa'
+import { isStandalone, devicePlatform } from '@/utils/pwa'
+import { useAuthStore } from '@/stores/authStore'
 import { InstallGuide } from './InstallGuide'
 
 const SNOOZE_KEY = 'pwa-hint-snoozed-at'
-const SNOOZE_DAYS = 30
+const SNOOZE_DAYS = 1
 
 function snoozed(): boolean {
   try {
@@ -19,14 +20,16 @@ function snoozed(): boolean {
  * 하단 내비에서 한 번에 닿는 화면이 내 피드라 그 위에 한 줄만 둔다.
  * **캘린더·토론방은 건드리지 않는다** — 거기는 보러 온 것을 가리면 안 되는 화면이다.
  *
- * 닫으면 30일 잠든다(자동 배너의 14일과 따로 센다 — 성격이 다른 자리다).
+ * 닫으면 하루 잠든다(자동 배너와 따로 센다 — 성격이 다른 자리다).
  * 이미 앱으로 열려 있으면 뜨지 않는다.
  */
 export function InstallHintRow() {
   const [gone, setGone] = useState(() => isStandalone() || snoozed())
   const [guide, setGuide] = useState(false)
+  // 이 계정이 같은 종류의 기기에서 앱으로 연 적이 있으면 권하지 않는다 (아이폰 사파리용)
+  const installedOnThisKind = useAuthStore(s => s.isAccount && !!s.user?.appInstalledOn?.includes(devicePlatform()))
 
-  if (gone) return null
+  if (gone || installedOnThisKind) return null
 
   return (
     <>

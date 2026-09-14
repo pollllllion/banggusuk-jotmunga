@@ -167,14 +167,19 @@ export function WriteDiscussionPage() {
     }
   }
 
+  // 관리자는 누구 글이든 고칠 수 있다 — 유동닉 글도 비번 없이 (RLS discussions_update: 본인 or 관리자)
+  const isAdmin = isAccount && user?.role === 'admin'
+
   // 이 작품에 이미 별점을 매겼나? (1작품 1별점 · 지금 고치는 글 자신은 제외)
-  const rated = picked && user && isAccount ? DS.getUserRatingForContent(user.id, picked.id) : undefined
+  // 고쳐 쓸 때는 **글쓴이** 기준으로 본다 — 관리자가 남의 글을 고칠 때 관리자 자신의 별점으로 따지면 안 된다
+  const raterId = editing ? editing.authorId : (isAccount ? user?.id : null)
+  const rated = picked && raterId ? DS.getUserRatingForContent(raterId, picked.id) : undefined
   const alreadyRated = !!rated && rated.id !== editing?.id
 
-  /** 고쳐 쓰기 — 계정 글은 그대로 update, 유동닉 글은 비번 검증 RPC 로 */
+  /** 고쳐 쓰기 — 계정 글·관리자는 그대로 update, 유동닉 본인은 비번 검증 RPC 로 */
   const saveEdit = async (patch: { title: string; body: string; bodyHtml: string | null; rating: number | null; spoiler: boolean; images: string[] }) => {
     if (!editing) return
-    if (editing.guestName) {
+    if (editing.guestName && !isAdmin) {
       let pw = guestPwForEdit
       if (!pw) {
         pw = prompt('글 작성 시 입력한 비밀번호를 입력하세요.') || ''
