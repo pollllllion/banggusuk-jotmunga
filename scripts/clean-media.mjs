@@ -15,7 +15,13 @@
  * 판정: 아래 어디에도 파일명이 안 나오면 고아.
  *   discussions.images / discussions.bodyHtml / discussions.body
  *   discussion_comments.body / reviews.body / comments.body
+ *   profiles.avatarUrl
  *   (본문 HTML 에 <img src> 로 박히는 경우가 있어 컬럼만 보면 안 된다)
+ *
+ * ⚠️ 이 버킷을 쓰는 곳이 늘면 **반드시 referencedNames() 에 추가한다.**
+ *   글에 안 붙었다는 이유로 지워지기 때문이다. 실제로 프로필 사진이 그렇게 날아갔다
+ *   (2026-09-16): 아바타는 profiles 에 붙어 있는데 여기서는 글만 보고 있었고,
+ *   업로드 24시간이 지난 아바타가 고아로 잡혀 삭제됐다.
  *
  * 안전장치: 올라온 지 GRACE_HOURS(기본 24)시간이 안 된 파일은 건드리지 않는다.
  *   — 글 쓰는 중에 올린 짤을 지워버리면 안 되므로.
@@ -55,7 +61,7 @@ async function listAll(prefix = '') {
   return out
 }
 
-/** 글·댓글 본문에서 참조 중인 talk-media 파일명 모으기 */
+/** 글·댓글 본문 + 프로필에서 참조 중인 talk-media 파일명 모으기 */
 async function referencedNames() {
   const get = async path => {
     const res = await fetch(`${url}/rest/v1/${path}`, { headers: H })
@@ -70,6 +76,8 @@ async function referencedNames() {
   for (const row of await get('reviews?select=body')) blobs.push(row.body || '')
   // 리뷰 댓글은 본문 컬럼 이름이 content 다 (discussion_comments 와 다르다)
   for (const row of await get('comments?select=content')) blobs.push(row.content || '')
+  // 프로필 사진은 글이 아니라 profiles 에 붙어 있다 — 여기를 빼면 아바타가 고아로 잡힌다
+  for (const row of await get('profiles?select=avatarUrl')) blobs.push(row.avatarUrl || '')
 
   // 주소 형태가 바뀌어도 견디도록 "talk-media/ 뒤쪽 경로"만 뽑는다
   const names = new Set()

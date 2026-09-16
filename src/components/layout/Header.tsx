@@ -37,8 +37,13 @@ export function Header() {
   const [tmdbHits, setTmdbHits] = useState<TmdbHit[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
+  // 사진 주소가 죽었을 때 '깨진 그림' 아이콘 대신 닉네임 첫 글자로 되돌린다 (Avatar.tsx 와 같은 이유)
+  const [avatarBroken, setAvatarBroken] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
+
+  // 사진을 새로 올리면 다시 시도한다 (이 훅은 아래 `if (!user)` 보다 위에 있어야 한다)
+  useEffect(() => setAvatarBroken(false), [user?.avatarUrl])
 
   // 로컬 캐시(DS.getContents) 기준이라 디바운스 없이 키 입력마다 즉시 계산해도 충분히 가볍다.
   const suggestions = useMemo(() => DS.searchContents(searchQuery, 6), [searchQuery])
@@ -246,7 +251,9 @@ export function Header() {
         </button>
         <div className="user-menu" ref={menuRef}>
           <div className="user-avatar" aria-haspopup="menu" aria-expanded={userMenuOpen} {...clickable(toggleUserMenu, `${user.nickname} 메뉴`)}>
-            {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : user.nickname[0]}
+            {user.avatarUrl && !avatarBroken
+              ? <img src={user.avatarUrl} alt="" onError={() => setAvatarBroken(true)} />
+              : user.nickname[0]}
           </div>
           <div className={`user-dropdown ${userMenuOpen ? 'show' : ''}`}>
             {/* 닉네임·메일 칸을 누르면 내 피드(본 작품 서랍)로 간다 */}
