@@ -26,6 +26,8 @@
     "backfill:origin": "node --env-file-if-exists=.env scripts/backfill-origin.mjs",
     "holidays": "node scripts/fetch-holidays.mjs",
     "personas:create": "node --env-file-if-exists=.env scripts/create-personas.mjs",
+    "synopsis:export": "node --env-file-if-exists=.env scripts/synopsis.mjs export",
+    "synopsis:apply": "node --env-file-if-exists=.env scripts/synopsis.mjs apply",
     "post": "node --env-file-if-exists=.env scripts/post-as.mjs",
     "signals": "node --env-file-if-exists=.env scripts/collect-signals.mjs",
     "push:release": "node scripts/send-release-push.mjs",

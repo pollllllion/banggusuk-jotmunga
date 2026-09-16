@@ -368,12 +368,18 @@ export function ContentDetailPage() {
       {/* 펼친 상세정보 — 줄거리·출연진·별점 분포·실린 글. 띠 바로 아래에 열린다 */}
       {infoOpen && (
         <div className="cs-detail fade-in" id="content-detail-info">
-          <section className="cs-panel">
-            <h3>줄거리</h3>
-            {detail === 'ready'
-              ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
-              : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
-          </section>
+          {/* 줄거리가 없으면 칸 자체를 안 그린다 — '등록된 줄거리가 없습니다' 한 줄은
+              정보를 주지 않으면서 자리만 차지하고, 작품이 부실해 보이게 만든다.
+              위 띠의 장르·연출·출연이 이미 작품을 설명한다.
+              단, 아직 받아오는 중이거나 실패한 경우는 구분해서 보여줘야 한다(없는 것과 다르다). */}
+          {(detail !== 'ready' || content.synopsis) && (
+            <section className="cs-panel">
+              <h3>줄거리</h3>
+              {detail === 'ready'
+                ? <p className="content-synopsis">{content.synopsis}</p>
+                : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
+            </section>
+          )}
 
           <ContentInfo content={content} detail={detail} />
 
