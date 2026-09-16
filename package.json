@@ -23,6 +23,7 @@
     "migrate:status": "node --env-file-if-exists=.env scripts/migrate-status.mjs",
     "migrate:mark": "node --env-file-if-exists=.env scripts/migrate-status.mjs mark",
     "enrich": "node --env-file-if-exists=.env scripts/enrich-tmdb.mjs",
+    "backfill:origin": "node --env-file-if-exists=.env scripts/backfill-origin.mjs",
     "personas:create": "node --env-file-if-exists=.env scripts/create-personas.mjs",
     "post": "node --env-file-if-exists=.env scripts/post-as.mjs",
     "signals": "node --env-file-if-exists=.env scripts/collect-signals.mjs",

@@ -205,6 +205,8 @@ async function enrichMovie({ base, korean }) {
   return normalizeRow({
     mediaType: 'movie', eventType: 'movie_release', tmdbId: base.id,
     title, originalTitle: detail.original_title || null,
+    originalLanguage: detail.original_language || null,
+    originCountries: (detail.production_countries || []).map(x => x.iso_3166_1).filter(Boolean),
     overview: detail.overview || base.overview || '',
     releaseDate: date, releaseDateSource: source,
     posterPath: poster, backdropPath: detail.backdrop_path || base.backdrop_path,
@@ -292,6 +294,8 @@ async function enrichTv({ base, korean }) {
     rows.push(normalizeRow({
       mediaType: 'tv', eventType: 'series_release', tmdbId: base.id,
       title, originalTitle: detail.original_name || null,
+      originalLanguage: detail.original_language || null,
+      originCountries: detail.origin_country || [],
       overview: detail.overview || base.overview || '',
       releaseDate: String(first).slice(0, 10), releaseDateSource: 'tmdb_first_air_date',
       posterPath: poster, backdropPath: detail.backdrop_path || base.backdrop_path,
@@ -311,6 +315,8 @@ async function enrichTv({ base, korean }) {
     rows.push(normalizeRow({
       mediaType: 'tv', eventType: 'season_release', tmdbId: base.id, seasonNumber: s.season_number,
       title: `${title} 시즌${s.season_number}`, originalTitle: detail.original_name || null,
+      originalLanguage: detail.original_language || null,
+      originCountries: detail.origin_country || [],
       overview: s.overview || detail.overview || '',
       releaseDate: String(sd).slice(0, 10), releaseDateSource: 'tmdb_season_air_date',
       posterPath: s.poster_path || poster, backdropPath: detail.backdrop_path || null,
@@ -352,6 +358,9 @@ function normalizeRow(x) {
     eventType: x.eventType,
     seasonNumber: x.seasonNumber ?? null,
     originalTitle: x.originalTitle ?? null,
+    // 제작국·원어 — '한국 / 외국' 필터가 이걸로 가른다 (src/utils/origin.ts)
+    originalLanguage: x.originalLanguage ?? null,
+    originCountries: x.originCountries ?? [],
     backdropUrl: imgUrl(IMG_BACKDROP, x.backdropPath),
     releaseDateSource: x.releaseDateSource,
     providers: x.providers || [],

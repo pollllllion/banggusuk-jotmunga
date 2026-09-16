@@ -29,6 +29,11 @@ export const CONTENT_LIST_COLS = [
   'id', 'type', 'title', 'posterUrl', 'genres', 'creators', 'platform',
   'releaseYear', 'releaseDate', 'status', 'popularity', 'avgRating', 'reviewCount',
   'createdBy', 'createdAt', 'verified', 'tmdbId', 'mediaType', 'eventType', 'seasonNumber',
-  'originalTitle', 'manualReleaseDate', 'manualOverride', 'releaseDateSource', 'providers',
+  // 제작국·원어는 한국/외국 필터가 목록 화면(작품 둘러보기)에서 바로 쓴다 → 여기 있어야 한다.
+  // 둘 다 아주 작다(언어 2글자 · 국가 코드 1~4개) — 실측은 payload-check 로.
+  // ⚠️ 이 배열 안의 주석에 작은따옴표를 쓰지 말 것. payload-check 가 따옴표 안을 전부
+  //    컬럼명으로 읽어서, 주석에 넣은 말이 select 에 섞여 들어가 400 이 난다(실제로 겪음).
+  'originalTitle', 'originalLanguage', 'originCountries',
+  'manualReleaseDate', 'manualOverride', 'releaseDateSource', 'providers',
   'source', 'region', 'hidden', 'releasePattern',
 ].join(',')

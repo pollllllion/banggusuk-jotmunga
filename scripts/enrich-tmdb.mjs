@@ -118,6 +118,11 @@ async function buildPatch(c) {
   put('posterUrl', imgUrl(IMG_POSTER, detail.poster_path))
   put('backdropUrl', imgUrl(IMG_BACKDROP, detail.backdrop_path))
   put('originalTitle', detail.original_title || detail.original_name || null)
+  // 제작국·원어 — '한국 / 외국' 필터의 근거 (utils/origin.ts). 옛 행은 backfill:origin 이 채운다
+  put('originalLanguage', detail.original_language || null)
+  put('originCountries', kind === 'tv'
+    ? (detail.origin_country || [])
+    : (detail.production_countries || []).map(x => x.iso_3166_1).filter(Boolean))
   put('genres', pickGenres(detail.genres, genreIds))
   put('creators', kind === 'movie' ? extractDirectors(detail.credits?.crew) : (detail.created_by || []).map(x => x.name))
   put('castMembers', extractCast(detail.credits))

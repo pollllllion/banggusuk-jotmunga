@@ -105,6 +105,11 @@ export interface Content {
   eventType?: 'movie_release' | 'series_release' | 'season_release' | null
   seasonNumber?: number | null
   originalTitle?: string | null
+  /** TMDB original_language (ISO 639-1, 예 'ko'). migration_origin 미적용이면 undefined */
+  originalLanguage?: string | null
+  /** 제작국 ISO 3166-1 목록 (TV origin_country / 영화 production_countries).
+   *  'KR' 이 있으면 한국 작품 — utils/origin.ts 참고 */
+  originCountries?: string[] | null
   backdropUrl?: string | null
   manualReleaseDate?: string | null   // 관리자가 고친 실제 국내 공개일
   manualOverride?: boolean            // true 면 자동 동기화가 releaseDate/title 을 덮어쓰지 않음
