@@ -380,6 +380,27 @@
    달력에서 이미 빨강은 공휴일·일요일이 쓰고 있어서 겹치지 않는 색이 필요했다. */
 .cal-cell.has-fav { background: var(--accent-light); }
 .cal-cell.has-fav.has-items:hover { filter: brightness(0.97); }
+
+/* 다크모드에서는 **칠하지 않고 테두리만** 두른다 (2026-09-16).
+   --accent-light 의 다크값(#3A2E12)은 앰버를 어둡게 눌러 만든 색이라, 거의 검은
+   바탕(#1A1A1E) 위에 깔면 '특별한 날'이 아니라 탁한 갈색 얼룩으로 읽혔다.
+   선은 같은 앰버라 바탕이 어두울수록 오히려 또렷해진다.
+
+   hover 의 brightness 는 다크에서 끈다 — 칠이 없어 어둡게 만들 면이 없고,
+   그대로 두면 .cal-cell.has-items:hover 가 밝히는 것과 서로 상쇄된다.
+   (선 색은 --accent(#F59E0B)에서 온 값이다. 앰버를 바꾸면 여기도 같이 고칠 것) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cal-cell.has-fav {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.55);
+  }
+  :root:not([data-theme="light"]) .cal-cell.has-fav.has-items:hover { filter: none; }
+}
+:root[data-theme="dark"] .cal-cell.has-fav {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.55);
+}
+:root[data-theme="dark"] .cal-cell.has-fav.has-items:hover { filter: none; }
 /* 모서리 북마크 — 숫자·공휴일 이름과 겹치지 않게 오른쪽 아래에 둔다 */
 .cal-fav-mark {
   position: absolute; right: 4px; bottom: 3px; z-index: 1;
