@@ -25,13 +25,48 @@ const detailLoaded = new Set<string>()
 // 진행 중인 요청 — 캘린더 모달과 작품 상세가 같은 작품을 잇달아 열어도 요청은 한 번만.
 const detailInFlight = new Map<string, Promise<DetailLoad>>()
 
-/** 이 작품의 상세 컬럼이 캐시에 들어와 있나 — 화면이 '로딩 중'과 '정보 없음'을 가르는 기준 */
-export function isContentDetailLoaded(id: string | null | undefined): boolean {
-  return !!id && detailLoaded.has(id)
+/**
+ * 상세는 받았는데 **그 작품 행이 아직 캐시에 없어서** 못 얹은 것.
+ *
+ * 시작 로드가 2단계라 1단계 창(window) 밖 작품은 2단계가 끝나야 캐시에 들어온다.
+ * 그 전에 작품방을 열면 상세 요청은 성공하는데 얹을 행이 없다. 예전에는 이 경우를
+ * `return 'ready'` 로 처리해서, 데이터가 멀쩡히 손에 있는데도 화면은 '정보 없음'으로
+ * 굳었다 — 훅이 같은 id 로 다시 요청하지 않으니 새로고침 전까지 그대로였다.
+ * ("어쩔 땐 나오고 어쩔 땐 누락된다"의 정체)
+ *
+ * 그래서 버리지 않고 들고 있다가 행이 도착하면 얹는다. 요청을 다시 보내지 않는다.
+ */
+const pendingDetail = new Map<string, Record<string, unknown>>()
+
+/** 캐시에 그 행이 있으면 상세를 얹고 true. 없으면 아무것도 안 하고 false. */
+function applyDetail(id: string, data: Record<string, unknown>): boolean {
+  const idx = cache.contents.findIndex((c: any) => c.id === id)
+  if (idx < 0) return false
+  cache.contents[idx] = { ...cache.contents[idx], ...data }
+  detailLoaded.add(id)
+  pendingDetail.delete(id)
+  return true
 }
 
-/** ready = 화면을 그려도 되는 상태(성공, 또는 재시도해도 같은 결과) · error = 재시도할 값어치가 있음 */
-export type DetailLoad = 'ready' | 'error'
+/** 들고 있던 상세를 지금 얹어 본다 — 2단계 로드가 끝난 뒤 다시 그릴 때 여기서 붙는다 */
+function drainPendingDetail(id: string): boolean {
+  const held = pendingDetail.get(id)
+  return !!held && applyDetail(id, held)
+}
+
+/** 이 작품의 상세 컬럼이 캐시에 들어와 있나 — 화면이 '로딩 중'과 '정보 없음'을 가르는 기준 */
+export function isContentDetailLoaded(id: string | null | undefined): boolean {
+  if (!id) return false
+  if (detailLoaded.has(id)) return true
+  return drainPendingDetail(id)
+}
+
+/**
+ * ready   = 화면을 그려도 되는 상태(성공, 또는 재시도해도 같은 결과)
+ * error   = 재시도할 값어치가 있음
+ * pending = 상세는 받아 뒀고 작품 행이 오기만 기다린다. 화면은 '로딩 중'으로 그린다
+ */
+export type DetailLoad = 'ready' | 'error' | 'pending'
 
 /**
  * 작품 상세 전용 컬럼(줄거리·출연진 등)만 뒤늦게 채운다.
@@ -44,6 +79,8 @@ export type DetailLoad = 'ready' | 'error'
  */
 export function loadContentDetail(id: string): Promise<DetailLoad> {
   if (!id || detailLoaded.has(id)) return Promise.resolve<DetailLoad>('ready')
+  // 이미 받아 둔 게 있으면 다시 묻지 않는다 — 행이 왔으면 얹고, 아직이면 계속 기다린다
+  if (pendingDetail.has(id)) return Promise.resolve<DetailLoad>(drainPendingDetail(id) ? 'ready' : 'pending')
   const running = detailInFlight.get(id)
   if (running) return running
   const p = fetchContentDetail(id).finally(() => { detailInFlight.delete(id) })
@@ -59,13 +96,12 @@ async function fetchContentDetail(id: string): Promise<DetailLoad> {
     .maybeSingle()
   // 네트워크·권한 오류는 다음 진입에서 다시 시도한다(= detailLoaded 에 넣지 않는다)
   if (error) { console.error('[loadContentDetail]', error.message); return 'error' }
-  // 행이 없거나 캐시에 그 작품이 없으면 재시도해도 결과가 같다 — 화면은 '정보 없음'으로 그려도 된다
+  // DB 에 행 자체가 없다 — 재시도해도 결과가 같으니 '정보 없음'으로 그려도 된다
   if (!data) return 'ready'
-  const idx = cache.contents.findIndex((c: any) => c.id === id)
-  if (idx < 0) return 'ready'
-  cache.contents[idx] = { ...cache.contents[idx], ...(data as any) }
-  detailLoaded.add(id)
-  return 'ready'
+  if (applyDetail(id, data as unknown as Record<string, unknown>)) return 'ready'
+  // 받긴 받았는데 아직 얹을 작품 행이 없다(2단계 로드 중). 버리지 말 것 — 위 pendingDetail 주석 참고
+  pendingDetail.set(id, data as unknown as Record<string, unknown>)
+  return 'pending'
 }
 
 /**

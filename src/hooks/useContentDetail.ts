@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as DS from '@/api/dataService'
+import { useDataStore } from '@/stores/dataStore'
 
 export type DetailState = 'loading' | 'ready' | 'error'
 
@@ -15,15 +16,20 @@ export type DetailState = 'loading' | 'ready' | 'error'
 export function useContentDetail(id: string | null | undefined) {
   const [state, setState] = useState<DetailState>(() => (DS.isContentDetailLoaded(id) ? 'ready' : 'loading'))
   const [attempt, setAttempt] = useState(0)
+  // 2단계 로드가 끝나면 다시 본다. 1단계 창 밖 작품은 그때 캐시에 들어오는데,
+  // 그 전에 받아 둔 상세가 pendingDetail 에 걸려 있을 수 있다(요청은 다시 안 나간다).
+  // 이 의존성이 없으면 id 가 그대로라 효과가 다시 안 돌고, 화면이 '정보 없음'으로 굳는다.
+  const contentsComplete = useDataStore(s => s.contentsComplete)
 
   useEffect(() => {
     if (!id) { setState('ready'); return }
     if (DS.isContentDetailLoaded(id)) { setState('ready'); return }
     let alive = true
     setState('loading')
-    DS.loadContentDetail(id).then(res => { if (alive) setState(res) })
+    // pending = 상세는 손에 있고 작품 행만 기다리는 중 — 화면에는 '로딩 중'으로 보인다
+    DS.loadContentDetail(id).then(res => { if (alive) setState(res === 'pending' ? 'loading' : res) })
     return () => { alive = false }
-  }, [id, attempt])
+  }, [id, attempt, contentsComplete])
 
   const retry = useCallback(() => setAttempt(a => a + 1), [])
   return { state, retry }
