@@ -85,13 +85,11 @@ export function Sidebar() {
     { path: '/follows', label: '관심 피드' },
     { path: '/bookmarks', label: '찜한 작품' },
   ]
-  const account: Row[] = [
-    { path: '/me', label: '내 정보' },
-    ...(isAdmin ? [
-      { path: '/ranking', label: '레벨', admin: true },
-      { path: '/admin', label: '관리자', admin: true },
-    ] : []),
-  ]
+  /** 관리자에게만 보이는 줄. 일반 사용자에게는 이 칸 자체가 없다 */
+  const adminRows: Row[] = isAdmin ? [
+    { path: '/ranking', label: '레벨', admin: true },
+    { path: '/admin', label: '관리자', admin: true },
+  ] : []
 
   /** 지금 보고 있는 화면인가 — 게시판 글 상세에 있어도 그 게시판이 켜져 있어야 한다 */
   const isActive = (path: string) => {
@@ -134,15 +132,18 @@ export function Sidebar() {
           </button>
         </div>
 
+        {/* 프로필 줄 — 누르면 내 정보(/me)로. 내 활동 기록과 프로필이 거기 있다.
+            목록에 따로 '내 정보' 줄을 두지 않는 이유가 이것이다: 이름과 얼굴이 적힌
+            이 줄이 곧 그 화면으로 가는 문이다. 두 번 적을 일이 아니다. */}
         {user && (
-          <div className="sb-me" {...clickable(() => navigate('/feed'), '내 피드로 가기')}>
+          <div className="sb-me" {...clickable(() => navigate('/me'), '내 정보로 가기')}>
             <Avatar src={user.avatarUrl} name={user.nickname} size={38} />
             <div className="sb-me-who">
               <div className="sb-me-nick">{user.nickname}<LevelTag authorId={user.id} /></div>
-              <div className="sb-me-sub">{isAccount ? '내 피드 보기' : '유동닉 (비로그인)'}</div>
+              <div className="sb-me-sub">{isAccount ? '내 정보' : '유동닉 (비로그인)'}</div>
             </div>
             {/* 로그인 — 지금 누구인지를 말하는 자리가 곧 그걸 바꾸는 자리다.
-                (프로필 줄 전체가 내 피드로 가는 버튼이라 눌림이 위로 새지 않게 막는다) */}
+                (프로필 줄 전체가 내 정보로 가는 버튼이라 눌림이 위로 새지 않게 막는다) */}
             {!isAccount
               ? <button className="sb-login" onClick={e => { e.stopPropagation(); navigate('/auth') }}>로그인</button>
               : <span className="sb-me-go" aria-hidden>›</span>}
@@ -160,8 +161,10 @@ export function Sidebar() {
       <div className="sb-sec">내 활동</div>
       {mine.map(row)}
 
-      <div className="sb-sec">계정</div>
-      {account.map(row)}
+      {/* 관리자 줄은 관리자에게만. 없는 사람에겐 이 칸 자체가 안 그려진다 */}
+      {adminRows.length > 0 && <div className="sb-sec">관리자</div>}
+      {adminRows.map(row)}
+
       {isAccount && (
         <div
           className="sb-row is-danger"
