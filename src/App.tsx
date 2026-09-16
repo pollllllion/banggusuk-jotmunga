@@ -23,6 +23,9 @@ import { BrowsePage } from '@/pages/BrowsePage'
 import { DiscussionRoomPage } from '@/pages/DiscussionRoomPage'
 import { DiscussionDetailPage } from '@/pages/DiscussionDetailPage'
 import { ContentDetailPage } from '@/pages/ContentDetailPage'
+// 없는 주소·지워진 글에서 쓴다. 작아서 나눠 담을 것도 없고, 지연 로드하면
+// 404 인데 로딩 스피너가 한 번 더 도는 꼴이라 같이 싣는다.
+import { NotFoundPage } from '@/pages/NotFoundPage'
 
 // 아래는 눌러야 들어가는 화면 — 그때 받는다
 const AuthPage = lazy(() => import('@/pages/AuthPage').then(m => ({ default: m.AuthPage })))
@@ -128,9 +131,12 @@ export default function App() {
                 <Route path="/privacy" element={<PrivacyPage />} />
                 <Route path="/ads" element={<AdsPage />} />
                 <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
-              </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+                {/* 없는 주소 — 홈으로 던지지 않는다. 200 + 정상 페이지로 응답하는 걸
+                    구글이 soft 404 로 보고, 사람도 왜 홈에 왔는지 모른다.
+                    레이아웃 안에 두어 헤더·메뉴로 빠져나갈 길을 남긴다. (NotFoundPage 주석 참고) */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
             </Routes>
           </Suspense>
         </AppInit>

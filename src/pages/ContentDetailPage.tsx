@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { StillLoading } from '@/components/ui/StillLoading'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
@@ -54,7 +55,9 @@ export function ContentDetailPage() {
   // 2단계가 끝나기 전에 튕기면 멀쩡한 공유 링크가 목록으로 날아간다.
   if (!content) {
     if (!contentsComplete) return <StillLoading />
-    navigate('/browse'); return null
+    // 2단계까지 다 받았는데도 없으면 정말 없는 작품이다(지워졌거나 잘못된 주소).
+    // 목록으로 던지면 공유 링크를 타고 온 사람은 무슨 일인지 모르고, 구글은 soft 404 로 본다.
+    return <NotFoundPage what="작품" />
   }
 
   // 공개 여부는 캘린더와 동일하게 '공개일' 기준으로 판단한다.

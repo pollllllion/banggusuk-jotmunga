@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { StillLoading } from '@/components/ui/StillLoading'
+import { NotFoundPage } from '@/pages/NotFoundPage'
 import { useUIStore } from '@/stores/uiStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
@@ -90,7 +91,9 @@ export function DiscussionDetailPage() {
   const isFree = (post?.board || 'talk') === 'relay'
   // 글 자체는 1단계에 다 들어온다. 작품만 2단계를 기다릴 수 있다.
   if (!isFree && post && !content && !contentsComplete) return <StillLoading />
-  if (!post || (!isFree && !content)) { navigate('/talk'); return null }
+  // 지워졌거나 잘못된 주소 — 목록으로 던지면 공유 링크를 타고 온 사람은 영문을 모르고,
+  // 없는 주소가 200 으로 응답하는 셈이라 구글은 soft 404 로 본다. (NotFoundPage 주석 참고)
+  if (!post || (!isFree && !content)) return <NotFoundPage what="글" />
   /** 목록으로 돌아갈 곳 */
   const boardPath = isFree ? '/board/relay' : '/talk'
 
