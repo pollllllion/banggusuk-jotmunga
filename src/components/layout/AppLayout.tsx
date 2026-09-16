@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
+import { TopNav } from './TopNav'
 import { MobileNav } from './MobileNav'
 import { Footer } from './Footer'
 import { ReportModal } from '@/components/report/ReportModal'
@@ -108,7 +109,10 @@ export function AppLayout() {
   return (
     <>
       <Header />
+      {/* 넓은 화면의 메뉴. 좁은 화면에서는 CSS 로 숨고, 그쪽 메뉴는 아래 Sidebar(서랍)가 맡는다 */}
+      <TopNav />
       <div className="layout">
+        {/* 좁은 화면 전용 서랍. 넓은 화면에서도 마운트는 된다 — 알림 재조회가 여기 걸려 있다 */}
         <Sidebar />
         {navDrawerOpen && <div className="nav-scrim" onClick={closeNavDrawer} />}
         <main className="main">

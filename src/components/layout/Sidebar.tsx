@@ -6,8 +6,8 @@ import { useNotifStore } from '@/stores/notifStore'
 import { NotificationList } from '@/components/notification/NotificationList'
 import { Avatar } from '@/components/profile/Avatar'
 import { LevelTag } from '@/components/profile/LevelTag'
-import { TALK_LABEL } from '@/utils/constants'
 import { BellIcon, LogoutIcon, SettingsIcon } from '@/components/ui/Icons'
+import { ADMIN_ROWS, BOARD_ROWS, MINE_ROWS, isNavActive, type NavRow } from './navRows'
 import { clickable } from '@/utils/a11y'
 
 /**
@@ -29,16 +29,13 @@ import { clickable } from '@/utils/a11y'
  *      대신 오른쪽에 › 하나로 '누르면 간다'만 알린다. 그림이 뜻을 더하지 않는
  *      자리에서는 글자가 더 빨리 읽힌다.
  *
- * 넓은 화면에서는 이 사이드바가 늘 펼쳐져 있고, 좁은 화면에서는 서랍으로 열린다.
  * 하단 탭(MobileNav)은 그대로 둔다 — 저기는 '자주 가는 네 곳'이라 성격이 다르다.
+ *
+ * 2026-09-16 2차 — **이제 좁은 화면 전용이다.** 넓은 화면에서는 같은 메뉴가 상단 띠(TopNav)로
+ * 눕는다. 목록은 navRows.ts 에 한 벌만 두므로 두 화면이 갈라지지 않는다.
+ * (컴포넌트는 넓은 화면에서도 계속 마운트된다 — 아래 알림 재조회가 여기 걸려 있어서,
+ *  화면이 넓다고 떼어 내면 PC 에서 종의 숫자가 안 는다.)
  */
-
-interface Row {
-  path: string
-  label: string
-  /** 관리자 전용 줄 — 파란 글씨 */
-  admin?: boolean
-}
 
 export function Sidebar() {
   const routerNavigate = useNavigate()
@@ -73,35 +70,12 @@ export function Sidebar() {
   // 모바일에선 이 사이드바가 서랍으로 열린다 — 이동하면 바로 닫는다
   const navigate = (path: string) => { closeNavDrawer(); setNotifOpen(false); routerNavigate(path) }
 
-  const boards: Row[] = [
-    { path: '/', label: '개봉·공개 캘린더' },
-    { path: '/curation', label: '공개작 정리' },
-    { path: '/talk', label: TALK_LABEL },
-    { path: '/board/relay', label: '자유방' },
-    { path: '/browse', label: '작품 둘러보기' },
-  ]
-  const mine: Row[] = [
-    { path: '/feed', label: '내 피드' },
-    { path: '/follows', label: '관심 피드' },
-    { path: '/bookmarks', label: '찜한 작품' },
-  ]
-  /** 관리자에게만 보이는 줄. 일반 사용자에게는 이 칸 자체가 없다 */
-  const adminRows: Row[] = isAdmin ? [
-    { path: '/ranking', label: '레벨', admin: true },
-    { path: '/admin', label: '관리자', admin: true },
-  ] : []
+  const adminRows = isAdmin ? ADMIN_ROWS : []
 
-  /** 지금 보고 있는 화면인가 — 게시판 글 상세에 있어도 그 게시판이 켜져 있어야 한다 */
-  const isActive = (path: string) => {
-    if (path === '/') return location.pathname === '/'
-    if (path === '/talk') return location.pathname.startsWith('/talk')
-    return location.pathname === path || location.pathname.startsWith(path + '/')
-  }
-
-  const row = (r: Row) => (
+  const row = (r: NavRow) => (
     <div
       key={r.path}
-      className={`sb-row ${isActive(r.path) ? 'active' : ''} ${r.admin ? 'is-admin' : ''}`}
+      className={`sb-row ${isNavActive(location.pathname, r.path) ? 'active' : ''} ${r.admin ? 'is-admin' : ''}`}
       {...clickable(() => navigate(r.path), r.label)}
     >
       <span className="sb-label">{r.label}</span>
@@ -156,10 +130,10 @@ export function Sidebar() {
 
       {/* 첫 칸에는 제목을 안 붙인다 — 머리 블록 바로 아래 오는 목록이 게시판이라는 건
           굳이 안 적어도 읽힌다. 아래 칸들은 성격이 갈려서 이름이 있어야 한다. */}
-      {boards.map(row)}
+      {BOARD_ROWS.map(row)}
 
       <div className="sb-sec">내 활동</div>
-      {mine.map(row)}
+      {MINE_ROWS.map(row)}
 
       {/* 관리자 줄은 관리자에게만. 없는 사람에겐 이 칸 자체가 안 그려진다 */}
       {adminRows.length > 0 && <div className="sb-sec">관리자</div>}

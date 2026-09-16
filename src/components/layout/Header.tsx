@@ -2,8 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { SearchIcon, PlusIcon, MenuIcon } from '@/components/ui/Icons'
+import { SearchIcon, PlusIcon, MenuIcon, BellIcon, SettingsIcon, LogoutIcon, UserIcon } from '@/components/ui/Icons'
 import { useNotifStore } from '@/stores/notifStore'
+import { NotificationList } from '@/components/notification/NotificationList'
+import { Avatar } from '@/components/profile/Avatar'
+import { LevelTag } from '@/components/profile/LevelTag'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
@@ -27,7 +30,7 @@ function interleave<T>(a: T[], b: T[]): T[] {
 
 export function Header() {
   const navigate = useNavigate()
-  const user = useAuthStore(s => s.user)
+  const { user, isAccount, logout } = useAuthStore()
   const toggleNavDrawer = useUIStore(s => s.toggleNavDrawer)
   // 서랍을 닫아 둔 채로도 알림이 왔는지 알아야 한다 — 햄버거에 붙는 숫자
   const unread = useNotifStore(s => s.unread)
@@ -39,6 +42,10 @@ export function Header() {
   const [tmdbLoading, setTmdbLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
+  // 넓은 화면에서만 쓰는 두 드롭다운 (좁은 화면에서는 이 묶음 자체가 CSS 로 숨겨진다)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [acctOpen, setAcctOpen] = useState(false)
+  const acctRef = useRef<HTMLDivElement>(null)
 
   // 로컬 캐시(DS.getContents) 기준이라 디바운스 없이 키 입력마다 즉시 계산해도 충분히 가볍다.
   const suggestions = useMemo(() => DS.searchContents(searchQuery, 6), [searchQuery])
@@ -77,10 +84,12 @@ export function Header() {
     ...tmdbHits.map(hit => ({ kind: 'tmdb' as const, hit })),
   ]
 
-  // 검색 제안은 바깥을 누르면 닫는다 (계정 메뉴는 2026-09-16 에 서랍으로 옮겨 여기 없다)
+  // 검색 제안·알림·계정 드롭다운은 바깥을 누르면 닫는다
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSuggestOpen(false)
+      const t = e.target as Node
+      if (searchRef.current && !searchRef.current.contains(t)) setSuggestOpen(false)
+      if (acctRef.current && !acctRef.current.contains(t)) { setNotifOpen(false); setAcctOpen(false) }
     }
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
@@ -241,9 +250,59 @@ export function Header() {
         </div>
       </div>
       <div className="header-right">
-        {/* 알림·계정은 2026-09-16 부터 왼쪽 서랍(Sidebar) 안으로 들어갔다 —
-            이동 수단이 네 군데로 흩어져 "그게 어디 있더라"가 생겼기 때문이다.
-            여기 남는 것은 글쓰기 하나뿐이고, 모바일에선 그것도 하단 탭 + 버튼이 맡는다. */}
+        {/* ── 알림·계정 (넓은 화면 전용) ────────────────────────────
+            2026-09-16 에 전부 왼쪽 서랍으로 옮겼었는데, 2차 개편에서 넓은 화면의 메뉴가
+            상단 띠(TopNav)로 눕으면서 그 서랍이 좁은 화면 전용이 됐다.
+            띠에는 '나에 관한 것'을 넣지 않는다(갈 곳만 남겨야 훑힌다) — 그래서 여기로 돌아온다.
+            **좁은 화면에서는 이 묶음이 통째로 숨겨진다.** 거기서는 여전히 햄버거 하나가 전부다. */}
+        {user && (
+          <div className="header-acct" ref={acctRef}>
+            <button
+              className={`hd-btn ${notifOpen ? 'on' : ''}`}
+              onClick={() => { setAcctOpen(false); setNotifOpen(v => !v) }}
+              aria-label={unread > 0 ? `알림 (안 읽음 ${unread}개)` : '알림'}
+            >
+              <BellIcon size={19} />
+              {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
+            </button>
+            <button
+              className={`hd-me ${acctOpen ? 'on' : ''}`}
+              onClick={() => { setNotifOpen(false); setAcctOpen(v => !v) }}
+              aria-label="내 계정 메뉴"
+            >
+              <Avatar src={user.avatarUrl} name={user.nickname} size={26} />
+              <span className="hd-me-nick">{user.nickname}<LevelTag authorId={user.id} /></span>
+            </button>
+
+            {notifOpen && (
+              <div className="hd-drop hd-drop-notif">
+                <NotificationList onNavigate={() => setNotifOpen(false)} />
+              </div>
+            )}
+
+            {acctOpen && (
+              <div className="hd-drop hd-drop-acct">
+                <button className="hd-item" onClick={() => { setAcctOpen(false); navigate('/me') }}>
+                  <UserIcon size={15} /> 내 정보
+                </button>
+                <button className="hd-item" onClick={() => { setAcctOpen(false); navigate('/settings') }}>
+                  <SettingsIcon size={15} /> 설정
+                </button>
+                {/* 유동닉에게는 로그아웃할 것이 없다 — 대신 고정닉으로 가는 길을 둔다 */}
+                {isAccount ? (
+                  <button className="hd-item is-danger" onClick={() => { setAcctOpen(false); void logout().then(() => navigate('/')) }}>
+                    <LogoutIcon size={15} /> 로그아웃
+                  </button>
+                ) : (
+                  <button className="hd-item is-link" onClick={() => { setAcctOpen(false); navigate('/auth') }}>
+                    <UserIcon size={15} /> 로그인
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {/* 모바일에선 글쓰기를 하단 탭 가운데 + 버튼이 맡는다 */}
         <button className="btn btn-primary btn-small header-write" onClick={() => navigate('/talk/write')}>
           <PlusIcon /> 토론하기
         </button>
