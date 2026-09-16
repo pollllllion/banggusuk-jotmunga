@@ -304,6 +304,35 @@ async function main() {
     n++
   }
 
+  // ── 숨긴 작품 — 페이지는 만들되 색인만 막는다 ───────────────────
+  //
+  // 숨긴 작품은 위 목록(VISIBLE_CONTENTS)에서 빠지므로 프리렌더 파일이 안 생긴다.
+  // 그러면 그 주소는 SPA 폴백(일반 index.html)을 받는데, 그 기본 메타는 'index, follow' 다.
+  // 앱이 JS 로 noindex 를 붙이기는 하지만 **네이버는 JS 렌더링이 약해** 그 전 상태를 본다 —
+  // 결과적으로 숨긴 작품 주소가 홈 제목을 단 색인 대상처럼 보인다.
+  //
+  // 이미 색인된 주소를 조용히 사라지게 하는 게 아니라 "색인하지 말라"고 말해 줘야
+  // 검색엔진이 목록에서 내린다. 그래서 빈 껍데기라도 noindex 를 박아 내보낸다.
+  // (2026-09-16 tmdb:gone 으로 숨김이 5편 → 26편이 되면서 눈에 띄었다)
+  let hiddenPages = 0
+  try {
+    const hiddenContents = await fetchAll('contents', 'id,title,type,hidden', '&hidden=is.true')
+    for (const c of hiddenContents) {
+      if (!SAFE_ID.test(c.id)) { skipped.push(`hidden:${c.id}`); continue }
+      const head = headBlock({
+        title: c.title || '작품',
+        description: '',            // 기본 설명이 들어간다 — 어차피 색인되지 않는다
+        canonicalPath: `/content/${c.id}`,
+        noindex: true,
+        nofollow: true,             // 이 페이지의 링크를 타고 더 들어갈 이유가 없다
+      })
+      writePage(`content/${c.id}`, render(template, head, [`<h1>${esc(c.title || '')}</h1>`, NAV].join('\n      ')))
+      hiddenPages++
+    }
+  } catch (e) {
+    console.warn(`[prerender] 숨긴 작품 조회 실패, 건너뜁니다: ${e.message}`)
+  }
+
   // ── 토론글 상세 (별점 있으면 Review 스키마로) ─────────────────
   // 리뷰는 토론글로 통합됨 — /review/{id} 프리렌더는 더 이상 만들지 않는다.
   for (const d of discussions) {
@@ -452,6 +481,7 @@ async function main() {
   console.log(`[prerender]   작품 ${contents.length} · 토론글 ${talkPosts.length} · 자유방 ${freePosts.length} · 큐레이션 ${pubCurations.length} · 목록 4 · 안내 문서 ${STATIC_PAGES.length}`)
   // 조용히 색인에서 빼지 않는다 — 몇 개가 왜 빠졌는지 로그로 남긴다
   console.log(`[prerender]   본문이 얇아 noindex 처리한 작품 ${thin}개 (색인 대상 ${contents.length - thin}개)`)
+  console.log(`[prerender]   숨긴 작품 ${hiddenPages}개 — noindex 껍데기만 (SPA 폴백이 index,follow 를 내보내는 것을 막는다)`)
   // 조용히 빠뜨리지 않는다 — 무엇이 왜 빠졌는지 로그로 남긴다
   if (skipped.length) {
     console.warn(`[prerender] id 형식 문제로 건너뛴 ${skipped.length}건: ${skipped.slice(0, 10).join(', ')}${skipped.length > 10 ? ' …' : ''}`)
