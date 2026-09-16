@@ -4,7 +4,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
-import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
+import { CONTENT_TYPES, MANUAL_TYPES, TYPE_LABELS } from '@/utils/constants'
 import { uuid } from '@/utils/helpers'
 import type { Content, ContentType } from '@/types'
 import { clickable } from '@/utils/a11y'
@@ -26,9 +26,8 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
  * 예전엔 안 잡혀서 같은 작품이 새 행으로 또 생겼다(= `npm run dedupe` 로 병합하던 그 중복).
  */
 
-/** 수기 등록이 가능한 타입 — TMDB 에 없는 것들. 영화·드라마·예능은 검색으로만 등록한다
- *  (uuid 로 새 행을 만들면 tmdb-* 행과 중복되기 때문). */
-const MANUAL_TYPES: ContentType[] = ['webtoon', 'webnovel', 'shortform', 'youtube', 'etc']
+/* 손으로 등록 가능한 종류(MANUAL_TYPES)는 constants.ts 에 있다 —
+   글쓰기 화면(WriteDiscussionPage)과 반드시 같은 목록이어야 한다. */
 
 /** 공백·문장부호 무시한 느슨한 정규화 (한글/영문/숫자만) — 수기작품 중복 매칭용 */
 const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()

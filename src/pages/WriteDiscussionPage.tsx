@@ -9,11 +9,11 @@ import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { PosterUploader } from '@/components/content/PosterUploader'
-import { CONTENT_TYPES, TYPE_LABELS, TALK_LABEL } from '@/utils/constants'
+import { CONTENT_TYPES, MANUAL_TYPES, TYPE_LABELS, TALK_LABEL } from '@/utils/constants'
 import { normalizeTitle, scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
 import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
-import type { Content, DiscussionBoard } from '@/types'
+import type { Content, ContentType, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
 
@@ -110,10 +110,10 @@ export function WriteDiscussionPage() {
     return () => { alive = false; clearTimeout(timer) }
   }, [q])
 
-  // 직접 등록(웹툰·웹소설) — TMDB 에 없는 타입이라 검색으로는 못 만든다.
+  // 직접 등록 — TMDB 에 없는 종류(웹툰·웹소설·숏폼·유튜브·기타)는 검색으로 못 만든다.
   // 글 제목(title)과 이름이 겹치지 않게 접두사를 붙였다.
   const [manual, setManual] = useState(false)
-  const [mType, setMType] = useState<'webtoon' | 'webnovel'>('webtoon')
+  const [mType, setMType] = useState<ContentType>('webtoon')
   const [mTitle, setMTitle] = useState('')
   const [mPlatform, setMPlatform] = useState('')
   const [mPoster, setMPoster] = useState('')
@@ -271,7 +271,7 @@ export function WriteDiscussionPage() {
               )}
             </div>
           ) : manual ? (
-            /* 직접 등록 (웹툰·웹소설) — TMDB 에 없어서 검색으로는 만들 수 없는 타입 */
+            /* 직접 등록 — TMDB 에 없어서 검색으로는 만들 수 없는 종류(constants 의 MANUAL_TYPES) */
             <>
               <button className="btn-text btn-small" onClick={() => setManual(false)} style={{ marginBottom: 8 }}>‹ 검색으로 돌아가기</button>
               {!isAccount ? (
@@ -281,8 +281,8 @@ export function WriteDiscussionPage() {
               ) : (
                 <>
                   <div className="cat-chips">
-                    {CONTENT_TYPES.filter(t => t.code === 'webtoon' || t.code === 'webnovel').map(t => (
-                      <button key={t.code} className={mType === t.code ? 'on' : ''} onClick={() => setMType(t.code as 'webtoon' | 'webnovel')}>
+                    {CONTENT_TYPES.filter(t => MANUAL_TYPES.includes(t.code)).map(t => (
+                      <button key={t.code} className={mType === t.code ? 'on' : ''} onClick={() => setMType(t.code)}>
                         {t.label}
                       </button>
                     ))}
@@ -347,10 +347,10 @@ export function WriteDiscussionPage() {
                 <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>{resolving ? '작품을 불러오는 중…' : '검색 중…'}</p>
               )}
               {q.trim() && !tmdbLoading && !resolving && !matches.length && !tmdbHits.length && (
-                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. (없는 작품은 내 피드 작품등록으로 추가할 수 있어요.)</p>
+                <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>일치하는 작품이 없어요. 아래에서 바로 등록할 수 있어요.</p>
               )}
               <button className="btn-text btn-small" style={{ marginTop: 8 }} onClick={() => setManual(true)}>
-                + 웹툰·웹소설 직접 등록
+                + 없는 작품 등록하러 가기
               </button>
             </>
           )}

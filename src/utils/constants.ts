@@ -12,6 +12,21 @@ export const CONTENT_TYPES: { code: ContentType; label: string }[] = [
   { code: 'etc',      label: '기타' },
 ]
 
+/**
+ * 손으로 등록할 수 있는 작품 종류 — TMDB 에 없는 것들.
+ *
+ * 영화·드라마·예능은 여기 없다. TMDB 검색으로 들어와야 tmdb-* id 를 받는데, 손으로 넣으면
+ * uuid 행이 따로 생겨 같은 작품이 두 줄이 된다(dedupe 로 병합하던 그 중복).
+ *
+ * **서버가 같은 목록으로 한 번 더 막는다** — supabase/migration_manual_types.sql 의
+ * create_manual_content. 둘 중 하나만 고치면 화면에서는 고를 수 있는데 저장이 거절된다.
+ *
+ * 등록 창(RegisterWatchedModal)과 글쓰기(WriteDiscussionPage)가 같은 목록을 써야 한다 —
+ * 2026-09-16 에 각자 들고 있다가 한쪽만 넓어져서 글쓰기에서는 숏폼·유튜브를 못 고르는
+ * 상태가 됐다. 그래서 여기로 모았다.
+ */
+export const MANUAL_TYPES: ContentType[] = ['webtoon', 'webnovel', 'shortform', 'youtube', 'etc']
+
 export const TYPE_LABELS: Record<string, string> = {
   movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼', webtoon: '웹툰', webnovel: '웹소설', youtube: '유튜브', etc: '기타',
 }
