@@ -8,6 +8,7 @@ import { timeAgo, normalizeTitle } from '@/utils/helpers'
 import { OTT_FILTERS } from '@/utils/ott'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
+import { LevelTag } from '@/components/profile/LevelTag'
 import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab'
@@ -115,7 +116,10 @@ export function AdminPage() {
       {tab === 'users' && users.filter(u => u.role !== 'admin').map(u => (
         <div key={u.id} className="admin-card fade-in">
           <div className="admin-card-body">
-            <div className="value">{u.nickname} <span style={{ color: 'var(--subtext)', fontSize: 12 }}>{u.email}</span></div>
+            <div className="value">
+              {u.nickname} <LevelTag authorId={u.id} />
+              {' '}<span style={{ color: 'var(--subtext)', fontSize: 12 }}>{u.email}</span>
+            </div>
             <div className="label">
               가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')}
               {u.expert && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · 👑 좋문가</span>}

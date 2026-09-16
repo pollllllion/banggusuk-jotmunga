@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { AvatarEditor } from '@/components/profile/AvatarEditor'
+import { LevelTag } from '@/components/profile/LevelTag'
 import { LevelCard } from '@/components/profile/LevelCard'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { Seo } from '@/components/seo/Seo'
@@ -142,6 +143,7 @@ export function MyPage() {
           ) : (
             <div className="me-nick-row">
               <h2 className="me-nick">{user.nickname}</h2>
+              <LevelTag authorId={user.id} />
               {isAccount && <button className="btn-text btn-small" onClick={() => setEditingNick(true)}>닉네임 변경</button>}
             </div>
           )}

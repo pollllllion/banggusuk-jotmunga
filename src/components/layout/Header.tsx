@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { SearchIcon, PlusIcon, MenuIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon, LogoutIcon } from '@/components/ui/Icons'
 import { NotificationPanel } from '@/components/notification/NotificationPanel'
+import { LevelTag } from '@/components/profile/LevelTag'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
@@ -263,7 +264,10 @@ export function Header() {
             >
               <Avatar src={user.avatarUrl} name={user.nickname} size={36} />
               <div className="user-dropdown-who">
-                {user.nickname}
+                <span className="user-dropdown-nick">
+                  {user.nickname}
+                  <LevelTag authorId={user.id} />
+                </span>
                 <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
               </div>
             </div>

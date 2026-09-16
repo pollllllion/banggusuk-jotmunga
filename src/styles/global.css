@@ -148,6 +148,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   font-weight: 700; font-size: 14px; color: var(--heading);
 }
 .user-dropdown-who { min-width: 0; }
+/* 내 닉네임 + 레벨 마크 — 남의 이름 옆에 붙는 것이 내 이름 옆에는 없으면 이상하다 */
+.user-dropdown-nick { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
 .user-dropdown-header small {
   display: block; font-weight: 400; color: var(--subtext); font-size: 12px; margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -2154,8 +2156,10 @@ p.content-synopsis .sk-line { display: block; }
   width: 56px; flex-shrink: 0; text-align: center; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
+/* 이름 + 레벨 마크. 마크는 줄어들면 안 되고(flex-shrink:0) 긴 이름만 … 로 잘린다 */
+.follow-person-name { display: flex; align-items: center; gap: 3px; max-width: 100%; min-width: 0; }
 .follow-person-nick {
-  max-width: 100%; font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+  min-width: 0; font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 

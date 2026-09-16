@@ -69,7 +69,10 @@ export function FollowFeedPage() {
             {follows.map(f => (
               <div key={f.id} className="follow-person" {...clickable(() => navigate(`/u/${f.id}`), `${f.nickname} 피드`)}>
                 <Avatar src={f.avatarUrl} name={f.nickname} size={44} />
-                <span className="follow-person-nick">{f.nickname}</span>
+                <span className="follow-person-name">
+                  <span className="follow-person-nick">{f.nickname}</span>
+                  <LevelTag authorId={f.id} />
+                </span>
               </div>
             ))}
           </div>

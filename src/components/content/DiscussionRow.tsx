@@ -58,14 +58,18 @@ export function DiscussionRow({ post, content, showContent, onOpen }: {
         {commentCount > 0 && <span className="disc-row-cc">[{commentCount}]</span>}
       </span>
       <span className="disc-row-meta">
-        {/* ExpertTag 는 여기 안 붙인다 — LevelTag 가 좋문가면 👑 를 그려서 왕관이 두 번 나온다 */}
+        {/* ExpertTag 는 여기 안 붙인다 — LevelTag 가 좋문가면 👑 를 그려서 왕관이 두 번 나온다.
+            2026-09-16 — expertOnly 를 뺐다. 목록이 빽빽해질까 봐 여기서는 왕관만 그렸는데,
+            그러면 레벨이 정작 사람이 제일 많이 보는 화면(토론방·자유방 목록)에만 없었다.
+            마크가 12px 로 작아져 줄 높이를 밀지 않는다.
+            마크는 이름 **뒤**에 붙는다 — 글 상세·관심 피드·프로필과 같은 차례다. */}
         <span className="disc-writer">
-          <LevelTag authorId={post.authorId} expertOnly />
           <span
             className={`disc-author ${isAccount ? '' : 'guest'} ${canProfile ? 'linkable' : ''}`}
             onClick={goProfile}>
             {author}
           </span>
+          <LevelTag authorId={post.authorId} />
         </span>
         <span className="disc-row-views" title="조회">{post.views || 0}</span>
         {/* 추천 수는 좁은 화면에만 나온다 — 넓은 화면 표에는 추천 열이 없었고, 열을 늘리면
