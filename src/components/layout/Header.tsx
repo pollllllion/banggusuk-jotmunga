@@ -2,15 +2,13 @@ import { useNavigate } from 'react-router-dom'
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { SearchIcon, PlusIcon, MenuIcon, DocumentIcon, BookmarkIcon, SettingsIcon, ShieldIcon, LogoutIcon } from '@/components/ui/Icons'
-import { NotificationPanel } from '@/components/notification/NotificationPanel'
-import { LevelTag } from '@/components/profile/LevelTag'
+import { SearchIcon, PlusIcon, MenuIcon } from '@/components/ui/Icons'
+import { useNotifStore } from '@/stores/notifStore'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
 import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import type { Content, ContentType } from '@/types'
-import { Avatar } from '@/components/profile/Avatar'
 import { clickable } from '@/utils/a11y'
 
 type TmdbHit = { r: TmdbResult; type: ContentType }
@@ -29,8 +27,10 @@ function interleave<T>(a: T[], b: T[]): T[] {
 
 export function Header() {
   const navigate = useNavigate()
-  const { user, isAccount, logout } = useAuthStore()
-  const { userMenuOpen, toggleUserMenu, closeUserMenu, toggleNavDrawer } = useUIStore()
+  const user = useAuthStore(s => s.user)
+  const toggleNavDrawer = useUIStore(s => s.toggleNavDrawer)
+  // 서랍을 닫아 둔 채로도 알림이 왔는지 알아야 한다 — 햄버거에 붙는 숫자
+  const unread = useNotifStore(s => s.unread)
   const toast = useToastStore(s => s.show)
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestOpen, setSuggestOpen] = useState(false)
@@ -38,13 +38,7 @@ export function Header() {
   const [tmdbHits, setTmdbHits] = useState<TmdbHit[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
-  // 사진 주소가 죽었을 때 '깨진 그림' 아이콘 대신 닉네임 첫 글자로 되돌린다 (Avatar.tsx 와 같은 이유)
-  const [avatarBroken, setAvatarBroken] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLDivElement>(null)
-
-  // 사진을 새로 올리면 다시 시도한다 (이 훅은 아래 `if (!user)` 보다 위에 있어야 한다)
-  useEffect(() => setAvatarBroken(false), [user?.avatarUrl])
 
   // 로컬 캐시(DS.getContents) 기준이라 디바운스 없이 키 입력마다 즉시 계산해도 충분히 가볍다.
   const suggestions = useMemo(() => DS.searchContents(searchQuery, 6), [searchQuery])
@@ -83,14 +77,14 @@ export function Header() {
     ...tmdbHits.map(hit => ({ kind: 'tmdb' as const, hit })),
   ]
 
+  // 검색 제안은 바깥을 누르면 닫는다 (계정 메뉴는 2026-09-16 에 서랍으로 옮겨 여기 없다)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeUserMenu()
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSuggestOpen(false)
     }
     document.addEventListener('click', handler)
     return () => document.removeEventListener('click', handler)
-  }, [closeUserMenu])
+  }, [])
 
   // 쿼리가 바뀌면 키보드 선택 위치를 초기화 (엉뚱한 항목이 선택된 채 남지 않게)
   useEffect(() => { setActiveIdx(-1) }, [searchQuery])
@@ -155,9 +149,11 @@ export function Header() {
   return (
     <header className="header">
       <div className="header-left">
-        {/* 모바일 전용 — 사이드바 게시판 목록을 서랍으로 연다 */}
-        <button className="nav-toggle" onClick={toggleNavDrawer} aria-label="메뉴 열기">
+        {/* 모바일 전용 — 서랍을 연다. 2026-09-16 부터 그 안에 메뉴가 전부 있다(알림·계정 포함).
+            그래서 안 읽은 알림 수를 여기 붙인다 — 닫아 둔 채로도 왔는지는 알아야 한다. */}
+        <button className="nav-toggle" onClick={toggleNavDrawer} aria-label={unread > 0 ? `메뉴 열기 (안 읽은 알림 ${unread}개)` : '메뉴 열기'}>
           <MenuIcon size={20} />
+          {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
         </button>
         <a className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <img className="logo-img" src="/logo-ottcal.png" alt="오티티칼" />
@@ -245,57 +241,12 @@ export function Header() {
         </div>
       </div>
       <div className="header-right">
-        <NotificationPanel />
-        {/* 모바일에선 하단 탭 가운데 + 버튼이 대신한다 (헤더 폭을 검색창에 양보) */}
+        {/* 알림·계정은 2026-09-16 부터 왼쪽 서랍(Sidebar) 안으로 들어갔다 —
+            이동 수단이 네 군데로 흩어져 "그게 어디 있더라"가 생겼기 때문이다.
+            여기 남는 것은 글쓰기 하나뿐이고, 모바일에선 그것도 하단 탭 + 버튼이 맡는다. */}
         <button className="btn btn-primary btn-small header-write" onClick={() => navigate('/talk/write')}>
           <PlusIcon /> 토론하기
         </button>
-        <div className="user-menu" ref={menuRef}>
-          <div className="user-avatar" aria-haspopup="menu" aria-expanded={userMenuOpen} {...clickable(toggleUserMenu, `${user.nickname} 메뉴`)}>
-            {user.avatarUrl && !avatarBroken
-              ? <img src={user.avatarUrl} alt="" onError={() => setAvatarBroken(true)} />
-              : user.nickname[0]}
-          </div>
-          <div className={`user-dropdown ${userMenuOpen ? 'show' : ''}`}>
-            {/* 닉네임·메일 칸을 누르면 내 피드(본 작품 서랍)로 간다 */}
-            <div
-              className="user-dropdown-header clickable"
-              {...clickable(() => { closeUserMenu(); navigate('/feed') }, '내 피드로 가기')}
-            >
-              <Avatar src={user.avatarUrl} name={user.nickname} size={36} />
-              <div className="user-dropdown-who">
-                <span className="user-dropdown-nick">
-                  {user.nickname}
-                  <LevelTag authorId={user.id} />
-                </span>
-                <small>{isAccount ? user.email : '유동닉 (비로그인)'}</small>
-              </div>
-            </div>
-            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/me') })}>
-              <DocumentIcon /> 내 정보
-            </div>
-            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/bookmarks') })}>
-              <BookmarkIcon /> 찜한 작품
-            </div>
-            <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); navigate('/settings') })}>
-              <SettingsIcon /> 계정 설정
-            </div>
-            {user.role === 'admin' && (
-              <div className="user-dropdown-item" style={{ color: 'var(--primary)' }} {...clickable(() => { closeUserMenu(); navigate('/admin') })}>
-                <ShieldIcon /> 관리자
-              </div>
-            )}
-            {isAccount ? (
-              <div className="user-dropdown-item" {...clickable(() => { closeUserMenu(); void logout().then(() => navigate('/')) })}>
-                <LogoutIcon /> 로그아웃
-              </div>
-            ) : (
-              <div className="user-dropdown-item" style={{ color: 'var(--primary)' }} {...clickable(() => { closeUserMenu(); navigate('/auth') })}>
-                <LogoutIcon /> 로그인 / 고정닉
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </header>
   )

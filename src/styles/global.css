@@ -122,42 +122,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .search-suggest-all:hover { background: var(--bg); }
 
-/* User Menu */
-.user-menu { position: relative; }
-.user-avatar {
-  width: 32px; height: 32px; border-radius: var(--radius-round); background: var(--primary-light);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; color: var(--primary); font-size: 13px; cursor: pointer; transition: var(--duration) var(--ease);
-}
-.user-avatar:hover { box-shadow: 0 0 0 3px var(--primary-50); }
-.user-dropdown {
-  position: absolute; top: 40px; right: 0; background: var(--card); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl); min-width: 220px; display: none; overflow: hidden; z-index: 200;
-  border: 1px solid var(--border-light);
-}
-.user-dropdown.show { display: block; }
-.user-dropdown-item {
-  padding: 10px 16px; display: flex; align-items: center; gap: 10px;
-  font-size: 13px; color: var(--text-secondary); transition: var(--duration) var(--ease); cursor: pointer;
-}
-.user-dropdown-item:hover { background: var(--bg); color: var(--text); }
-.user-dropdown-item svg { opacity: 0.6; }
-.user-dropdown-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 14px 16px; border-bottom: 1px solid var(--border-light);
-  font-weight: 700; font-size: 14px; color: var(--heading);
-}
-.user-dropdown-who { min-width: 0; }
-/* 내 닉네임 + 레벨 마크 — 남의 이름 옆에 붙는 것이 내 이름 옆에는 없으면 이상하다 */
-.user-dropdown-nick { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
-.user-dropdown-header small {
-  display: block; font-weight: 400; color: var(--subtext); font-size: 12px; margin-top: 2px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* 누르면 내 피드로 — 누를 수 있다는 걸 색이 아니라 배경 반응으로 알린다 */
-.user-dropdown-header.clickable { cursor: pointer; transition: background var(--duration) var(--ease); }
-.user-dropdown-header.clickable:hover { background: var(--bg); }
-.user-avatar img { width: 100%; height: 100%; border-radius: var(--radius-round); object-fit: cover; display: block; }
+/* 계정 메뉴(.user-*)는 2026-09-16 에 사이드바로 옮겨졌다 — 아래 "서랍 하나로 모은 메뉴" 참고 */
+
 
 /* Sidebar */
 .sidebar {
@@ -783,12 +749,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* ============================================================
    Notifications
    ============================================================ */
-.notif-menu { position: relative; }
-.notif-btn { position: relative; width: 32px; height: 32px; border-radius: var(--radius-round); display: flex; align-items: center; justify-content: center; color: var(--subtext); transition: var(--duration) var(--ease); }
-.notif-btn:hover { background: var(--bg); color: var(--text); }
-.notif-badge { position: absolute; top: 1px; right: 1px; min-width: 15px; height: 15px; padding: 0 4px; background: var(--danger); color: white; font-size: 9px; font-weight: 700; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; border: 2px solid var(--card); }
-.notif-panel { position: absolute; top: 40px; right: -8px; width: 340px; max-height: 400px; overflow-y: auto; background: var(--card); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); z-index: 200; border: 1px solid var(--border-light); }
-.notif-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border-light); font-size: 14px; font-weight: 700; color: var(--heading); }
 .notif-item { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid var(--border-light); transition: var(--duration) var(--ease); }
 .notif-item:hover { background: var(--bg); }
 .notif-item.unread { background: var(--primary-50); }
@@ -912,7 +872,6 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .admin-card-actions { align-self: flex-end; }
   .admin-stat-item { min-width: 70px; padding: 10px; }
   .admin-stat-num { font-size: 20px; }
-  .notif-panel { width: calc(100vw - 24px); right: -60px; }
   .content-hero { flex-direction: column; }
   .content-hero .poster { width: 120px; }
   .content-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
@@ -1628,14 +1587,6 @@ p.content-synopsis .sk-line { display: block; }
 .alert-main:hover .alert-title { color: var(--link); }
 .alert-meta { font-size: 12px; color: var(--subtext); }
 
-/* 알림 패널 아래 설정 바로가기 */
-.notif-panel-foot {
-  display: block; width: 100%; padding: 10px 16px; background: none;
-  border: 0; border-top: 1px solid var(--border-light);
-  font-size: 12px; color: var(--text-secondary); cursor: pointer; text-align: center;
-}
-.notif-panel-foot:hover { color: var(--link); }
-
 /* ── 키보드 포커스 (접근성) ───────────────────────────────────
    눌러야 하는 <div> 에 role="button" + tabIndex 를 붙였다(utils/a11y.ts).
    탭으로 갈 수 있게만 하고 어디 있는지 안 보여주면 반쪽이다.
@@ -2227,3 +2178,72 @@ button.watched-rate:hover:not(.on) { border-color: var(--text-secondary); color:
 }
 .feed-reconly:hover { border-color: var(--primary); color: var(--primary); }
 .feed-reconly.active { border-style: solid; background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════
+   서랍 하나로 모은 메뉴 (2026-09-16)
+   ──────────────────────────────────────────────────────────────
+   헤더 오른쪽의 종(알림)과 아바타(계정)를 걷어내고 전부 사이드바로 옮겼다.
+   이동 수단이 네 군데로 흩어져 "그게 어디 있더라"가 생겼기 때문이다.
+   넓은 화면에서는 사이드바가 늘 펼쳐져 있어 한 번 더 누를 일이 없고,
+   좁은 화면에서는 햄버거 하나가 이 전부를 연다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* 메뉴 맨 위 '나' — 누구로 들어와 있는지가 먼저 보여야 한다(유동닉/고정닉이 할 수 있는 일을 가른다) */
+.sidebar-me {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 10px 12px; margin: 6px 8px 2px; border-radius: var(--radius-md);
+  transition: background var(--duration) var(--ease);
+}
+.sidebar-me:hover { background: var(--bg); }
+.sidebar-me-who { min-width: 0; }
+.sidebar-me-nick {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13.5px; font-weight: 700; color: var(--heading);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-me-sub { font-size: 11.5px; color: var(--subtext); margin-top: 1px; }
+
+/* 아이콘이 붙는 줄 — 게시판 줄(글자만)과 달리 '내 활동·설정'은 아이콘으로 성격을 구분한다 */
+.sidebar-item-ic .sidebar-ic { display: flex; flex-shrink: 0; color: var(--subtext); }
+.sidebar-item-ic .sidebar-ic svg { width: 16px; height: 16px; }
+.sidebar-item-ic.active .sidebar-ic { color: inherit; }
+.sidebar-item.is-admin { color: var(--link); }
+.sidebar-item.is-danger { color: var(--danger); }
+.sidebar-item.is-danger:hover { background: var(--danger-light); color: var(--danger); }
+/* 안 읽은 알림 수 — 줄 오른쪽 끝에 붙는다 */
+.sidebar-count {
+  margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--radius-full); background: var(--danger); color: #fff;
+  font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+
+/* 서랍 안에서 펼쳐지는 알림 목록 — 화면을 갈아치우지 않는다.
+   확인하고 접으면 보던 자리에 그대로 있다. */
+.notif-list {
+  margin: 2px 8px 6px; border: 1px solid var(--border-light); border-radius: var(--radius-md);
+  background: var(--bg); overflow: hidden; max-height: 320px; overflow-y: auto;
+}
+.notif-list-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px; font-size: 11px; font-weight: 700; color: var(--subtext);
+  border-bottom: 1px solid var(--border-light);
+}
+.notif-list-empty { padding: 18px 12px; text-align: center; color: var(--subtext); font-size: 12.5px; line-height: 1.6; }
+.notif-list .notif-item { padding: 9px 12px; }
+.notif-list .notif-msg { font-size: 12.5px; }
+.notif-list-foot {
+  display: block; width: 100%; padding: 8px 12px; text-align: center;
+  font-size: 11.5px; color: var(--subtext); background: var(--card);
+  border-top: 1px solid var(--border-light);
+}
+.notif-list-foot:hover { color: var(--link); }
+
+/* 햄버거에 붙는 안 읽은 알림 수 — 서랍을 닫아 둔 채로도 왔는지는 알아야 한다.
+   (옛 종 버튼에 붙던 것과 같은 알약이라 클래스 이름을 그대로 쓴다) */
+.nav-toggle { position: relative; }
+.notif-badge {
+  position: absolute; top: 0; right: 0; min-width: 15px; height: 15px; padding: 0 4px;
+  background: var(--danger); color: #fff; font-size: 9px; font-weight: 700;
+  border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--card);
+}
