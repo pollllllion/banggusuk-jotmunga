@@ -63,7 +63,7 @@ Vite + TS + Supabase 정적 SPA. 두 대의 PC에서 번갈아 작업한다.
 1. **페르소나 마스터표는 `scripts/personas.mjs` 하나뿐이다** (P01~P12). 여기 없는 인물을 만들지 않는다
 
    **계정은 사람별로 갈라져 있다. 남의 몫으로 올리지 말 것.**
-   - `PERSONAS` P01~P12 — pollllllion 몫. GPT 원고는 전부 이쪽으로 올린다
+   - `PERSONAS` P01~P12 — 운영자 몫. GPT 원고는 전부 이쪽으로 올린다
    - `OTHER_PERSONAS` 8개(dawn·live·nospoil·subs·romcom·toon·season2·allnight) — **홍인기 몫**
    - 둘이 같은 계정을 쓰면 말투가 섞이고 자기 글에 자기 댓글이 달린다. 작업 중인 사람이 누군지
      모르겠으면 **묻고 시작한다** — 짐작해서 고르지 않는다
