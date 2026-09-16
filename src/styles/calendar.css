@@ -7,7 +7,17 @@
 /* 제목 줄 — 오른쪽 끝에 공유. 달 이동 줄에 있을 땐 '오늘' 바로 옆이라
    달을 바꾸는 버튼처럼 보였다(하는 일이 다르니 자리도 갈라 둔다) */
 .cal-hero-top { display: flex; align-items: center; gap: 10px; }
-.cal-hero-top .cal-share { margin-left: auto; flex-shrink: 0; }
+/* 공유 — 박스 없이 아이콘 + 글자만. 제목 옆에 알약이 하나 떠 있으면
+   '오늘'·'신작 등록' 같은 누르는 버튼들과 같은 무게로 보인다 */
+.cal-hero-top .cal-share {
+  margin-left: auto; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: auto; padding: 4px 2px;
+  background: none; border: 0;
+  font-size: 13px; font-weight: 600; color: var(--subtext); cursor: pointer;
+  transition: color var(--duration) var(--ease);
+}
+.cal-hero-top .cal-share:hover { background: none; color: var(--text); }
 .cal-hero h1 {
   font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
   color: var(--text); margin: 0 0 4px; min-width: 0;
@@ -82,6 +92,16 @@
 .cal-daynum { font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 2px; }
 .cal-cell.sun .cal-daynum { color: var(--danger); }
 .cal-cell.sat .cal-daynum { color: var(--info); }
+/* 공휴일 이름 — 숫자 옆에 작게. 숫자는 이미 빨강이다(셀에 .sun 을 같이 준다).
+   좁은 화면에서는 셀 폭이 46px 남짓이라 이름이 안 들어간다 → 거기서는 숨기고
+   숫자 색만 남긴다. 무슨 날인지는 셀을 눌렀을 때 뜨는 목록 제목이 말해 준다. */
+.cal-holiday {
+  /* 셀은 세로 flex 라 그냥 두면 이름이 제 줄을 차지해 포스터 한 칸을 밀어낸다.
+     날짜 숫자 맞은편(오른쪽 위)에 띄워 세로를 한 픽셀도 안 먹게 한다. */
+  position: absolute; top: 8px; right: 6px; max-width: calc(100% - 30px);
+  font-size: 9.5px; font-weight: 700; color: var(--danger);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .cal-cell.today .cal-daynum {
   background: var(--emphasis); color: var(--on-emphasis); width: 22px; height: 22px;
   border-radius: var(--radius-round); display: flex; align-items: center;
@@ -281,6 +301,8 @@
 @media (max-width: 720px) {
   .cal-hero h1 { font-size: 19px; }
   .cal-hero p { font-size: 12px; }
+  /* 셀 폭이 46px 남짓이라 공휴일 이름이 안 들어간다 — 숫자 빨강만 남긴다 */
+  .cal-holiday { display: none; }
   .cal-cell { height: 104px; padding: 4px; }
   .cal-item .t { display: none; }
   .cal-item { justify-content: center; padding: 3px 4px; }
@@ -335,3 +357,69 @@
 /* 툴바 오른쪽 끝 공유 버튼 — 관리자 '신작 등록'이 있으면 그 왼쪽에 붙는다 */
 .cal-share { margin-left: auto; }
 .cal-share + .cal-today-btn { margin-left: 8px !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   찜 달력 (2026-09-16)
+   ──────────────────────────────────────────────────────────────
+   ① 전체 달력에서 **찜한 작품이 있는 날**을 눈에 띄게 한다.
+   ② '오늘' 옆 [찜] 을 누르면 찜한 것만 남고, 그때는 셀이 **포스터**로 바뀐다.
+      남는 편수가 몇 개 안 되니 제목 줄보다 얼굴이 빠르게 읽힌다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── ① 찜한 작품이 있는 날 ─────────────────────────────── */
+/* 바탕은 앰버(--accent) 계열로. --primary 는 회색이라 칠해도 "특별한 날"로 안 읽혔다.
+   달력에서 이미 빨강은 공휴일·일요일이 쓰고 있어서 겹치지 않는 색이 필요했다. */
+.cal-cell.has-fav { background: var(--accent-light); }
+.cal-cell.has-fav.has-items:hover { filter: brightness(0.97); }
+/* 모서리 북마크 — 숫자·공휴일 이름과 겹치지 않게 오른쪽 아래에 둔다 */
+.cal-fav-mark {
+  position: absolute; right: 4px; bottom: 3px; z-index: 1;
+  display: flex; color: var(--accent); pointer-events: none;
+}
+
+/* ── ② [찜] 토글 ───────────────────────────────────────── */
+.cal-favbtn { display: inline-flex; align-items: center; gap: 4px; }
+.cal-favbtn.on {
+  background: var(--primary); border-color: var(--primary); color: #fff;
+}
+.cal-favbtn.on:hover { background: var(--primary-dark); }
+
+/* ── ② 찜 달력의 포스터 칸 ─────────────────────────────
+   한 장이면 칸을 꽉 채우고, 둘 이상이면 칸을 쪼개 나눠 담는다.
+   셋일 때는 첫 장이 왼쪽을 세로로 다 쓴다 — 넷으로 쪼개고 하나를 비우면 허전하다. */
+.cal-favposters {
+  flex: 1; min-height: 0; display: grid; gap: 2px;
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+/* 한 장뿐이면 **자르지 않는다** — 칸에 맞춰 채우면(cover) 세로로 긴 포스터의
+   위아래가 잘려 비율이 어그러진다. 좌우에 남는 자리는 그대로 둔다. */
+.cal-favposters.n1 { grid-template-columns: 1fr; }
+.cal-favposters.n1 > .cal-favposter { background-size: contain; background-position: center; }
+.cal-favposters.n2 { grid-template-columns: 1fr 1fr; }
+.cal-favposters.n3,
+.cal-favposters.n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.cal-favposters.n3 > :first-child { grid-row: span 2; }
+
+.cal-favposter {
+  position: relative; min-width: 0; min-height: 0; cursor: pointer;
+  /* 바탕은 비워 둔다 — 한 장일 때(contain) 좌우에 남는 자리가 셀 색 그대로 보여야 한다.
+     여기에 색을 깔면 달력 칸 안에 회색 판이 하나 더 있는 것처럼 보인다. */
+  background: transparent center top / cover no-repeat;
+  transition: filter var(--duration) var(--ease);
+}
+.cal-favposter:hover { filter: brightness(1.12); }
+/* 포스터가 없는 작품(수기 등록 웹툰 등) — 제목을 대신 채운다 */
+.cal-favposter.none {
+  display: flex; align-items: center; justify-content: center; padding: 2px;
+  background: var(--border-light);
+}
+.cal-favposter.none em {
+  font-style: normal; font-size: 9px; font-weight: 600; color: var(--text-secondary);
+  line-height: 1.2; text-align: center;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* 넷을 넘으면 마지막 장 위에 남은 수를 얹는다 — 줄을 하나 더 쓰지 않는다 */
+.cal-favposter-more {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(24,24,27,.6); color: #fff; font-size: 12px; font-weight: 800;
+}

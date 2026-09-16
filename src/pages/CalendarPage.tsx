@@ -19,6 +19,7 @@ import {
 } from '@/utils/ott'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { parseYm, formatYm, sameMonth, type Month } from '@/utils/calendarMonth'
+import { holidayOf } from '@/shared/holidays.mjs'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { ShareButton } from '@/components/ui/ShareButton'
 import type { Content, ContentType, ContentProvider } from '@/types'
@@ -115,6 +116,17 @@ export function CalendarPage() {
     else params.set('ym', formatYm(next))
     setSearchParams(params)
   }
+  /**
+   * 찜한 작품만 보는 달력 — ?fav=1. 주소에 두는 이유는 달 이동·새로고침에도 남고,
+   * "내가 기다리는 것만 모은 달력"을 그대로 링크로 보낼 수 있어서다.
+   */
+  const favOnly = searchParams.get('fav') === '1'
+  const toggleFav = () => {
+    const params = new URLSearchParams(searchParams)
+    if (favOnly) params.delete('fav'); else params.set('fav', '1')
+    setSearchParams(params)
+  }
+
   const [filter, setFilter] = useState<ContentType | 'all'>('all')
   const [ott, setOtt] = useState<string>('all')
   const [selected, setSelected] = useState<Content | null>(null)
@@ -154,11 +166,20 @@ export function CalendarPage() {
   // 부팅 스냅샷으로 그린 뒤 새 데이터가 오면 다시 묶어야 한다 — 캐시는 React 가 모르는 값이다
   const dataVersion = useDataStore(s => s.dataVersion)
 
+  /** 내가 찜한 작품 id — 셀마다 isBookmarked 를 부르면 날짜×작품만큼 훑는다. 한 번만 만든다.
+   *  bookmarked 를 의존성에 넣는 이유: 모달에서 찜을 눌렀을 때 달력 표시도 같이 바뀌어야 한다. */
+  const favIds = useMemo(
+    () => new Set(user ? DS.getUserBookmarks(user.id).map(b => b.contentId) : []),
+    [user, dataVersion, bookmarked],
+  )
+
   // 최종 공개일(수동 우선) 기준으로 날짜별 그룹핑 + 필터. 같은 날짜는 화제도 내림차순.
   const byDate = useMemo(() => {
     const map: Record<string, Content[]> = {}
     for (const c of DS.getContents()) {
       if (c.hidden) continue
+      // 찜 달력 — 내가 찜한 것만. 종류·OTT 필터도 그대로 겹쳐서 걸린다
+      if (favOnly && !favIds.has(c.id)) continue
       const date = effectiveReleaseDate(c)
       if (!date) continue
       // '드라마·예능' 필터는 drama·variety 둘 다 포함
@@ -187,7 +208,7 @@ export function CalendarPage() {
     }
     return map
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, ott, todayKey, dataVersion])
+  }, [filter, ott, todayKey, dataVersion, favOnly, favIds])
 
   // 이번 달 그리드 (일요일 시작)
   const weeks = useMemo(() => {
@@ -285,7 +306,7 @@ export function CalendarPage() {
               달을 바꾸는 버튼처럼 보였다 — 하는 일이 다르니 자리도 갈라 둔다.
               보고 있는 달을 그대로 공유한다 — ?ym= 덕분에 받은 사람도 같은 달을 연다 */}
           <ShareButton
-            className="cal-today-btn cal-share"
+            className="cal-share"
             path={sameMonth(cursor, thisMonth) ? '/' : `/?ym=${formatYm(cursor)}`}
             title={`${cursor.y}년 ${cursor.m + 1}월 개봉·공개 캘린더`}
             text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 오티티칼`}
@@ -304,6 +325,15 @@ export function CalendarPage() {
           <span className="m-label">{cursor.y}년 {cursor.m + 1}월</span>
           <button className="cal-navbtn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           <button className="cal-today-btn" onClick={goToday}>오늘</button>
+          {/* 찜 달력 — 내가 기다리는 것만 남긴다. 여기서는 셀이 포스터로 바뀐다:
+              몇 편 안 되니 제목 줄 대신 얼굴을 보여 주는 편이 빠르게 읽힌다 */}
+          <button
+            className={`cal-today-btn cal-favbtn ${favOnly ? 'on' : ''}`}
+            onClick={toggleFav}
+            aria-pressed={favOnly}
+            title={favOnly ? '전체 달력으로' : '찜한 작품만 보기'}>
+            <BookmarkIcon size={14} filled={favOnly} /> 찜
+          </button>
         </div>
         {user?.role === 'admin' && (
           <button className="cal-today-btn" style={{ marginLeft: 'auto' }}
@@ -352,15 +382,45 @@ export function CalendarPage() {
                 if (!date) return <div className="cal-cell empty" key={di} />
                 const k = keyOf(date)
                 const items = byDate[k] || []
-                const cls = di === 0 ? 'sun' : di === 6 ? 'sat' : ''
+                // 공휴일은 일요일과 같은 빨강 — 달력에서 쉬는 날은 색이 먼저 말한다.
+                // 이름은 좁은 화면에서 접힌다(CSS). 거기서는 숫자 색만으로도 읽힌다.
+                const holiday = holidayOf(k)
+                const cls = di === 0 || holiday ? 'sun' : di === 6 ? 'sat' : ''
+                const dayTitle = [holiday, items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : null]
+                  .filter(Boolean).join(' · ')
+                // 찜한 작품이 있는 날 — 전체 달력에서 눈에 띄게(테두리 + 모서리 북마크).
+                // 찜 달력에서는 모든 날이 그러하므로 표시가 뜻이 없다 → 안 붙인다.
+                const favHere = !favOnly && items.some(c => favIds.has(c.id))
                 return (
                   <div
-                    className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''} ${items.length ? 'has-items' : ''}`}
+                    className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''} ${items.length ? 'has-items' : ''} ${favHere ? 'has-fav' : ''}`}
                     key={di}
                     onClick={() => items.length && setDayList({ key: k, items })}
-                    title={items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : undefined}>
+                    title={dayTitle || undefined}>
                     <span className="cal-daynum">{date.getDate()}</span>
-                    {items.slice(0, perCell).map(c => {
+                    {holiday && <span className="cal-holiday">{holiday}</span>}
+                    {favHere && <span className="cal-fav-mark" aria-label="찜한 작품 공개일"><BookmarkIcon size={11} filled /></span>}
+
+                    {/* 찜 달력 — 제목 줄 대신 포스터. 두 개 이상이면 칸을 쪼개 나눠 담는다 */}
+                    {favOnly ? (
+                      <div className={`cal-favposters n${Math.min(items.length, 4)}`}>
+                        {items.slice(0, 4).map((c, i) => {
+                          const thumb = posterThumb(c.posterUrl)
+                          const rest = items.length - 4
+                          return (
+                            <span
+                              key={c.id}
+                              className={thumb ? 'cal-favposter' : 'cal-favposter none'}
+                              style={thumb ? { backgroundImage: `url(${thumb})` } : undefined}
+                              onClick={e => { e.stopPropagation(); openItem(c) }}
+                              title={c.title}>
+                              {!thumb && <em>{c.title}</em>}
+                              {i === 3 && rest > 0 && <b className="cal-favposter-more">+{rest}</b>}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : items.slice(0, perCell).map(c => {
                       const provs = providersOf(c)
                       const thumb = posterThumb(c.posterUrl)
                       return (
@@ -382,7 +442,8 @@ export function CalendarPage() {
                         </div>
                       )
                     })}
-                    {items.length > perCell && (
+                    {/* 찜 달력에서는 넘치는 수를 마지막 포스터 위에 얹으므로 이 줄이 필요 없다 */}
+                    {!favOnly && items.length > perCell && (
                       <span className="cal-more" onClick={e => { e.stopPropagation(); setDayList({ key: k, items }) }}>
                         +{items.length - perCell}{isMobile ? '' : '개 더'}
                       </span>
