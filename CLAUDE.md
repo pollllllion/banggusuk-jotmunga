@@ -71,6 +71,8 @@ Vite + TS + Supabase 정적 SPA. 두 대의 PC에서 번갈아 작업한다.
 2. `scripts/queue.json`에 항목 추가 (없으면 `queue.example.json` 복사)
    - 글: `{ "as": "P04", "content": "작품명 일부 또는 id", "title": "...", "body": "...", "rating": null, "spoiler": false, "minutesAgo": 180 }`
    - 댓글: `{ "as": "P10", "replyTo": "#1", "body": "..." }` — `#1`은 같은 큐의 1번 글
+   - 글쓴이가 자기 글에 다는 답글은 `"selfReply": true` 를 같이 적는다. 안 적으면 막힌다 —
+     막는 건 "딴 사람인 척 자기 글에 맞장구치는 것"이지 글쓴이 대댓글이 아니다
    - `as` 는 P-ID(`P04`) · 키(`director`) · 닉네임(`404`) 아무거나 받는다. **원고에 적힌 P-ID 를 그대로 쓴다**
 3. `npm run post -- --dry`로 작품 매칭 확인 → `npm run post`로 게시
 

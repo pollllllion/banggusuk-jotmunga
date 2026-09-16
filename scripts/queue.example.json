@@ -1,17 +1,24 @@
 [
   {
-    "as": "theater",
+    "as": "P12",
     "content": "머더클럽",
     "title": "1화는 참을 만한데 2화부터가 진짜",
     "body": "초반 세팅이 좀 늘어지는데 2화 후반부터 인물 관계가 꼬이기 시작하면서 재밌어짐. 첫 화만 보고 접지 말 것.",
-    "rating": 7,
+    "rating": null,
     "spoiler": false,
     "minutesAgo": 180
   },
   {
-    "as": "binge",
+    "as": "P02",
     "replyTo": "#1",
     "body": "저도 1화에서 끌 뻔했는데 참길 잘했어요",
     "minutesAgo": 90
+  },
+  {
+    "as": "P12",
+    "replyTo": "#1",
+    "selfReply": true,
+    "body": "2화까지만 참으면 됨 거기서부터 안 끊김",
+    "minutesAgo": 60
   }
 ]

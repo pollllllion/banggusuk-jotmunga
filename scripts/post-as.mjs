@@ -141,9 +141,13 @@ for (const [i, item] of queue.entries()) {
     if (item.replyTo) {
       const r = resolveDiscussion(item.replyTo)
       if (!r.ok) { console.error(`${label} ✖ ${r.why}`); failed++; continue }
-      if (r.post.authorId && r.post.authorId === acc.id) {
-        console.error(`${label} ✖ 자기 글에 자기 댓글 (${persona.nick}) — 다른 페르소나로 바꾸세요`); failed++; continue
+      // 자기 글에 자기 댓글. 막는 이유는 "딴 사람인 척 자기 글에 맞장구치는 것"이지
+      // 글쓴이가 대댓글 다는 것 자체가 아니다 — 그건 게시판에서 지극히 정상이다.
+      // 그래서 `"selfReply": true` 를 **일부러 적은** 항목만 통과시킨다. 실수로는 안 뚫린다.
+      if (r.post.authorId && r.post.authorId === acc.id && !item.selfReply) {
+        console.error(`${label} ✖ 자기 글에 자기 댓글 (${persona.nick}) — 다른 페르소나로 바꾸거나, 글쓴이 답글이면 "selfReply": true 를 적으세요`); failed++; continue
       }
+      if (item.selfReply) console.log(`${label}   ↳ 글쓴이 답글로 올립니다 (selfReply)`)
       const row = {
         id: newId(), discussionId: r.post.id, authorId: acc.id,
         body: item.body, likes: [], createdAt: isoAgo(item.minutesAgo),
