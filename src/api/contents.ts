@@ -221,7 +221,11 @@ export async function ensureContent(input: EnsureContentInput): Promise<Content>
 }
 
 export interface ManualContentInput {
-  type: 'webtoon' | 'webnovel'
+  /** TMDB 에 없는 종류만 — 웹툰·웹소설·숏폼·유튜브·기타.
+   *  영화·드라마·예능은 검색으로만 등록한다: 손으로 넣으면 uuid 행이 tmdb-* 행과
+   *  따로 생겨 같은 작품이 두 줄이 된다(dedupe 로 병합하던 그 중복).
+   *  서버도 같은 목록으로 막는다(supabase/migration_manual_types.sql). */
+  type: ContentType
   title: string
   platform?: string | null
   posterUrl?: string | null

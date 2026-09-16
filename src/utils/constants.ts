@@ -8,10 +8,12 @@ export const CONTENT_TYPES: { code: ContentType; label: string }[] = [
   { code: 'shortform', label: '숏폼' },
   { code: 'webtoon',  label: '웹툰' },
   { code: 'webnovel', label: '웹소설' },
+  { code: 'youtube',  label: '유튜브' },
+  { code: 'etc',      label: '기타' },
 ]
 
 export const TYPE_LABELS: Record<string, string> = {
-  movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼', webtoon: '웹툰', webnovel: '웹소설',
+  movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼', webtoon: '웹툰', webnovel: '웹소설', youtube: '유튜브', etc: '기타',
 }
 
 // ── 웹툰/웹소설 플랫폼 (어드민 수기 등록 빠른 선택 칩 · 표기 흔들림 방지) ──

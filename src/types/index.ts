@@ -57,7 +57,7 @@ export interface User {
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────
-export type ContentType = 'movie' | 'drama' | 'variety' | 'shortform' | 'webtoon' | 'webnovel'
+export type ContentType = 'movie' | 'drama' | 'variety' | 'shortform' | 'webtoon' | 'webnovel' | 'youtube' | 'etc'
 
 // TMDB OTT 연동: 이 작품을 제공하는 OTT (구독형)
 export interface ContentProvider {

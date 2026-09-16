@@ -28,7 +28,7 @@ import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /** 수기 등록이 가능한 타입 — TMDB 에 없는 것들. 영화·드라마·예능은 검색으로만 등록한다
  *  (uuid 로 새 행을 만들면 tmdb-* 행과 중복되기 때문). */
-const MANUAL_TYPES: ContentType[] = ['webtoon', 'webnovel']
+const MANUAL_TYPES: ContentType[] = ['webtoon', 'webnovel', 'shortform', 'youtube', 'etc']
 
 /** 공백·문장부호 무시한 느슨한 정규화 (한글/영문/숫자만) — 수기작품 중복 매칭용 */
 const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()
@@ -101,6 +101,12 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     if (mode !== 'catalog' && (!user || !isAccount)) {
       toast(`${label} 등록은 로그인(고정닉) 후 이용할 수 있어요.`); return
     }
+    // 수기 등록은 catalog 라도 로그인이 필요하다 — create_manual_content 가 auth.uid() 를
+    // 요구한다(1시간 20개 제한을 누구 기준으로 셀지가 없으면 성립하지 않는 규칙이라 그렇다).
+    // 서버가 거절하게 두면 폼을 다 채운 뒤에 혼나므로 여기서 먼저 막는다.
+    if (!input.contentId.startsWith('tmdb-') && !isAccount) {
+      toast('직접 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return
+    }
     if (mode !== 'catalog' && user) {
       const already = mode === 'watched'
         ? DS.isWatched(user.id, input.contentId)
@@ -113,15 +119,28 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     if (existing) { toast(`'${existing.title}' 는 이미 있어요.`); onRegistered(existing); onClose(); return }
     setSaving(true)
     try {
-      // 찜·목록 등록은 작품 행만 있으면 된다 — 없으면 만들고(ensureContent) 링크를 건다.
-      // 본 작품은 registerWatched 가 그 둘을 한 번에 한다.
+      /**
+       * 작품 행을 만드는 길이 **둘**이다 — id 모양으로 갈린다.
+       *   tmdb-* : ensureContent (RPC 가 그 형식만 받는다. 아니면 '작품 id 형식이 아닙니다')
+       *   그 밖  : createManualContent (수기 등록 — 같은 제목이면 서버가 기존 행을 돌려준다)
+       * 본 작품(watched)은 registerWatched 가 행 생성과 링크를 한 번에 해서 갈 필요가 없다.
+       *
+       * 2026-09-16 — 이 갈림길이 없어서 '찜 + 직접 등록'이 조용히 실패하고 있었다.
+       * uuid 를 ensureContent 에 넘겨 RPC 가 거부했다.
+       */
+      const isTmdbId = input.contentId.startsWith('tmdb-')
       const content = mode === 'watched'
         ? await DS.registerWatched(input)
-        : await DS.ensureContent({
-          contentId: input.contentId, type: input.type, title: input.title,
-          posterUrl: input.posterUrl, releaseYear: input.releaseYear,
-          synopsis: input.synopsis, platform: input.platform,
-        })
+        : isTmdbId
+          ? await DS.ensureContent({
+            contentId: input.contentId, type: input.type, title: input.title,
+            posterUrl: input.posterUrl, releaseYear: input.releaseYear,
+            synopsis: input.synopsis, platform: input.platform,
+          })
+          : await DS.createManualContent({
+            type: input.type, title: input.title,
+            platform: input.platform, posterUrl: input.posterUrl,
+          })
       if (mode === 'bookmark' && user) DS.toggleBookmark(user.id, content.id)
       toast(`'${content.title}' ${mode === 'watched' ? '등록' : mode === 'bookmark' ? '찜' : '등록'} 완료!`)
       onRegistered(content)
@@ -272,7 +291,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
 
             <div className="modal-actions" style={{ justifyContent: 'center' }}>
               <button className="btn-text btn-small" onClick={() => { setManual(true); setTitle(query.trim()) }}>
-                찾는 작품이 없나요? 웹툰·웹소설 직접 등록 ›
+                없는 작품 등록하러 가기 ›
               </button>
             </div>
           </>
