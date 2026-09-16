@@ -10,13 +10,12 @@ import { LevelTag } from '@/components/profile/LevelTag'
 import * as DS from '@/api/dataService'
 import { TYPE_LABELS, TALK_LABEL } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
-import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
-import type { Content, ContentType, Discussion, DiscussionComment } from '@/types'
+import type { Content, Discussion, DiscussionComment } from '@/types'
+import { useTmdbFallback, ensureFromTmdb, type TmdbHit } from '@/hooks/useTmdbFallback'
 import { snippet } from '@/utils/postSearch'
 import { boardDate } from '@/utils/helpers'
 import { clickable } from '@/utils/a11y'
 
-type TmdbHit = { r: TmdbResult; type: ContentType }
 /** 네 갈래 결과를 한 줄로 세운 것 — 키보드 이동·선택이 목록을 넘나들 수 있게.
  *  차례는 화면에 그리는 차례와 같아야 한다(작품 → 글 → 댓글 → 아직 등록 안 된 작품). */
 type Item =
@@ -24,16 +23,6 @@ type Item =
   | { kind: 'post'; post: Discussion }
   | { kind: 'comment'; comment: DiscussionComment }
   | { kind: 'tmdb'; hit: TmdbHit }
-
-/** 영화·TV 결과를 번갈아 섞는다 (한쪽이 목록을 다 잡아먹지 않게) */
-function interleave<T>(a: T[], b: T[]): T[] {
-  const out: T[] = []
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    if (a[i]) out.push(a[i])
-    if (b[i]) out.push(b[i])
-  }
-  return out
-}
 
 export function Header() {
   const navigate = useNavigate()
@@ -45,8 +34,6 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
-  const [tmdbHits, setTmdbHits] = useState<TmdbHit[]>([])
-  const [tmdbLoading, setTmdbLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   // 넓은 화면에서만 쓰는 두 드롭다운 (좁은 화면에서는 이 묶음 자체가 CSS 로 숨겨진다)
@@ -61,34 +48,8 @@ export function Header() {
   const posts = useMemo(() => DS.searchDiscussions(searchQuery, 5, { blockedIds }), [searchQuery, blockedIds])
   const comments = useMemo(() => DS.searchDiscussionComments(searchQuery, 3, { blockedIds }), [searchQuery, blockedIds])
 
-  /**
-   * DB에 없는 옛 작품까지 찾도록 TMDB로 한 번 더 검색한다.
-   * 우리 DB는 개봉·공개 캘린더용이라 2026년 작품 위주 — '피의 게임 1~3' 같은 옛 시즌은 여기서 잡힌다.
-   * alive 플래그로 늦게 도착한 이전 입력의 응답이 최신 결과를 덮지 않게 막는다.
-   */
-  useEffect(() => {
-    const q = searchQuery.trim()
-    if (!tmdbEnabled || !isSearchableQuery(q)) { setTmdbHits([]); setTmdbLoading(false); return }
-    let alive = true
-    setTmdbLoading(true)
-    const timer = setTimeout(async () => {
-      try {
-        const [movies, tvs] = await Promise.all([smartSearchTmdb('movie', q), smartSearchTmdb('tv', q)])
-        if (!alive) return
-        const merged = interleave<TmdbHit>(
-          movies.map(r => ({ r, type: 'movie' as ContentType })),
-          tvs.map(r => ({ r, type: tmdbTvType(r.genreIds) })),
-        )
-        // 이미 DB에 있는 작품은 위쪽 로컬 결과에 나오므로 뺀다 (시즌별 행이 있는 경우 포함)
-        setTmdbHits(merged.filter(h => !DS.hasTmdbContent(h.type === 'movie' ? 'movie' : 'tv', h.r.tmdbId, h.r.seasonNumber)).slice(0, 6))
-      } catch {
-        if (alive) setTmdbHits([])   // 실시간이라 키마다 토스트는 안 띄움
-      } finally {
-        if (alive) setTmdbLoading(false)
-      }
-    }, 350)
-    return () => { alive = false; clearTimeout(timer) }
-  }, [searchQuery])
+  // DB 에 없는 옛 작품까지 찾는 TMDB 폴백 — 작품 둘러보기와 같은 것을 쓴다(hooks/useTmdbFallback)
+  const { hits: tmdbHits, loading: tmdbLoading } = useTmdbFallback(searchQuery)
 
   const items: Item[] = [
     ...suggestions.map(content => ({ kind: 'local' as const, content })),
@@ -138,14 +99,7 @@ export function Header() {
     if (registering) return
     setRegistering(true)
     try {
-      const content = await DS.ensureContent({
-        contentId: tmdbContentId(hit.type, hit.r.tmdbId, hit.r.seasonNumber),
-        type: hit.type,
-        title: hit.r.title,
-        posterUrl: hit.r.posterUrl,
-        releaseYear: hit.r.year,
-        synopsis: hit.r.overview,
-      })
+      const content = await ensureFromTmdb(hit)
       closeSearch()
       setSearchQuery('')
       navigate(`/content/${content.id}`)

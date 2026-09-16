@@ -4,9 +4,13 @@
 .cal-wrap { animation: fadeIn 0.25s var(--ease); }
 
 .cal-hero { margin-bottom: 16px; }
+/* 제목 줄 — 오른쪽 끝에 공유. 달 이동 줄에 있을 땐 '오늘' 바로 옆이라
+   달을 바꾸는 버튼처럼 보였다(하는 일이 다르니 자리도 갈라 둔다) */
+.cal-hero-top { display: flex; align-items: center; gap: 10px; }
+.cal-hero-top .cal-share { margin-left: auto; flex-shrink: 0; }
 .cal-hero h1 {
   font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
-  color: var(--text); margin: 0 0 4px;
+  color: var(--text); margin: 0 0 4px; min-width: 0;
 }
 .cal-hero p { font-size: 13px; color: var(--subtext); margin: 0; }
 

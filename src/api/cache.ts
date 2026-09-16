@@ -242,12 +242,28 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   if (error) { console.error('[supabase load] contents window', error.message) }
   const rows = data || []
 
+  /**
+   * 창 밖이지만 **사람이 손댄 작품**은 1단계에 반드시 있어야 한다.
+   *
+   * 화면들이 id → 작품을 찾아 그리는데, 못 찾으면 그 줄을 조용히 버린다
+   * (ProfileShowcase 의 favWorks, MyFeedPage 의 본 작품·찜 …). 2단계가 끝나기 전에
+   * 그 화면을 열면 **등록해 둔 것이 사라진 것처럼 보인다.** 실제로 그랬다 —
+   * 2026-09-16, 인생작품 5편(나의 해방일지·커피프린스·미생·비밀의 숲·곡성)이
+   * 전부 옛 작품이라 창(지난달~두 달 뒤) 밖이었고, "또 없어졌다"가 반복됐다.
+   * 2단계가 끝나면 다시 나타나니 "어쩔 땐 나오고 어쩔 땐 누락"으로 보였다.
+   *
+   * 글·리뷰가 가리키는 작품은 원래 여기서 챙기고 있었다. 본 작품·찜·인생작품이
+   * 빠져 있었을 뿐이다 — 같은 이유로 같이 챙긴다.
+   */
   const have = new Set(rows.map((r: any) => r.id))
   const need = new Set<string>()
-  for (const d of src.discussions) if (d.contentId && !have.has(d.contentId)) need.add(d.contentId)
-  for (const r of src.reviews) if (r.contentId && !have.has(r.contentId)) need.add(r.contentId)
-  const urlId = contentIdFromUrl()
-  if (urlId && !have.has(urlId)) need.add(urlId)
+  const want = (id: string | null | undefined) => { if (id && !have.has(id)) need.add(id) }
+  for (const d of src.discussions) want(d.contentId)
+  for (const r of src.reviews) want(r.contentId)
+  for (const w of src.watched) want(w.contentId)
+  for (const b of src.bookmarks) want(b.contentId)
+  for (const p of src.profiles) for (const id of (p.favoriteWorks || [])) want(id)
+  want(contentIdFromUrl())
 
   if (need.size) rows.push(...await fetchContentsByIds([...need]))
   return dedupeRows('contents', rows)

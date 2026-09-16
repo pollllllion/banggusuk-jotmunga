@@ -8,6 +8,9 @@ import { CONTENT_TYPES, GENRES, TYPE_LABELS } from '@/utils/constants'
 import { originOf, ORIGIN_FILTERS } from '@/utils/origin'
 import { CALENDAR_OTT_FILTERS, OTHER_FILTER, THEATER_FILTER, hasProvider, hasMinorProvider, isTheatricalRelease } from '@/utils/ott'
 import { Seo } from '@/components/seo/Seo'
+import { SearchIcon } from '@/components/ui/Icons'
+import { useToastStore } from '@/components/ui/Toast'
+import { useTmdbFallback, ensureFromTmdb, type TmdbHit } from '@/hooks/useTmdbFallback'
 import type { Content, ContentType } from '@/types'
 
 /**
@@ -75,6 +78,7 @@ function FilterRow({ label, values, options, onToggle, onClear, children }: {
 
 export function BrowsePage() {
   const navigate = useNavigate()
+  const toast = useToastStore(st => st.show)
   const [searchParams, setSearchParams] = useSearchParams()
 
   /** 여러 개를 고를 수 있는 값은 주소에 쉼표로 붙는다 — ?type=movie,drama */
@@ -87,7 +91,10 @@ export function BrowsePage() {
   const statuses = list('status')
   const search = searchParams.get('search') || ''
   // 검색 중엔 사용자가 정렬을 직접 고르기 전까지 관련도 순(searchContents 결과 순서)을 유지한다.
-  const sort = searchParams.get('sort') || (search ? 'relevance' : 'latest')
+  // 기본은 공개연도 순. 예전 기본이던 '최신'은 **우리 표에 등록된 차례**(createdAt)라
+  // 보는 사람에게는 뜻이 없는 순서였다 — 버튼을 빼고 기본에서도 내렸다.
+  // ?sort=latest 로 들어오는 옛 링크는 아래 정렬에서 그대로 받아 준다.
+  const sort = searchParams.get('sort') || (search ? 'relevance' : 'year')
 
   const detailFiltered = Boolean(origins.length || years.length || otts.length || statuses.length)
   /** 상세 필터를 펼쳤나 — 하나라도 걸려 있으면 처음부터 펼친 채로 연다
@@ -108,6 +115,24 @@ export function BrowsePage() {
   const [q, setQ] = useState(search)
   // 주소의 검색어가 밖에서 바뀌면(통합검색에서 들어옴 · 뒤로가기 · 필터가 검색을 지움) 칸도 따라간다
   useEffect(() => { setQ(search) }, [search])
+
+  /** 좁은 화면에서 검색칸을 펼쳤나 — 넓은 화면에서는 늘 펼쳐져 있다(CSS) */
+  const [searchOpen, setSearchOpen] = useState(!!search)
+
+  /**
+   * 우리 표에 **아직 없는 작품**도 보여준다 — 헤더 통합검색과 같은 TMDB 폴백이다.
+   * 여기가 없으면 옛 영화·옛 시즌을 찾을 때 "조건에 맞는 작품이 없습니다" 로 끝났다.
+   * 누르면 그 작품만 우리 표에 만들고 작품방으로 데려간다.
+   */
+  const { hits: tmdbHits, loading: tmdbLoading } = useTmdbFallback(search, 12)
+  const [adding, setAdding] = useState(false)
+  const addTmdb = async (hit: TmdbHit) => {
+    if (adding) return
+    setAdding(true)
+    try { navigate(`/content/${(await ensureFromTmdb(hit)).id}`) }
+    catch (e: any) { toast(e?.message || '작품을 불러오지 못했어요.') }
+    finally { setAdding(false) }
+  }
 
   const runSearch = (value: string) => {
     setQ(value)
@@ -143,7 +168,7 @@ export function BrowsePage() {
   /** 걸린 필터를 한 번에 푼다 — 하나씩 '전체'로 되돌리면 여러 번 눌러야 한다 */
   const clearAll = () => {
     const next = new URLSearchParams()
-    if (sort !== 'latest' && sort !== 'relevance') next.set('sort', sort)
+    if (sort !== 'year' && sort !== 'relevance') next.set('sort', sort)
     setSearchParams(next)
   }
 
@@ -197,6 +222,7 @@ export function BrowsePage() {
   if (sort === 'top') contents = [...contents].sort((a, b) => b.avgRating - a.avgRating)
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
   else if (sort === 'year') contents = [...contents].sort((a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
+  // ?sort=latest (옛 링크) — 등록순. 버튼은 없앴지만 주소로 들어오면 그대로 보여준다
   else if (sort !== 'relevance') contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   const totalPages = Math.max(1, Math.ceil(contents.length / PER_PAGE))
@@ -237,9 +263,19 @@ export function BrowsePage() {
       />
       <div className="feed-header browse-head">
         <h2 className="feed-title">{search ? `"${search}" 검색 결과` : '작품 둘러보기'}</h2>
-        {/* 제목 줄 안, 정렬 왼쪽 — 게시판 검색칸과 같은 자리다.
-            좁은 화면에서는 CSS 가 제 줄로 내린다(손가락이 눌러야 하므로 전체 폭). */}
-        <div className="browse-search">
+        {/* 좁은 화면 전용 돋보기 — '최신'을 뺀 자리다. 검색칸을 늘 펼쳐 두면 한 줄을
+            통째로 먹는데, 여기 와서 제일 먼저 하는 일은 검색이 아니라 목록 훑기다.
+            (게시판 고정 바의 돋보기와 같은 규칙 — 다시 누르면 닫히고 검색어도 비운다) */}
+        <button
+          className={`browse-find ${searchOpen ? 'on' : ''}`}
+          onClick={() => { if (searchOpen) runSearch(''); setSearchOpen(v => !v) }}
+          aria-label={searchOpen ? '검색 닫기' : '작품 검색'}
+          aria-expanded={searchOpen}
+        >
+          <SearchIcon size={17} />
+        </button>
+        {/* 넓은 화면에서는 제목 줄 안, 정렬 왼쪽 — 게시판 검색칸과 같은 자리다 */}
+        <div className={`browse-search ${searchOpen ? 'open' : ''}`}>
           <input
             className="form-input"
             value={q}
@@ -252,8 +288,7 @@ export function BrowsePage() {
           )}
         </div>
         <div className="feed-sort">
-          <button className={sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'latest')}>최신</button>
-          <button className={sort === 'year' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
+          <button className={sort === 'year' || sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setParam('sort', 'top')}>평점순</button>
           <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>리뷰순</button>
         </div>
@@ -329,7 +364,9 @@ export function BrowsePage() {
         </div>
       )}
 
-      {!contents.length ? (
+      {/* 우리 표에 없어도 아래 TMDB 칸이 결과를 들고 있으면 "없습니다" 를 띄우지 않는다 —
+          바로 아래에 고를 것이 여섯 개 있는데 없다고 말하면 앞뒤가 안 맞는다 */}
+      {!contents.length ? (!!search && (tmdbHits.length > 0 || tmdbLoading) ? null : (
         <div className="empty-state fade-in">
           <p>조건에 맞는 작품이 없습니다.</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
@@ -339,7 +376,7 @@ export function BrowsePage() {
             <button className="btn btn-primary btn-small" onClick={() => setRegistering(true)}>＋ 없는 작품 등록</button>
           </div>
         </div>
-      ) : (
+      )) : (
         <>
           <p className="browse-count">
             총 {contents.length.toLocaleString()}편
@@ -350,6 +387,33 @@ export function BrowsePage() {
           </div>
           <Pager page={page} total={totalPages} onGo={goPage} />
         </>
+      )}
+
+      {/* 우리 표에 아직 없는 작품 — 누르면 그 작품만 만들고 작품방으로 간다.
+          검색 중에만 나온다(필터만 걸었을 때 TMDB 를 뒤질 이유가 없다). */}
+      {!!search && (tmdbHits.length > 0 || tmdbLoading) && (
+        <section className="browse-tmdb">
+          <h3>{tmdbLoading && !tmdbHits.length ? '더 찾는 중…' : '아직 등록 안 된 작품'}</h3>
+          <div className="content-grid">
+            {tmdbHits.map(h => (
+              <button
+                key={`tmdb-${h.type}-${h.r.tmdbId}-${h.r.seasonNumber ?? 0}`}
+                className="tmdb-card"
+                onClick={() => addTmdb(h)}
+                disabled={adding}
+              >
+                {h.r.posterUrl
+                  ? <img src={h.r.posterUrl} alt="" loading="lazy" />
+                  : <span className="tmdb-card-noimg">No Image</span>}
+                <span className="tmdb-card-title">{h.r.title}</span>
+                <span className="tmdb-card-meta">
+                  {TYPE_LABELS[h.type] || h.type}{h.r.year ? ` · ${h.r.year}` : ''}
+                  <b> 새로 등록</b>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* 등록하면 그 작품방으로 데려간다 — 넣어 놓고 어디 갔는지 찾게 두지 않는다 */}

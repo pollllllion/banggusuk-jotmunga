@@ -279,7 +279,20 @@ export function CalendarPage() {
     <div className="cal-wrap">
       <Seo path="/" jsonLd={WEBSITE_JSONLD} />
       <div className="cal-hero">
-        <h1>개봉·공개 캘린더</h1>
+        <div className="cal-hero-top">
+          <h1>개봉·공개 캘린더</h1>
+          {/* 공유는 제목 줄 오른쪽 끝. 달 이동 줄에 있을 땐 '오늘' 바로 옆이라
+              달을 바꾸는 버튼처럼 보였다 — 하는 일이 다르니 자리도 갈라 둔다.
+              보고 있는 달을 그대로 공유한다 — ?ym= 덕분에 받은 사람도 같은 달을 연다 */}
+          <ShareButton
+            className="cal-today-btn cal-share"
+            path={sameMonth(cursor, thisMonth) ? '/' : `/?ym=${formatYm(cursor)}`}
+            title={`${cursor.y}년 ${cursor.m + 1}월 개봉·공개 캘린더`}
+            text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 오티티칼`}
+            label={`${cursor.y}년 ${cursor.m + 1}월 캘린더 공유하기`}>
+            공유
+          </ShareButton>
+        </div>
         <p>앞으로 나올 영화·드라마·예능·웹툰·웹소설의 출시일을 한눈에. 찜해두면 공개일에 알려드려요.</p>
       </div>
 
@@ -292,15 +305,6 @@ export function CalendarPage() {
           <button className="cal-navbtn" onClick={() => shift(1)} aria-label="다음 달">›</button>
           <button className="cal-today-btn" onClick={goToday}>오늘</button>
         </div>
-        {/* 보고 있는 달을 그대로 공유한다 — ?ym= 덕분에 받은 사람도 같은 달을 연다 */}
-        <ShareButton
-          className="cal-today-btn cal-share"
-          path={sameMonth(cursor, thisMonth) ? '/' : `/?ym=${formatYm(cursor)}`}
-          title={`${cursor.y}년 ${cursor.m + 1}월 개봉·공개 캘린더`}
-          text={`${cursor.y}년 ${cursor.m + 1}월에 뭐 나오지? — 오티티칼`}
-          label={`${cursor.y}년 ${cursor.m + 1}월 캘린더 공유하기`}>
-          공유
-        </ShareButton>
         {user?.role === 'admin' && (
           <button className="cal-today-btn" style={{ marginLeft: 'auto' }}
             onClick={() => navigate('/admin', { state: { newContent: true } })}>+ 신작 등록</button>
