@@ -18,9 +18,13 @@ export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카�
 
 // ── 왼쪽 사이드바 게시판 (신규 구조) ────────────────────────
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
+/** 토론방의 화면 이름. 사이드바·하단 탭·게시판 제목이 같은 것을 써야 한 곳만 고쳐도 안 갈린다.
+ *  (2026-09-16 '토론방' → '방구석 토론방'. 주소 /talk 와 board='talk' 는 그대로다) */
+export const TALK_LABEL = '방구석 토론방'
+
 export const BOARDS: { slug: string; label: string; path: string }[] = [
   { slug: 'calendar', label: '개봉·공개 캘린더', path: '/' },
-  { slug: 'talk',     label: '토론방',     path: '/talk' },
+  { slug: 'talk',     label: TALK_LABEL,         path: '/talk' },
   { slug: 'relay',    label: '자유방',           path: '/board/relay' },
 ]
 

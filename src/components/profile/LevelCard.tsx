@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { EXPERT_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
 import { LevelGuideModal } from '@/components/profile/LevelGuideModal'
+import { LevelMark } from '@/components/profile/LevelMark'
 import type { User } from '@/types'
 import { clickable } from '@/utils/a11y'
 
@@ -24,7 +25,9 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
     <>
     <div className="level-card clickable fade-in" title="방좋 레벨 시스템 보기" {...clickable(() => setShowGuide(true), '방좋 레벨 시스템 보기')}>
       <div className="level-card-head">
-        <span className="level-emoji" aria-hidden>{expert ? EXPERT_TIER.emoji : level.tier.emoji}</span>
+        {expert
+          ? <span className="level-emoji" aria-hidden>{EXPERT_TIER.emoji}</span>
+          : <LevelMark level={level.tierIndex + 1} big />}
         <div className="level-head-text">
           <div className="level-tier-row">
             <span className="level-tier-name">{expert ? EXPERT_TIER.name : level.tier.name}</span>

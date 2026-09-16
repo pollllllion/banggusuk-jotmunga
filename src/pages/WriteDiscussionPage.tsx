@@ -9,7 +9,7 @@ import { BackIcon } from '@/components/ui/Icons'
 import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { PosterUploader } from '@/components/content/PosterUploader'
-import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
+import { CONTENT_TYPES, TYPE_LABELS, TALK_LABEL } from '@/utils/constants'
 import { normalizeTitle, scoreColor, scoreLabel, sha256hex } from '@/utils/helpers'
 import { richTextToPlain, plainToRichText, extractImageUrls } from '@/utils/richText'
 import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResultType, type TmdbResult } from '@/utils/tmdb'
@@ -43,7 +43,7 @@ export function WriteDiscussionPage() {
   const isFree = board === 'relay'
   /** 목록으로 돌아갈 곳 */
   const boardPath = isFree ? '/board/relay' : '/talk'
-  const boardLabel = isFree ? '자유방' : '토론방'
+  const boardLabel = isFree ? '자유방' : TALK_LABEL
   const [picked, setPicked] = useState<Content | null>(
     editing ? DS.getContentById(editing.contentId) ?? null
       : preselected ? DS.getContentById(preselected) ?? null : null

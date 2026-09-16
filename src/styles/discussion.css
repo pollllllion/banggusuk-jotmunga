@@ -464,6 +464,21 @@
 }
 .level-tag.is-expert { font-size: 12px; }
 
+/* 레벨 숫자 마크 — 1·2·3 (components/profile/LevelMark.tsx).
+   여기만은 배경을 준다: 맨 글자로 두면 닉네임 끝의 숫자인지 배지인지 안 갈린다.
+   단계가 올라갈수록 색이 진해진다 — 색만 봐도 순서가 읽히게. */
+.level-mark {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: var(--radius-round);
+  font-size: 10px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff; background: var(--subtext); cursor: default;
+}
+.level-mark.lv2 { background: var(--info); }
+.level-mark.lv3 { background: var(--accent); }
+/* 레벨 카드·안내처럼 넓은 자리 — 같은 모양을 키운다 */
+.level-mark.big { width: 30px; height: 30px; font-size: 16px; }
+
 /* ══════════════════════════════════════════════════════════════
    모바일 게시판 (디시인사이드 모바일 참고 · 2026-09-10)
    ──────────────────────────────────────────────────────────────

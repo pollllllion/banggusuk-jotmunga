@@ -5,21 +5,17 @@ import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { Avatar } from '@/components/profile/Avatar'
+import { AvatarEditor } from '@/components/profile/AvatarEditor'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { ExpertTag } from '@/components/profile/ExpertTag'
 import { TasteEditModal, type TasteSection } from '@/components/profile/TasteProfile'
 import { FeedBlank } from '@/components/profile/FeedBlank'
+import { ProfileRatings, computeRatings } from '@/components/profile/ProfileRatings'
 import type { WatchedEntry } from '@/components/profile/WatchedShelf'
 import { isExpertAuthor } from '@/utils/level'
 import { scoreColor } from '@/utils/helpers'
-import { TYPE_LABELS } from '@/utils/constants'
 import { clickable } from '@/utils/a11y'
 import type { Content, User } from '@/types'
-
-/** 별점 목록을 처음에 몇 줄만 보여줄지 — 이 화면의 주인공은 취향이지 목록이 아니다 */
-const RATINGS_PREVIEW = 5
-/** '더 보기' 한 번에 늘리는 개수. 수백 개를 한 번에 쏟으면 접기 버튼이 저 아래로 달아난다 */
-const RATINGS_STEP = 20
 
 /**
  * 프로필 전시 — 인생작품 히어로 · 프로필 · 취향 · 매긴 별점 · 많이 본 장르.
@@ -31,18 +27,23 @@ const RATINGS_STEP = 20
  * watched 를 밖에서 받는 이유: 남의 '본 작품'은 캐시에 없어서 화면이 따로 물어온다
  * (UserProfilePage 의 fetchUserWatched). 여기서 캐시를 읽으면 남의 것은 늘 0이 된다.
  */
-export function ProfileShowcase({ user, watched, editable }: {
+export function ProfileShowcase({ user, watched, editable, showRatings = true }: {
   user: User
   /** 이 사람이 본 작품들 (통계·장르 집계용, 목록에서 매긴 별점 포함) */
   watched: WatchedEntry[]
   /** 내 화면인가 — 편집 버튼과 공개 스위치가 붙는다 */
   editable: boolean
+  /**
+   * 매긴 별점 칸을 여기서 그릴지. 내 피드(/feed)는 이 칸을 **찜한 작품 아래**로 내리므로
+   * false 를 주고 직접 <ProfileRatings> 를 그린다 (2026-09-16).
+   * 남의 프로필(/u/:id)은 기본값 그대로 — 남을 읽는 순서는 프로필 → 취향 → 별점이다.
+   */
+  showRatings?: boolean
 }) {
   const navigate = useNavigate()
   const updateProfile = useAuthStore(s => s.updateProfile)
   const toast = useToastStore(s => s.show)
   const [tasteOpen, setTasteOpen] = useState<TasteSection | null>(null)
-  const [shownRatings, setShownRatings] = useState(RATINGS_PREVIEW)
   const [, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
@@ -55,35 +56,14 @@ export function ProfileShowcase({ user, watched, editable }: {
 
   /** 공개 여부. 마이그레이션 전(undefined)이면 공개로 본다.
    *  남에게 감춰진 칸은 지우지 않고 '비공개' 라고 적는다 — 본인은 감춘 것도 봐야 관리할 수 있다. */
-  const ratingsPublic = user.showRatings !== false
   const watchedPublic = user.showWatched !== false
-  const ratingsHidden = !ratingsPublic && !editable
   /** 본 작품이 감춰진 상태 — '무엇을 봤나'(목록·장르)만 가린다. 편수·별점 수·평균은 그대로 둔다 */
   const watchedHidden = !watchedPublic && !editable
 
-  /**
-   * 이 사람이 매긴 별점 — 두 군데서 온다. 1작품 1별점이라 작품당 한 줄이다.
-   *   · 토론글에 단 별점 (글이 있으니 누르면 그 글로 간다)
-   *   · 본 작품 목록에서 바로 매긴 별점 (글이 없으니 작품방으로 간다)
-   * 같은 작품에 둘 다 있으면 **글 쪽이 이긴다** — 작품 평점을 낼 때와 같은 규칙이다
-   * (api/discussions.ts 의 recomputeContentRating, supabase/migration_watched_rating.sql).
-   */
-  const posted = DS.getDiscussionsByAuthor(user.id)
-    .filter(p => p.rating != null)
-    .map(p => ({ key: p.id, postId: p.id, rating: p.rating as number, content: DS.getContentById(p.contentId) }))
-    .filter((x): x is { key: string; postId: string; rating: number; content: Content } => Boolean(x.content))
-  const postedIds = new Set(posted.map(r => r.content.id))
-  const fromWatched = watched
-    .filter(w => w.rating != null && !postedIds.has(w.content.id))
-    .map(w => ({ key: w.content.id, postId: undefined as string | undefined, rating: w.rating as number, content: w.content }))
-  const ratings = [...posted, ...fromWatched].sort((a, b) => b.rating - a.rating)
-  const avgRating = ratings.length
-    ? Math.round((ratings.reduce((s, r) => s + r.rating, 0) / ratings.length) * 10) / 10
-    : 0
-  // 본 작품을 비공개로 둔 사람의 목록 별점은 **줄로 보여주지 않는다** — 작품 이름이 곧 본 목록이다.
-  // 다만 위 ratings/avgRating(숫자)에는 그대로 남는다: 감추는 건 '무엇'이지 '얼마나'가 아니다.
-  const listRatings = watchedHidden ? ratings.filter(r => r.postId) : ratings
-  const hiddenRatings = ratings.length - listRatings.length
+  /** 매긴 별점 — 숫자 칸(별점 N · 평균)과 아래 목록이 **같은 계산**을 보게 한 번만 센다.
+   *  내 피드에서는 목록이 찜한 작품 아래로 내려가 멀리 떨어지므로 더욱 그래야 한다. */
+  const ratingsData = computeRatings(user, watched, editable)
+  const { ratings, avgRating } = ratingsData
 
   /** 본 작품에서 세어 낸 장르 순위 — 입력 없이 나오는 취향 신호. 상위 4개만 */
   const genreRanks = (() => {
@@ -129,14 +109,6 @@ export function ProfileShowcase({ user, watched, editable }: {
     finally { setFollowBusy(false) }
   }
 
-  const togglePublic = async () => {
-    try {
-      await updateProfile({ showRatings: !ratingsPublic })
-      toast(!ratingsPublic ? '공개로 바꿨어요.' : '비공개로 바꿨어요.')
-      rerender()
-    } catch { toast('설정을 저장하지 못했어요.') }
-  }
-
   return (
     <>
       {/* ── 히어로: 인생작품이 배경이 된다 ─────────────────────
@@ -167,7 +139,11 @@ export function ProfileShowcase({ user, watched, editable }: {
 
       {/* ── 프로필: 히어로 위로 걸친다 ───────────────────────── */}
       <div className="feed-profile">
-        <Avatar src={user.avatarUrl} name={user.nickname} size={72} />
+        {/* 내 화면에서는 사진을 여기서 바로 바꾼다 — 사진을 고치자고 '내 정보'로 건너가지 않는다.
+            남의 프로필에서는 그냥 그림이다(같은 자리·같은 크기). */}
+        {editable
+          ? <AvatarEditor size={72} onChanged={rerender} />
+          : <Avatar src={user.avatarUrl} name={user.nickname} size={72} />}
         <div className="feed-profile-name">
           <span className="feed-profile-nick">{user.nickname}</span>
           {isExpertAuthor(user.id) ? <ExpertTag authorId={user.id} /> : <LevelTag authorId={user.id} />}
@@ -224,61 +200,9 @@ export function ProfileShowcase({ user, watched, editable }: {
 
       {/* ── 매긴 별점 ─────────────────────────────────────────
           점수 높은 순. 별점은 토론글에 딸린 값이라 줄을 누르면 그 글로 간다.
-          내 화면에서는 비어 있어도 칸을 남긴다 — 자리가 아예 없으면 있는지도 모른다. */}
-      <section className="feed-sec">
-          <div className="feed-sec-head">
-            <h3>{editable ? '내가 매긴 별점' : '매긴 별점'}{!ratingsHidden && ratings.length > 0 && ` ${ratings.length}`}</h3>
-            <span className="feed-sec-right">
-              {!ratingsHidden && listRatings.length > 0 && <span className="feed-sec-note">높은 순</span>}
-              {editable ? (
-                <button
-                  className={`feed-public ${ratingsPublic ? 'on' : ''}`}
-                  onClick={togglePublic}
-                  title={ratingsPublic ? '남에게 보입니다. 누르면 비공개로 바꿔요' : '나만 봅니다. 누르면 공개로 바꿔요'}
-                >{ratingsPublic ? '공개' : '비공개'}</button>
-              ) : ratingsHidden ? <span className="feed-private">비공개</span> : null}
-            </span>
-          </div>
-          {ratingsHidden ? (
-            <FeedBlank>이 사람이 별점을 비공개로 뒀어요.</FeedBlank>
-          ) : !listRatings.length ? (
-            <div className="feed-ratings feed-ratings-empty">
-              <p>{hiddenRatings > 0 ? `본 작품을 비공개로 둬서 별점 ${hiddenRatings}개를 목록에서 감췄어요.` : '아직 매긴 별점이 없어요.'}</p>
-              {editable && <p className="sub">본 작품 목록에서 <b>별점</b>을 누르거나, 작품에 글을 쓸 때 별점을 달면 여기에 모입니다.</p>}
-            </div>
-          ) : (
-            <>
-              <div className="feed-ratings">
-                {listRatings.slice(0, shownRatings).map(({ key, postId, rating, content }) => (
-                  <div
-                    key={key}
-                    className="feed-rating"
-                    {...clickable(() => navigate(postId ? `/talk/${postId}` : `/content/${content.id}?tab=talk`), content.title)}
-                  >
-                    <div className="feed-rating-poster"><Poster content={content} showScore={false} showVerified={false} /></div>
-                    <div className="feed-rating-info">
-                      <div className="feed-rating-title">{content.title}</div>
-                      <div className="feed-rating-meta">{TYPE_LABELS[content.type]}{content.releaseYear ? ` · ${content.releaseYear}` : ''}</div>
-                    </div>
-                    <span className="feed-rating-score" style={{ background: scoreColor(rating) }}>{rating}</span>
-                  </div>
-                ))}
-              </div>
-              {/* 감춘 것이 있으면 왜 목록이 짧은지 말해 준다 — 위 숫자(별점 N)와 안 맞아 보이니까 */}
-              {hiddenRatings > 0 && (
-                <p className="feed-ratings-note">본 작품을 비공개로 둬서 {hiddenRatings}개는 목록에서 감췄어요.</p>
-              )}
-              {listRatings.length > shownRatings && (
-                <button className="feed-more" onClick={() => setShownRatings(n => n + RATINGS_STEP)}>
-                  {Math.min(RATINGS_STEP, listRatings.length - shownRatings)}개 더 보기 (남은 {listRatings.length - shownRatings})
-                </button>
-              )}
-              {shownRatings > RATINGS_PREVIEW && (
-                <button className="feed-more" onClick={() => setShownRatings(RATINGS_PREVIEW)}>접기</button>
-              )}
-            </>
-          )}
-        </section>
+          내 화면에서는 비어 있어도 칸을 남긴다 — 자리가 아예 없으면 있는지도 모른다.
+          내 피드는 이 칸을 찜한 작품 아래에서 직접 그린다(showRatings={false}). */}
+      {showRatings && <ProfileRatings user={user} watched={watched} editable={editable} data={ratingsData} />}
 
       {/* ── 많이 본 장르 ───────────────────────────────────────
           본 작품에서 세어 낸 값이라 손댈 게 없다 — 취향 칩(고른 것)과 섞지 않고 따로 세운다.

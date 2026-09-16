@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { computeSeasonRanking, computeOverallRanking, EXPERT_TIER, type SeasonEntry } from '@/utils/level'
+import { LevelMark } from '@/components/profile/LevelMark'
 import { Seo } from '@/components/seo/Seo'
 import { clickable } from '@/utils/a11y'
 
@@ -21,7 +22,7 @@ function RankRow({ e, i, me, unit, navigate }: {
         <span className="ranking-tier">
           {e.expert
             ? <>{EXPERT_TIER.emoji} {EXPERT_TIER.name}</>
-            : <>{e.level.tier.emoji} {e.level.tier.name} · Lv.{e.level.tierIndex + 1}</>}
+            : <><LevelMark level={e.level.tierIndex + 1} /><span>{e.level.tier.name} · Lv.{e.level.tierIndex + 1}</span></>}
         </span>
       </div>
       <span className="ranking-score"><b>{e.score}</b><small>{unit}</small></span>

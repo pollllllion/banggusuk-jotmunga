@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/authStore'
 import { LEVEL_TIERS, EXPERT_TIER, LONG_POST_MIN, XP_RULE, ANTIABUSE, QUALITY_CURVE, type LevelInfo } from '@/utils/level'
+import { LevelMark } from '@/components/profile/LevelMark'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /**
@@ -38,7 +39,7 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
         <div className="lg-tiers">
           {LEVEL_TIERS.map((t, i) => (
             <div key={t.name} className={`lg-tier ${!isExpert && i === currentTierIndex ? 'cur' : ''}`}>
-              <span className="lg-tier-emoji">{t.emoji}</span>
+              <span className="lg-tier-emoji"><LevelMark level={i + 1} big /></span>
               <span className="lg-tier-lv">Lv.{i + 1}</span>
               <span className="lg-tier-name">{t.name}</span>
               {isAdmin && <span className="lg-tier-xp">{t.min.toLocaleString()} XP</span>}

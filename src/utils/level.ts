@@ -21,11 +21,14 @@ import type { User } from '@/types'
 
 // ── 튜닝 상수 (서비스 규모에 맞춰 조정) ──────────────────────
 /** 활동 레벨 티어 — 총 XP 기준. min 이상이면 해당 티어.
- *  그 위 '좋문가'는 XP 가 아니라 관리자 지정이라 여기 없다(EXPERT_TIER). */
+ *  그 위 '좋문가'는 XP 가 아니라 관리자 지정이라 여기 없다(EXPERT_TIER).
+ *
+ *  2026-09-16 — 티어마다 갖고 있던 emoji 를 뺐다. 화면에는 단계 번호(1·2·3)를
+ *  그린다(components/profile/LevelMark.tsx). 여기 차례가 곧 번호다. */
 export const LEVEL_TIERS = [
-  { name: '백수', min: 0,  emoji: '🛋️' },
-  { name: '한량', min: 25, emoji: '🎏' },
-  { name: '여포', min: 90, emoji: '⚔️' },
+  { name: '백수', min: 0 },
+  { name: '한량', min: 25 },
+  { name: '여포', min: 90 },
 ] as const
 export type Tier = (typeof LEVEL_TIERS)[number]
 

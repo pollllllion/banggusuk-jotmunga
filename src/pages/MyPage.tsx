@@ -1,17 +1,15 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
-import { Avatar } from '@/components/profile/Avatar'
+import { AvatarEditor } from '@/components/profile/AvatarEditor'
 import { LevelCard } from '@/components/profile/LevelCard'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
 import { Seo } from '@/components/seo/Seo'
-import { uploadAvatar } from '@/utils/talkMedia'
-import { AvatarCropModal } from '@/components/profile/AvatarCropModal'
 import { fullDateTime } from '@/utils/helpers'
-import { SettingsIcon, CameraIcon } from '@/components/ui/Icons'
-import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { SettingsIcon } from '@/components/ui/Icons'
+import { TALK_LABEL } from '@/utils/constants'
 import { clickable } from '@/utils/a11y'
 
 /** 내 정보 안의 칸들. 주소에 남기지 않는다 — 남에게 보낼 화면이 아니다(내 것만 보인다) */
@@ -47,12 +45,6 @@ export function MyPage() {
   const [editingNick, setEditingNick] = useState(false)
   const [nick, setNick] = useState(user?.nickname || '')
   const [busy, setBusy] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  // 사진 배지를 누르면 열리는 시트 (카메라/앨범 · 사진 삭제 · 취소)
-  const [sheetOpen, setSheetOpen] = useState(false)
-  /** 자르기 창에 올라가 있는 그림. 확인해야 올라간다 */
-  const [cropFile, setCropFile] = useState<File | null>(null)
-  useEscapeKey(sheetOpen, () => setSheetOpen(false))
   // LevelCard 는 계산 결과를 기억한다 — 프로필을 고친 뒤 다시 세게 하려고 바꿔 준다
   const [tick, setTick] = useState(0)
 
@@ -104,42 +96,6 @@ export function MyPage() {
       .filter((r): r is Row => !!r),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 
-  /** 고른 그림은 바로 올리지 않고 자르기 창으로 넘긴다 — 어떻게 잘릴지 보고 정한다 */
-  const pickAvatar = (file: File | null | undefined) => {
-    setSheetOpen(false)
-    if (!file) return
-    if (!isAccount) { toast('프로필 사진은 로그인(고정닉) 후 바꿀 수 있어요.'); return }
-    if (!file.type.startsWith('image/')) { toast('이미지 파일만 올릴 수 있어요.'); return }
-    setCropFile(file)
-  }
-
-  /** 자르기 창에서 확인한 그림을 올리고 저장한다 */
-  const saveAvatar = async (cropped: File) => {
-    setCropFile(null)
-    setBusy(true)
-    try {
-      const url = await uploadAvatar(cropped, { alreadySquare: true })
-      await updateProfile({ avatarUrl: url })
-      toast('프로필 사진을 바꿨어요.')
-    } catch (e: any) {
-      toast(e?.message || '사진을 올리지 못했어요.')
-    } finally {
-      setBusy(false); setTick(t => t + 1)
-    }
-  }
-
-  const removeAvatar = async () => {
-    setSheetOpen(false)
-    if (!user.avatarUrl) return
-    if (!confirm('프로필 사진을 삭제할까요?')) return
-    setBusy(true)
-    // 버킷의 파일 자체는 지우지 않는다 — 같은 주소를 옛 화면이 아직 들고 있을 수 있고,
-    // 지운다고 눈에 띄게 아끼는 용량도 아니다(256px webp).
-    try { await updateProfile({ avatarUrl: null }); toast('프로필 사진을 지웠어요.') }
-    catch { toast('처리하지 못했어요.') }
-    finally { setBusy(false); setTick(t => t + 1) }
-  }
-
   const saveNick = async () => {
     const v = nick.trim()
     if (!v) { toast('닉네임을 입력하세요.'); return }
@@ -169,41 +125,10 @@ export function MyPage() {
     <>
       <Seo title="내 정보" noindex />
 
-      {/* 사진 배지에서 여는 시트. 폰에서는 아래에서 올라오고, 넓은 화면에서는 가운데에 뜬다.
-          '사진 삭제'는 올린 사진이 있을 때만 — 지울 게 없는데 지우기를 내놓지 않는다. */}
-      {sheetOpen && (
-        <div className="sheet-overlay" onClick={e => { if (e.target === e.currentTarget) setSheetOpen(false) }}>
-          <div className="sheet" role="dialog" aria-label="프로필 사진">
-            <div className="sheet-group">
-              <button className="sheet-item" onClick={() => fileRef.current?.click()}>카메라/앨범</button>
-              {user.avatarUrl && (
-                <button className="sheet-item danger" onClick={removeAvatar}>사진 삭제</button>
-              )}
-            </div>
-            <button className="sheet-item sheet-cancel" onClick={() => setSheetOpen(false)}>취소</button>
-          </div>
-        </div>
-      )}
-
-      {cropFile && (
-        <AvatarCropModal file={cropFile} onCancel={() => setCropFile(null)} onDone={saveAvatar} />
-      )}
-
       {/* ── 프로필 ─────────────────────────────────────────── */}
       <div className="me-card fade-in">
-        <div className="me-avatar">
-          <Avatar src={user.avatarUrl} name={user.nickname} size={72} />
-          {/* 사진 오른쪽 아래 카메라 배지 — 누르면 아래에서 시트가 올라온다.
-              글자 링크를 사진 밑에 늘어놓는 것보다, 사진 위에 얹힌 배지가 '이 사진을 바꾼다'를
-              바로 말한다. 등록/삭제 중 무엇을 할지는 시트에서 고른다. */}
-          {isAccount && (
-            <button className="me-avatar-cam" onClick={() => setSheetOpen(true)} disabled={busy} aria-label="프로필 사진 바꾸기">
-              <CameraIcon size={15} />
-            </button>
-          )}
-          <input ref={fileRef} type="file" accept="image/*" hidden
-            onChange={e => { pickAvatar(e.target.files?.[0]); e.target.value = '' }} />
-        </div>
+        {/* 사진·카메라 배지·시트·자르기 창은 한 벌뿐이다 — 내 피드(/feed)도 같은 것을 쓴다 */}
+        <AvatarEditor className="me-avatar" size={72} onChanged={() => setTick(t => t + 1)} />
 
         <div className="me-ident">
           {editingNick ? (
@@ -254,7 +179,7 @@ export function MyPage() {
         !posts.length ? (
           <div className="empty-state fade-in">
             <p>아직 쓴 글이 없어요.</p>
-            <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => navigate('/talk')}>토론방 가기</button>
+            <button className="btn btn-primary" style={{ marginTop: 12 }} onClick={() => navigate('/talk')}>{TALK_LABEL} 가기</button>
           </div>
         ) : (
           <div className="disc-board fade-in">

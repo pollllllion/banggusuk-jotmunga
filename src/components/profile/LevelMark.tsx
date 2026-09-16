@@ -1,0 +1,23 @@
+/**
+ * 레벨 숫자 마크 — 1 · 2 · 3.
+ *
+ * 2026-09-16 — 티어 이모지(🛋️ 🎏 ⚔️)를 걷어냈다. 그림 셋이 서로 안 닮아서
+ * "몇 단계인지"가 한눈에 안 들어왔다 — 소파와 잉어와 칼 사이에는 순서가 없다.
+ * 숫자는 12px 로 줄여도 순서가 그대로 읽힌다. 등급 이름은 툴팁에 있다.
+ *
+ * 마지막 칸(좋문가 👑)은 그림 그대로 둔다 — 그건 4단계가 아니라 **다른 종류**의 표시다.
+ * 숫자를 붙이면 "XP 로 오를 수 있는 다음 칸"처럼 보인다.
+ */
+export function LevelMark({ level, big, title }: {
+  /** 1부터 시작하는 단계 번호 (tierIndex + 1) */
+  level: number
+  /** 레벨 카드·안내처럼 넓은 자리에서 쓰는 큰 마크 */
+  big?: boolean
+  title?: string
+}) {
+  return (
+    <span className={`level-mark lv${level}${big ? ' big' : ''}`} title={title}>
+      {level}
+    </span>
+  )
+}

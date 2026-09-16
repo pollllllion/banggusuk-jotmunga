@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import { CalendarIcon, CommentIcon, GridIcon, PlusIcon, UserIcon } from '@/components/ui/Icons'
+import { TALK_LABEL } from '@/utils/constants'
 import { clickable } from '@/utils/a11y'
 
 /**
@@ -26,7 +27,7 @@ export function MobileNav() {
         <CalendarIcon />캘린더
       </div>
       <div className={`mobile-nav-item ${talkActive ? 'active' : ''}`} aria-current={talkActive ? 'page' : undefined} {...clickable(() => navigate('/talk'))}>
-        <CommentIcon size={20} />토론방
+        <CommentIcon size={20} />{TALK_LABEL}
       </div>
       <button className="mobile-nav-write" onClick={() => navigate('/talk/write')} aria-label="토론글 쓰기">
         <PlusIcon size={22} />

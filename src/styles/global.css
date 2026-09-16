@@ -876,6 +876,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
     display: flex; flex-direction: column; align-items: center; gap: 1px;
     font-size: 10px; color: var(--subtext); cursor: pointer;
     flex: 1; min-width: 0; padding: 4px 2px; transition: var(--duration) var(--ease);
+    /* '방구석 토론방' 처럼 띄어쓰기가 있는 이름이 두 줄로 접히면 탭 높이가 들쭉날쭉해진다 */
+    white-space: nowrap;
   }
   .mobile-nav-item.active { color: var(--primary); font-weight: 700; }
   .mobile-nav-item svg { width: 20px; height: 20px; }
@@ -1207,7 +1209,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .ranking-main { flex: 1 1 auto; min-width: 0; }
 .ranking-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ranking-name { font-size: 14px; font-weight: 700; color: var(--text); }
-.ranking-tier { display: block; font-size: 12px; color: var(--subtext); margin-top: 2px; }
+/* 숫자 마크가 글자와 같은 줄에서 가운데 맞도록 inline-flex (앞은 block 이었다) */
+.ranking-tier { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--subtext); margin-top: 2px; }
 .ranking-score { flex: 0 0 auto; font-size: 12px; color: var(--subtext); }
 .ranking-score b { font-size: 18px; font-weight: 800; color: var(--primary); margin-right: 2px; }
 .ranking-row.linkable { cursor: pointer; transition: border-color var(--duration) var(--ease); }
@@ -1700,6 +1703,10 @@ p.content-synopsis .sk-line { display: block; }
   background: var(--card); border: 1px solid var(--border-light);
   border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 12px;
 }
+/* 바꿀 수 있는 프로필 사진 (components/profile/AvatarEditor.tsx).
+   카메라 배지가 이 상자를 기준으로 오른쪽 아래에 붙으므로 position 이 필요하다.
+   내 정보는 여기에 .me-avatar 를 덧붙여 쓴다(아래) — 내 피드는 클래스 없이 쓴다. */
+.avatar-edit { position: relative; display: inline-flex; flex-shrink: 0; }
 .me-avatar { position: relative; flex-shrink: 0; text-align: center; }
 /* 사진 오른쪽 아래 카메라 배지 — 누르면 시트가 열린다 */
 .me-avatar-cam {
@@ -1881,6 +1888,10 @@ p.content-synopsis .sk-line { display: block; }
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
 .feed-profile .avatar { margin-top: -34px; border: 3px solid var(--card); }
+/* 내 피드에서는 사진이 AvatarEditor 에 한 겹 싸여 있다 — 카드 위로 걸치는 몫을
+   바깥 상자가 대신 진다(안쪽 사진까지 또 올리면 두 번 올라간다). */
+.feed-profile .avatar-edit { margin-top: -34px; }
+.feed-profile .avatar-edit .avatar { margin-top: 0; }
 .feed-profile-name { display: flex; align-items: center; gap: 6px; }
 .feed-profile-nick { font-size: 19px; font-weight: 800; color: var(--heading); }
 .feed-bio {
@@ -2007,6 +2018,14 @@ p.content-synopsis .sk-line { display: block; }
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md);
 }
 .feed-more:hover { border-color: var(--text-secondary); color: var(--text); }
+
+/* 찜 화면으로 들어가는 길. '전체 보기'(.feed-more)와 나란히 서면 안 되므로
+   알약이 아니라 글자 링크로 둔다 — 펼치기와 화면 이동은 같은 무게가 아니다. */
+.feed-bookmarks-link {
+  display: block; width: 100%; margin-top: 6px; padding: 4px;
+  font-size: 12px; color: var(--subtext); background: none; text-align: center;
+}
+.feed-bookmarks-link:hover { color: var(--text-secondary); text-decoration: underline; }
 
 /* 많이 본 장르 — 본 작품에서 세어 낸 값. 막대는 1위 대비 비율이다 */
 .feed-genres {
@@ -2147,7 +2166,8 @@ p.content-synopsis .sk-line { display: block; }
 }
 .follow-row:last-child { border-bottom: none; }
 .follow-row:hover { background: var(--bg); }
-.follow-row-poster { width: 34px; flex-shrink: 0; }
+/* .follow-row-poster 는 2026-09-16 에 없앴다 — 별점 단 글에만 포스터가 붙어서
+   줄 높이가 제각각이었고, 글 목록인지 작품 목록인지 한눈에 안 갈렸다. */
 .follow-row-main { flex: 1; min-width: 0; }
 .follow-row-who { display: flex; align-items: center; gap: 5px; margin-bottom: 3px; }
 .follow-row-who .disc-author { font-size: 11.5px; font-weight: 700; color: var(--text-secondary); }
