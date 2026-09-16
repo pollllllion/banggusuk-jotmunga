@@ -185,6 +185,18 @@ export function UserIcon({ size = 20 }: IconProps) {
   )
 }
 
+/** 두 사람 — '관심 피드'(남들의 활동)용. 한 사람(UserIcon)은 '내 피드'가 쓴다.
+ *  둘이 같은 칸에 나란히 서므로 아이콘이 서로 달라야 한다. */
+export function PeopleIcon({ size = 20 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="9" cy="8" r="3.4"/><circle cx="17.2" cy="9" r="2.5"/>
+      <path d="M2.6 20c0-3.3 2.9-5 6.4-5s6.4 1.7 6.4 5"/>
+      <path d="M17.6 15.2c2.3.3 3.8 1.8 3.8 4.1"/>
+    </svg>
+  )
+}
+
 /** 프로필 사진 바꾸기 배지에 쓰는 카메라 */
 export function CameraIcon({ size = 15 }: IconProps) {
   return (

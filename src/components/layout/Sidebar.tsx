@@ -9,7 +9,7 @@ import { LevelTag } from '@/components/profile/LevelTag'
 import { TALK_LABEL } from '@/utils/constants'
 import {
   BellIcon, BookmarkIcon, CalendarIcon, CommentIcon, DocumentIcon, GridIcon,
-  LogoutIcon, SettingsIcon, ShieldIcon, StarIcon, UserIcon,
+  LogoutIcon, PeopleIcon, SettingsIcon, ShieldIcon, StarIcon, UserIcon,
 } from '@/components/ui/Icons'
 import { clickable } from '@/utils/a11y'
 
@@ -84,7 +84,7 @@ export function Sidebar() {
   ]
   const mine: Row[] = [
     { path: '/feed', icon: <UserIcon size={17} />, label: '내 피드' },
-    { path: '/follows', icon: <GridIcon size={17} />, label: '관심 피드' },
+    { path: '/follows', icon: <PeopleIcon size={17} />, label: '관심 피드' },
     { path: '/bookmarks', icon: <BookmarkIcon size={17} />, label: '찜한 작품' },
   ]
   const settings: Row[] = [
