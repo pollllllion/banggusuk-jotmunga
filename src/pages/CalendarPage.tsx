@@ -511,7 +511,7 @@ export function CalendarPage() {
                 label={`'${selected.title}' 공유하기`}
               />
               <button className="cal-act primary" onClick={() => navigate(`/content/${selected.id}`)}>
-                <CommentIcon /> 작품방 들어가기
+                <CommentIcon /> 작품방
               </button>
             </div>
             {user?.role === 'admin' && (
