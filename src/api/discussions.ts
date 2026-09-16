@@ -11,6 +11,7 @@ import { cache, load, store, SaveFailedError } from './cache'
 import { buildNotification, insertNotifications } from './social'
 import { getUserById } from './users'
 import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notify'
+import { scorePost } from '@/utils/postSearch'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
 export function saveDiscussions(d: Discussion[]) { return store('discussions', d) }
@@ -28,6 +29,49 @@ export function getDiscussionsByContent(contentId: string): Discussion[] {
 
 export function getDiscussionsByAuthor(authorId: string): Discussion[] {
   return getDiscussions().filter(d => d.authorId === authorId)
+}
+
+/** 검색에서 빼야 할 사람 — 차단한 계정의 글·댓글은 결과에도 안 나온다 */
+export interface SearchOpts { blockedIds?: string[] }
+
+function isBlocked(authorId: string | null, blockedIds?: string[]): boolean {
+  return !!authorId && !!blockedIds?.includes(authorId)
+}
+
+/**
+ * 글 검색 (제목 + 본문) — 통합검색 창과 통합검색 화면이 같이 쓴다.
+ *
+ * 글·댓글은 캐시(1단계 로드)에 통째로 들어와 있어 서버를 다시 부르지 않는다.
+ * 매칭 규칙은 utils/postSearch.ts 한 곳에 있다 — 창과 화면이 다른 결과를 내면 안 된다.
+ * 점수가 같으면 최신 글이 먼저다(같은 말이 걸렸다면 새 얘기가 쓸모 있다).
+ */
+export function searchDiscussions(query: string, limit = 8, opts?: SearchOpts): Discussion[] {
+  const q = query.trim()
+  if (!q) return []
+  const hits: { d: Discussion; score: number }[] = []
+  for (const d of getDiscussions()) {
+    if (isBlocked(d.authorId, opts?.blockedIds)) continue
+    const score = scorePost(q, d.title, d.body)
+    if (score) hits.push({ d, score })
+  }
+  hits.sort((a, b) => b.score - a.score || new Date(b.d.createdAt).getTime() - new Date(a.d.createdAt).getTime())
+  return hits.slice(0, limit).map(h => h.d)
+}
+
+/**
+ * 댓글 검색 (본문) — 글 제목에는 없는 말이 댓글에서 오갈 때가 있다.
+ * 지워진 자리(deleted)와 원글이 사라진 댓글은 뺀다 — 눌러도 갈 곳이 없다.
+ */
+export function searchDiscussionComments(query: string, limit = 5, opts?: SearchOpts): DiscussionComment[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return []
+  const posts = new Set(getDiscussions().map(d => d.id))
+  return getDiscussionComments()
+    .filter(c => !c.deleted && posts.has(c.discussionId) &&
+      !isBlocked(c.authorId, opts?.blockedIds) &&
+      (c.body || '').toLowerCase().includes(q))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit)
 }
 
 /** 이 작성자가 이 작품에 이미 별점을 매겼는지 — 1작품 1별점 중복 방지용. */

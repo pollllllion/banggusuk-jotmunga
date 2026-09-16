@@ -28,6 +28,7 @@ import { ContentDetailPage } from '@/pages/ContentDetailPage'
 const AuthPage = lazy(() => import('@/pages/AuthPage').then(m => ({ default: m.AuthPage })))
 const WriteDiscussionPage = lazy(() => import('@/pages/WriteDiscussionPage').then(m => ({ default: m.WriteDiscussionPage })))
 const BoardPage = lazy(() => import('@/pages/BoardPage').then(m => ({ default: m.BoardPage })))
+const SearchPage = lazy(() => import('@/pages/SearchPage').then(m => ({ default: m.SearchPage })))
 const FollowFeedPage = lazy(() => import('@/pages/FollowFeedPage').then(m => ({ default: m.FollowFeedPage })))
 const MyPage = lazy(() => import('@/pages/MyPage').then(m => ({ default: m.MyPage })))
 const MyFeedPage = lazy(() => import('@/pages/MyFeedPage').then(m => ({ default: m.MyFeedPage })))
@@ -101,6 +102,8 @@ export default function App() {
                 <Route path="/talk/write" element={<WriteDiscussionPage />} />
                 <Route path="/talk/:id" element={<DiscussionDetailPage />} />
                 <Route path="/browse" element={<BrowsePage />} />
+                {/* 통합검색 — 헤더 검색창 엔터가 오는 곳 (작품 + 게시글 + 댓글) */}
+                <Route path="/search" element={<SearchPage />} />
                 <Route path="/curation" element={<CurationListPage />} />
                 <Route path="/curation/:id" element={<CurationDetailPage />} />
                 <Route path="/board/:slug" element={<BoardPage />} />

@@ -8,15 +8,22 @@ import { NotificationList } from '@/components/notification/NotificationList'
 import { Avatar } from '@/components/profile/Avatar'
 import { LevelTag } from '@/components/profile/LevelTag'
 import * as DS from '@/api/dataService'
-import { TYPE_LABELS } from '@/utils/constants'
+import { TYPE_LABELS, TALK_LABEL } from '@/utils/constants'
 import { useToastStore } from '@/components/ui/Toast'
 import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
-import type { Content, ContentType } from '@/types'
+import type { Content, ContentType, Discussion, DiscussionComment } from '@/types'
+import { snippet } from '@/utils/postSearch'
+import { boardDate } from '@/utils/helpers'
 import { clickable } from '@/utils/a11y'
 
 type TmdbHit = { r: TmdbResult; type: ContentType }
-/** 로컬 결과 + TMDB 결과를 한 줄로 세운 것 — 키보드 이동·선택이 두 목록을 넘나들 수 있게 */
-type Item = { kind: 'local'; content: Content } | { kind: 'tmdb'; hit: TmdbHit }
+/** 네 갈래 결과를 한 줄로 세운 것 — 키보드 이동·선택이 목록을 넘나들 수 있게.
+ *  차례는 화면에 그리는 차례와 같아야 한다(작품 → 글 → 댓글 → 아직 등록 안 된 작품). */
+type Item =
+  | { kind: 'local'; content: Content }
+  | { kind: 'post'; post: Discussion }
+  | { kind: 'comment'; comment: DiscussionComment }
+  | { kind: 'tmdb'; hit: TmdbHit }
 
 /** 영화·TV 결과를 번갈아 섞는다 (한쪽이 목록을 다 잡아먹지 않게) */
 function interleave<T>(a: T[], b: T[]): T[] {
@@ -48,7 +55,11 @@ export function Header() {
   const acctRef = useRef<HTMLDivElement>(null)
 
   // 로컬 캐시(DS.getContents) 기준이라 디바운스 없이 키 입력마다 즉시 계산해도 충분히 가볍다.
-  const suggestions = useMemo(() => DS.searchContents(searchQuery, 6), [searchQuery])
+  // 글·댓글도 같은 캐시에 통째로 들어와 있어 서버를 다시 부르지 않는다.
+  const blockedIds = useMemo(() => (user ? DS.getBlockedIds(user.id) : []), [user])
+  const suggestions = useMemo(() => DS.searchContents(searchQuery, 5), [searchQuery])
+  const posts = useMemo(() => DS.searchDiscussions(searchQuery, 5, { blockedIds }), [searchQuery, blockedIds])
+  const comments = useMemo(() => DS.searchDiscussionComments(searchQuery, 3, { blockedIds }), [searchQuery, blockedIds])
 
   /**
    * DB에 없는 옛 작품까지 찾도록 TMDB로 한 번 더 검색한다.
@@ -81,6 +92,8 @@ export function Header() {
 
   const items: Item[] = [
     ...suggestions.map(content => ({ kind: 'local' as const, content })),
+    ...posts.map(post => ({ kind: 'post' as const, post })),
+    ...comments.map(comment => ({ kind: 'comment' as const, comment })),
     ...tmdbHits.map(hit => ({ kind: 'tmdb' as const, hit })),
   ]
 
@@ -106,10 +119,18 @@ export function Header() {
     navigate(`/content/${c.id}`)
   }
 
-  const goBrowse = () => {
+  /** 글·댓글로 이동 — 자유방 글도 상세는 /talk/:id 다 */
+  const goPost = (discussionId: string) => {
+    closeSearch()
+    setSearchQuery('')
+    navigate(`/talk/${discussionId}`)
+  }
+
+  /** 엔터·맨 아래 줄 — 작품만 있는 /browse 가 아니라 통합검색 화면으로 간다 */
+  const goSearchAll = () => {
     if (!searchQuery.trim()) return
     closeSearch()
-    navigate(`/browse?search=${encodeURIComponent(searchQuery.trim())}`)
+    navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`)
   }
 
   /** TMDB 결과 클릭 — 그 작품만 DB에 만들고(이미 있으면 그대로) 상세로 이동 */
@@ -135,7 +156,12 @@ export function Header() {
     }
   }
 
-  const pick = (item: Item) => item.kind === 'local' ? goContent(item.content) : goTmdb(item.hit)
+  const pick = (item: Item) => {
+    if (item.kind === 'local') return goContent(item.content)
+    if (item.kind === 'post') return goPost(item.post.id)
+    if (item.kind === 'comment') return goPost(item.comment.discussionId)
+    return goTmdb(item.hit)
+  }
 
   const handleSearchKey = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' && items.length) {
@@ -147,7 +173,7 @@ export function Header() {
     } else if (e.key === 'Enter') {
       // 화살표로 고른 작품이 있으면 바로 그 작품으로, 없으면 전체 검색 결과로
       if (activeIdx >= 0 && items[activeIdx]) pick(items[activeIdx])
-      else goBrowse()
+      else goSearchAll()
     } else if (e.key === 'Escape') {
       closeSearch()
     }
@@ -172,7 +198,7 @@ export function Header() {
             <SearchIcon />
             <input
               type="text"
-              placeholder="작품 검색"
+              placeholder="작품·글·댓글 검색"
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSuggestOpen(true) }}
               onFocus={() => setSuggestOpen(true)}
@@ -185,6 +211,9 @@ export function Header() {
 
           {suggestOpen && searchQuery.trim() && (
             <div className="search-suggest">
+              {/* 갈래마다 제목을 붙인다 — 한 창에서 작품·글·댓글이 섞여 나오므로,
+                  제목이 없으면 지금 보는 줄이 어느 갈래인지 알 수 없다 */}
+              {suggestions.length > 0 && <div className="search-suggest-head first">작품</div>}
               {suggestions.map((c, i) => (
                 <div
                   key={c.id}
@@ -207,6 +236,60 @@ export function Header() {
                 </div>
               ))}
 
+              {/* ── 게시글 (제목 + 본문) ────────────────────────────
+                  작품만 찾던 창을 통합검색으로 넓힌 자리다. 사람이 찾는 말은 작품 이름만이
+                  아니다 — "결말", "떡밥" 처럼 글에서만 오가는 말이 더 많다. */}
+              {posts.length > 0 && <div className="search-suggest-head">게시글</div>}
+              {posts.map((p, i) => {
+                const idx = suggestions.length + i
+                return (
+                  <div
+                    key={p.id}
+                    className={`search-suggest-item is-text ${idx === activeIdx ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => goPost(p.id)}
+                  >
+                    <div className="s-info">
+                      <div className="s-title">{p.title || snippet(p.body, searchQuery, 20)}</div>
+                      <div className="s-meta">
+                        <span className="s-board">{(p.board || 'talk') === 'relay' ? '자유방' : TALK_LABEL}</span>
+                        {/* 왜 이 글이 걸렸는지 — 검색어가 나온 자리를 잘라 보여 준다 */}
+                        <span className="s-snip">{snippet(p.body, searchQuery, 24)}</span>
+                        <span className="s-date">{boardDate(p.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* ── 댓글 ───────────────────────────────────────────
+                  글 제목에는 없는 말이 댓글에서 오갈 때가 있다. 누르면 그 글로 간다. */}
+              {comments.length > 0 && <div className="search-suggest-head">댓글</div>}
+              {comments.map((c, i) => {
+                const idx = suggestions.length + posts.length + i
+                const parent = DS.getDiscussions().find(d => d.id === c.discussionId)
+                return (
+                  <div
+                    key={c.id}
+                    className={`search-suggest-item is-text ${idx === activeIdx ? 'active' : ''}`}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => goPost(c.discussionId)}
+                  >
+                    <div className="s-info">
+                      <div className="s-title">{snippet(c.body, searchQuery, 24)}</div>
+                      <div className="s-meta">
+                        {/* 위 칸 제목이 이미 '댓글'이라 여기 또 쓰지 않는다 — 어느 게시판 글에 달린 건지를 말한다 */}
+                        <span className="s-board">{(parent?.board || 'talk') === 'relay' ? '자유방' : TALK_LABEL}</span>
+                        <span className="s-snip">{parent?.title || snippet(parent?.body || '', searchQuery, 16)}</span>
+                        <span className="s-date">{boardDate(c.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+
               {/* 우리 DB에 아직 없는 옛 작품 — 누르면 그 작품만 등록하고 상세로 간다 */}
               {(tmdbHits.length > 0 || tmdbLoading) && (
                 <div className="search-suggest-head">
@@ -214,7 +297,7 @@ export function Header() {
                 </div>
               )}
               {tmdbHits.map((hit, i) => {
-                const idx = suggestions.length + i
+                const idx = suggestions.length + posts.length + comments.length + i
                 return (
                   <div
                     key={`tmdb-${hit.r.tmdbId}-${hit.type}`}
@@ -239,11 +322,11 @@ export function Header() {
               })}
 
               {!items.length && !tmdbLoading && (
-                <div className="search-suggest-empty">검색 결과가 없어요. 제목 일부만 쳐보세요.</div>
+                <div className="search-suggest-empty">검색 결과가 없어요. 작품 이름이나 글에 나올 법한 말을 쳐보세요.</div>
               )}
 
-              <div className="search-suggest-all" onMouseDown={e => e.preventDefault()} onClick={goBrowse}>
-                '{searchQuery.trim()}' 전체 검색 결과 보기 →
+              <div className="search-suggest-all" onMouseDown={e => e.preventDefault()} onClick={goSearchAll}>
+                '{searchQuery.trim()}' 통합 검색 결과 보기 →
               </div>
             </div>
           )}

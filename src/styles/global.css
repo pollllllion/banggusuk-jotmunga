@@ -88,7 +88,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .search-wrap { position: relative; }
 .search-suggest {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
-  width: 340px; max-width: calc(100vw - 24px); max-height: 62vh; overflow-y: auto;
+  /* 작품만 담던 때는 340px 이었다. 글·댓글의 발췌가 한 줄에 들어가야 해서 넓혔다 */
+  width: 400px; max-width: calc(100vw - 24px); max-height: 62vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl); padding: 4px;
 }
@@ -2494,4 +2495,54 @@ button.watched-rate:hover:not(.on) { border-color: var(--text-secondary); color:
 @media (max-width: 768px) {
   .topnav { display: none; }
   .header-acct { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   통합검색 (2026-09-16)
+   ──────────────────────────────────────────────────────────────
+   헤더 검색창이 작품만 찾던 것을 작품 + 게시글 + 댓글로 넓혔다.
+   사람이 검색창에 치는 말은 작품 이름만이 아니다 — "결말", "떡밥" 처럼
+   글에서만 오가는 말로 찾으면 예전에는 늘 0건이었다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 드롭다운의 글·댓글 줄 ────────────────────────────────
+   작품 줄과 달리 포스터가 없다. 그림 자리를 비워 두면 왼쪽에 빈 칸이 생기므로
+   글자가 왼쪽 끝부터 쓰게 한다(.is-text). */
+.search-suggest-item.is-text { align-items: flex-start; padding: 8px; }
+.search-suggest-item.is-text .s-info { flex: 1; }
+.search-suggest-item .s-meta { display: flex; align-items: baseline; gap: 6px; }
+/* 어느 게시판 글인가 — 목록의 말머리와 같은 뜻이다 */
+.search-suggest-item .s-board { flex: 0 0 auto; font-weight: 700; color: var(--text-secondary); }
+/* 검색어가 나온 자리를 잘라 온 조각 — 왜 이게 걸렸는지 알려 준다 */
+.search-suggest-item .s-snip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-suggest-item .s-date { flex: 0 0 auto; }
+/* 첫 칸 제목은 위 테두리·여백을 뺀다 — 목록 맨 위에 선이 뜨면 종이가 끊겨 보인다 */
+.search-suggest-head.first { margin-top: 0; border-top: 0; padding-top: 4px; }
+
+/* ── 통합검색 결과 화면 (/search) ────────────────────────── */
+.sr-sec { margin-bottom: 26px; }
+.sr-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.sr-head h3 { font-size: 15px; font-weight: 800; color: var(--text); }
+.sr-count { font-size: 13px; font-weight: 700; color: var(--subtext); margin-left: 4px; }
+.sr-more { margin-left: auto; background: none; font-size: 12.5px; font-weight: 600; color: var(--link); cursor: pointer; }
+.sr-more:hover { text-decoration: underline; }
+
+/* 댓글은 글 목록의 표로 못 그린다 — 제목이 없어 열을 채울 것이 없다.
+   '무슨 말을 했나'를 한 줄로 보여주고, 어느 글에 달린 것인지 아래 붙인다. */
+.sr-comments { background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); overflow: hidden; }
+.sr-comment {
+  display: flex; gap: 10px; padding: 11px 14px; cursor: pointer;
+  border-bottom: 1px solid var(--border-light); transition: background var(--duration) var(--ease);
+}
+.sr-comment:last-child { border-bottom: 0; }
+.sr-comment:hover { background: var(--bg); }
+.sr-comment-body { min-width: 0; flex: 1; }
+.sr-comment-who { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--subtext); }
+.sr-comment-name { font-weight: 700; color: var(--text-secondary); }
+.sr-comment-date { margin-left: auto; flex-shrink: 0; }
+.sr-comment-text { margin-top: 3px; font-size: 13.5px; color: var(--text); line-height: 1.5; word-break: break-word; }
+/* 어느 글에 달린 댓글인지 — 누르면 가는 곳이 여기다 */
+.sr-comment-on {
+  margin-top: 4px; font-size: 11.5px; color: var(--subtext);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
