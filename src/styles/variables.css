@@ -17,11 +17,20 @@
   --emphasis: #18181B;       /* 선택된 칩·D-DAY 배지 같은 강조 '배경' */
   --on-emphasis: #FFFFFF;    /* 그 배경 위의 글자 */
   --warm: #6B7280;
-  --bg: #F7F7F8;
+  /* ⚠️ --bg 는 **페이지 배경이 아니라 '연한 채움'** 이다 — 표 머리·달력 요일 띠·검색창
+     바탕 등 72곳이 이 값을 쓴다. 페이지 배경은 아래 --page 다.
+     (2026-09-16 개편에서 --bg 를 흰색으로 올렸다가 그 72곳이 통째로 흰색이 돼 되돌렸다) */
+  --bg: #F4F4F6;
+  /* 페이지 배경 — 2026-09-16 개편에서 흰색으로. 카드 테두리를 걷었으므로(--card-border)
+     배경과 카드가 같은 흰색이고, 구분은 여백과 줄이 맡는다 */
+  --page: #FFFFFF;
   --card: #FFFFFF;
-  --text: #27272A;
-  --text-secondary: #52525B;
-  --subtext: #A1A1AA;
+  /* 글자 계단 — 2026-09-16 개편에서 통째로 한 단 진하게 내렸다. 회색이 옅어서
+     본문 옆 글자들이 흐릿해 보였다. 셋의 차례(진함 → 옅음)는 지켜야 한다:
+     본문 > 보조 본문 > 메타. subtext 가 text-secondary 보다 진하면 계단이 뒤집힌다. */
+  --text: #1F1F23;
+  --text-secondary: #3A3A41;
+  --subtext: #4A4A52;
   --border: #E4E4E7;
   --border-light: #F1F1F3;
   --success: #16A34A;
@@ -50,6 +59,11 @@
      (색이 아니라 치수라 다크 블록에서는 다시 정의하지 않는다) */
   --shell-max: 1000px;
 
+  /* 헤더 높이 — 상단 메뉴 띠가 이 값 아래에 붙고(.topnav top), 본문이 그만큼 내려온다
+     (.layout margin-top = 헤더 + 띠 44px). 셋이 따로 적혀 있으면 하나만 고쳐져
+     헤더가 본문을 덮거나 빈 띠가 생긴다 — 한 값만 본다. */
+  --header-h: 76px;
+
   /* 점수 색상 */
   --score-high: #16A34A;
   --score-mid: #2563EB;
@@ -60,13 +74,28 @@
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
   --shadow-lg: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.04);
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.06);
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* 모서리 — 2026-09-16 개편에서 **각지게** 내렸다(디자인 실험실에서 고른 값).
+     둥근사각 프레임이 화면마다 반복되면서 모든 것이 같은 무게의 상자로 보였다.
+     lg 가 md 보다 작으면 이상하므로 계단을 통째로 눕혔다. 알약(-full)은 남겨 둔다 —
+     아바타·배지처럼 정말 둥글어야 하는 것들이 쓴다. */
+  --radius-xs: 2px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 4px;
   --radius-full: 9999px;
   --radius-round: 50%;
+
+  /* ── 2026-09-16 개편 토큰 ────────────────────────────────
+     ① 필터 칩 — filter-btn · cal-chip · feed-typefilter 가 각자 다른 모양이었다.
+        한 값을 보게 해서 네 벌이 다시 갈라지지 않게 한다. */
+  --chip-radius: 0px;
+  /* ② 카드 테두리·그림자 — 상자를 걷고 **여백**으로 나눈다.
+        안쪽 구분선(표의 행, 달력 칸)은 그대로 둔다. 그건 상자가 아니라 줄이다. */
+  --card-border: none;
+  --card-shadow: none;
+  /* ③ 게시판 한 줄 높이 — 낮추면 한 화면에 글이 더 들어온다 */
+  --board-row: 28px;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --duration: 0.15s;
 }
@@ -98,11 +127,15 @@
     --emphasis: #E4E4E7;      /* 강조 배경은 뒤집힌다 — 어두운 화면에 어두운 칩은 안 보인다 */
     --on-emphasis: #18181B;
 
-    --bg: #131316;
-    --card: #1C1C20;
-    --text: #E8E8EA;
-    --text-secondary: #B4B4BC;
-    --subtext: #8A8A93;
+    /* --bg 는 '연한 채움'(표 머리·달력 요일 띠 …). 어두운 쪽에서는 바탕보다 **밝아야** 보인다 */
+    --bg: #232329;
+    /* 페이지와 카드는 같은 색 — 라이트에서 테두리를 걷은 것과 같은 규칙이다 */
+    --page: #1A1A1E;
+    --card: #1A1A1E;
+    /* 어두운 쪽은 반대로 **밝게** 올린다 — 같은 이유(흐릿함)의 반대편이다 */
+    --text: #F2F2F4;
+    --text-secondary: #D2D2D8;
+    --subtext: #BFBFC7;
     --border: #34343B;
     --border-light: #26262C;
 
@@ -145,11 +178,12 @@
   --emphasis: #E4E4E7;
   --on-emphasis: #18181B;
 
-  --bg: #131316;
-  --card: #1C1C20;
-  --text: #E8E8EA;
-  --text-secondary: #B4B4BC;
-  --subtext: #8A8A93;
+  --bg: #232329;
+  --page: #1A1A1E;
+  --card: #1A1A1E;
+  --text: #F2F2F4;
+  --text-secondary: #D2D2D8;
+  --subtext: #BFBFC7;
   --border: #34343B;
   --border-light: #26262C;
 

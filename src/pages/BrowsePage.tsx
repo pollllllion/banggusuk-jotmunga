@@ -91,10 +91,9 @@ export function BrowsePage() {
   const statuses = list('status')
   const search = searchParams.get('search') || ''
   // 검색 중엔 사용자가 정렬을 직접 고르기 전까지 관련도 순(searchContents 결과 순서)을 유지한다.
-  // 기본은 공개연도 순. 예전 기본이던 '최신'은 **우리 표에 등록된 차례**(createdAt)라
-  // 보는 사람에게는 뜻이 없는 순서였다 — 버튼을 빼고 기본에서도 내렸다.
-  // ?sort=latest 로 들어오는 옛 링크는 아래 정렬에서 그대로 받아 준다.
-  const sort = searchParams.get('sort') || (search ? 'relevance' : 'year')
+  // 기본은 평점순. ('최신'은 우리 표에 등록된 차례(createdAt)라 보는 사람에게 뜻이 없어
+  //  버튼과 기본에서 둘 다 내렸다. ?sort=latest 옛 링크는 아래 정렬이 그대로 받는다.)
+  const sort = searchParams.get('sort') || (search ? 'relevance' : 'top')
 
   const detailFiltered = Boolean(origins.length || years.length || otts.length || statuses.length)
   /** 상세 필터를 펼쳤나 — 하나라도 걸려 있으면 처음부터 펼친 채로 연다
@@ -168,7 +167,7 @@ export function BrowsePage() {
   /** 걸린 필터를 한 번에 푼다 — 하나씩 '전체'로 되돌리면 여러 번 눌러야 한다 */
   const clearAll = () => {
     const next = new URLSearchParams()
-    if (sort !== 'year' && sort !== 'relevance') next.set('sort', sort)
+    if (sort !== 'top' && sort !== 'relevance') next.set('sort', sort)
     setSearchParams(next)
   }
 
@@ -219,7 +218,12 @@ export function BrowsePage() {
 
   let contents = (search ? DS.searchContents(search, Infinity) : all).filter(passes)
 
-  if (sort === 'top') contents = [...contents].sort((a, b) => b.avgRating - a.avgRating)
+  // 평점순 — 별점이 달린 작품은 2,421편 중 33편뿐이라, 동점(0점) 뒤가 아무 차례나 되면
+  // 첫 화면이 무작위로 보인다. 리뷰 수 → 공개연도로 한 번 더 갈라 준다.
+  if (sort === 'top') contents = [...contents].sort((a, b) =>
+    b.avgRating - a.avgRating ||
+    (b.reviewCount ?? 0) - (a.reviewCount ?? 0) ||
+    (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
   else if (sort === 'year') contents = [...contents].sort((a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
   // ?sort=latest (옛 링크) — 등록순. 버튼은 없앴지만 주소로 들어오면 그대로 보여준다
@@ -288,8 +292,8 @@ export function BrowsePage() {
           )}
         </div>
         <div className="feed-sort">
-          <button className={sort === 'year' || sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setParam('sort', 'top')}>평점순</button>
+          <button className={sort === 'year' || sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
           <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>리뷰순</button>
         </div>
       </div>

@@ -96,9 +96,12 @@
 .disc-searchbar-count { font-size: 12px; color: var(--subtext); white-space: nowrap; }
 
 /* ── 게시판 목록 (디시 스타일) ── */
+/* 바깥 상자는 --card-border 로(2026-09-16 개편에서 '없음'). 목록을 감싸던 테두리가
+   사라져도 안쪽 행 구분선과 머리 띠가 남아 표로 읽힌다. */
 .disc-board {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-xs);
+  background: var(--card); border: var(--card-border);
+  border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--card-shadow);
+  border-top: 1px solid var(--border);
 }
 /* ── 목록 행 · 말머리형 고정 컬럼 ─────────────────────────────
    [작품(말머리)] [제목+댓글수] [글쓴이] [조회] [날짜]
@@ -106,7 +109,7 @@
    flex 였을 땐 작품명 길이에 따라 오른쪽이 줄마다 밀렸다(디시·클리앙은 전부 고정 폭). */
 .disc-row {
   display: grid; grid-template-columns: minmax(0, 1fr) 82px 40px 54px;
-  align-items: center; gap: 8px; padding: 6px 11px; cursor: pointer;
+  align-items: center; gap: 8px; padding: 0 4px; min-height: var(--board-row); cursor: pointer;
   font-size: 12.5px;
   border-bottom: 1px solid var(--border-light); transition: background var(--duration) var(--ease);
 }
@@ -120,6 +123,7 @@
   cursor: default; background: var(--bg);
   border-bottom: 1px solid var(--border);
   font-size: 10.5px; font-weight: 800; color: var(--subtext); letter-spacing: .03em;
+  text-align: center;
 }
 .disc-row-head:hover { background: var(--bg); }
 /* 제목 — 행 크기(12.5px)를 그대로 쓴다. 크기가 아니라 **색**으로 구분한다:
@@ -158,27 +162,32 @@
   margin-left: 5px; font-size: 11.5px; font-weight: 800; color: var(--link);
   font-variant-numeric: tabular-nums;
 }
+/* ── 열 정렬 (2026-09-16) ────────────────────────────────
+   **제목만 왼쪽, 나머지는 가운데.** 말머리·글쓴이·조회·날짜는 열 폭이 고정이라
+   가운데로 모으면 줄마다 같은 자리에 오고, 눈이 세로로 훑기 쉬워진다.
+   제목만 왼쪽인 이유는 길이가 제각각이라 가운데 정렬하면 시작점이 줄마다 달라져서다. */
 .disc-row-views {
-  font-size: 11px; color: var(--subtext); text-align: right;
+  font-size: 11px; color: var(--subtext); text-align: center;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 /* 작품명 = 말머리. 제목 왼쪽 고정 폭 열에 놓는다 — 눌러서 그 작품 글만 모아보는
    동작까지 디시 말머리와 같다. 예전엔 오른쪽 끝 알약 칩이라 제목과 멀리 떨어져 있었다. */
 .disc-row-work {
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: center;
   color: var(--link); font-weight: 700; font-size: 11px; cursor: pointer;
   transition: color var(--duration) var(--ease);
 }
 .disc-row-work:hover { color: var(--link-dark); text-decoration: underline; }
 /* 닉네임 — 열이 좁아서 그냥 두면 두 줄로 접힌다. 한 줄로 잠그고 넘치면 … 로 자른다.
    (min-width:0 이 없으면 grid 아이템이 내용 폭만큼 버텨서 ellipsis 가 안 걸린다) */
-.disc-row .disc-writer { min-width: 0; overflow: hidden; }
+.disc-row .disc-writer { min-width: 0; overflow: hidden; justify-content: center; }
 .disc-row .disc-author {
   font-size: 11.5px; font-weight: 600; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .disc-row .disc-time {
-  font-size: 11px; text-align: right; white-space: nowrap;
+  font-size: 11px; text-align: center; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -778,7 +787,10 @@
      한 번 더 크게 쓰면, 화면 맨 위 두 줄이 같은 글자로 채워져 글이 그만큼 아래로 밀린다.
      그래서 좁은 화면에서만 이 제목을 접는다 — 넓은 화면에는 고정 바가 없으므로 그대로 둔다. */
   .disc-head .feed-title { display: none; }
-  .disc-head { gap: 8px; margin-bottom: 12px; }
+  /* 아래 여백은 **타입 칩 쪽으로 옮긴다.** 자유방에는 칩이 없어서 좁은 화면의 .disc-head 가
+     통째로 비는데(제목·검색창·글쓰기가 다 접힌다), 여기에 margin 이 남아 있으면
+     고정 바 바로 아래에 빈 띠가 생겼다. 비면 자리도 안 차지해야 한다. */
+  .disc-head { gap: 8px; margin-bottom: 0; }
 
   /* 타입 칩은 한 줄로 두고 옆으로 민다 (2026-09-16).
      8개가 두 줄로 접히면 머리가 그만큼 높아져 첫 글이 화면 밖으로 나갔다.
@@ -789,6 +801,8 @@
     flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
     margin: 0 -12px; padding: 0 12px;
   }
+  /* 탭 줄의 아래 선이 곧 목록의 윗선이다 — 목록에도 윗선을 두면 2px 로 겹친다 */
+  .disc-board { border-top: 0; }
   .disc-head .feed-typefilter::-webkit-scrollbar { display: none; }
   .disc-head .feed-typefilter button { flex: 0 0 auto; }
 

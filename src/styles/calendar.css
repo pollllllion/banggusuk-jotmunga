@@ -49,7 +49,7 @@
 }
 .cal-today-btn:hover { background: var(--primary-50); }
 
-.cal-filters { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.cal-filters { display: flex; gap: 0; margin-left: auto; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
 
 /* 2차 필터(공개상태 + OTT) */
 .cal-subfilters {
@@ -58,18 +58,25 @@
 }
 .cal-subfilters .cal-filters { margin-left: 0; }
 .cal-ott-filters { flex: 1; }
-.cal-chip.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+/* 캘린더 필터 — 종류·OTT 둘 다 **하나만 고르는 줄**이라 밑줄 탭(A)을 쓴다.
+   .cal-filters / .cal-ott-filters 가 각각 아래 줄을 갖는다(아래 규칙). */
+.cal-chip.sm { height: 28px; padding: 0 10px; font-size: 12px; }
 .cal-chip {
-  height: 30px; padding: 0 12px; border-radius: var(--radius-full);
-  border: 1px solid var(--border); background: var(--card);
-  font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
-  cursor: pointer; transition: all var(--duration) var(--ease);
+  position: relative; margin-bottom: -1px;
+  height: 32px; padding: 0 12px; border: 0; background: none;
+  font-size: 12.5px; font-weight: 600; color: var(--subtext);
+  cursor: pointer; transition: color var(--duration) var(--ease);
 }
-.cal-chip:hover { border-color: var(--primary-light); }
-.cal-chip.active { background: var(--emphasis); color: var(--on-emphasis); border-color: var(--emphasis); }
+.cal-chip:hover { color: var(--text); }
+.cal-chip.active { color: var(--heading); font-weight: 800; }
+.cal-chip.active::after {
+  content: ''; position: absolute; left: 8px; right: 8px; bottom: 0;
+  height: 2px; background: var(--heading);
+}
 
 /* 달력 그리드 */
-.cal-grid { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); }
+/* 바깥 상자는 --card-border 로. 안쪽 칸 구분선은 그대로 둔다 — 그건 상자가 아니라 줄이다 */
+.cal-grid { background: var(--card); border: var(--card-border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--card-shadow); }
 .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--border); }
 .cal-weekdays div {
   padding: 10px 0; text-align: center; font-size: 12px; font-weight: 700;
@@ -379,6 +386,9 @@
 
 /* ── ② [찜] 토글 ───────────────────────────────────────── */
 .cal-favbtn { display: inline-flex; align-items: center; gap: 4px; }
+/* 북마크 아이콘은 앰버 — 달력에서 찜한 날을 칠하는 색(.cal-cell.has-fav)과 같다.
+   버튼과 그 결과가 같은 색을 쓰면 "이 버튼이 저 노란 날들을 남긴다"가 읽힌다. */
+.cal-favbtn svg { color: var(--accent); }
 .cal-favbtn.on {
   background: var(--primary); border-color: var(--primary); color: #fff;
 }
