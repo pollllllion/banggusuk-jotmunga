@@ -19,7 +19,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { personaByKey } from './personas.mjs'
+import { resolvePersona } from './personas.mjs'
 
 const URL = process.env.VITE_SUPABASE_URL
 const ANON = process.env.VITE_SUPABASE_ANON_KEY
@@ -132,8 +132,8 @@ for (const [i, item] of queue.entries()) {
   const label = `#${i + 1}`
   if (item.postedId) { skipped++; continue }
 
-  const persona = personaByKey(item.as)
-  const acc = accounts[item.as]
+  const persona = resolvePersona(item.as)
+  const acc = persona ? accounts[persona.key] : null
   if (!persona || !acc?.id) { console.error(`${label} ✖ 모르는 페르소나: ${item.as}`); failed++; continue }
 
   try {
@@ -150,7 +150,7 @@ for (const [i, item] of queue.entries()) {
       }
       console.log(`${label} 댓글 · ${persona.nick} → "${(r.post.title || r.post.body || '').slice(0, 20)}"`)
       if (DRY) continue
-      const jwt = await login(item.as)
+      const jwt = await login(persona.key)
       const res = await fetch(`${URL}/rest/v1/discussion_comments`, { method: 'POST', headers: userH(jwt), body: JSON.stringify(row) })
       if (!res.ok) { console.error(`   ✖ 실패 ${res.status} ${(await res.text()).slice(0, 160)}`); failed++; continue }
       item.postedId = row.id
@@ -175,7 +175,7 @@ for (const [i, item] of queue.entries()) {
     }
     console.log(`${label} 글 · ${persona.nick} → ${c.content.title}${rating != null ? ` (★${rating})` : ''}`)
     if (DRY) continue
-    const jwt = await login(item.as)
+    const jwt = await login(persona.key)
     const res = await fetch(`${URL}/rest/v1/discussions`, { method: 'POST', headers: userH(jwt), body: JSON.stringify(row) })
     if (!res.ok) { console.error(`   ✖ 실패 ${res.status} ${(await res.text()).slice(0, 160)}`); failed++; continue }
     item.postedId = row.id

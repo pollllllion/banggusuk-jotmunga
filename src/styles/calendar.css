@@ -93,7 +93,9 @@
   overflow: hidden;
 }
 .cal-cell:nth-child(7n) { border-right: none; }
-.cal-cell.empty { background: var(--bg); }
+/* 달 앞뒤로 남는 빈칸 — 회색(--bg)으로 깔면 달력에 얼룩이 생긴다.
+   날짜가 없다는 건 숫자가 비어 있는 것으로 이미 보인다. 바탕색 그대로 둔다. */
+.cal-cell.empty { background: var(--page); }
 .cal-cell.has-items { cursor: pointer; transition: background var(--duration) var(--ease); }
 .cal-cell.has-items:hover { background: var(--primary-50); }
 .cal-daynum { font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 2px; }

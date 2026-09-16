@@ -559,9 +559,9 @@
 .disc-row-likes { display: none; }
 
 /* 읽은 글 — 목록을 다시 훑을 때 어디까지 봤는지 색으로 안다 (utils/readPosts.ts).
-   제목만 회색으로 내린다. 안 읽은 줄이 진하게 남는 게 목적이지 읽은 줄을 지우는 게 아니다. */
-.disc-row.is-read .disc-row-title { color: var(--subtext); font-weight: 500; }
-.disc-row.is-read .disc-row-cc { color: var(--subtext); }
+   제목만 보라로 바꾼다. 회색으로 내렸더니 유동닉 회색 표기와 헷갈렸다.
+   댓글 수는 건드리지 않는다 — 그 파랑은 "댓글이 있다"는 뜻이지 읽음 여부가 아니다. */
+.disc-row.is-read .disc-row-title { color: var(--visited); font-weight: 500; }
 
 /* 고정 헤더와 하단 입력 바는 좁은 화면 전용이다 — 넓은 화면에는 붙일 자리도 이유도 없다.
    반면 아래 두 가지(댓글 정렬·이전글/다음글)는 폭과 상관없이 쓸모가 있어 양쪽에 켠다. */
