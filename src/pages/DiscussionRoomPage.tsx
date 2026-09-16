@@ -6,6 +6,7 @@ import * as DS from '@/api/dataService'
 import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import { promoteTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
+import { BOARD_SEO } from '@/shared/boards.mjs'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
 import { TALK_LABEL, BOARD_PER_PAGE, TRENDING_LIMIT, TRENDING_MIN_POSTS } from '@/utils/constants'
@@ -94,11 +95,8 @@ export function DiscussionRoomPage() {
 
   return (
     <>
-      <Seo
-        path="/talk"
-        title="토론방"
-        description="영화·드라마·예능·웹툰·웹소설 이야기를 나누는 게시판. 공개 전 기대평부터 방금 본 작품 잡담까지, 눈치 안 보고 떠드는 토론방."
-      />
+      {/* 제목·설명은 프리렌더와 같은 곳에서 가져온다 — 여기만 고치면 검색 결과 제목이 갈린다 */}
+      <Seo path={BOARD_SEO.talk.path} title={BOARD_SEO.talk.title} description={BOARD_SEO.talk.description} />
       {/* 좁은 화면에서 스크롤해도 위에 붙는 머리.
           칸 이름은 이제 안 띄운다 — 목록이 하나뿐이라 알려 줄 '어느 칸'이 없다. */}
       <BoardTopbar

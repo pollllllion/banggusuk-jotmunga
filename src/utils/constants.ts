@@ -1,4 +1,5 @@
 import type { ContentType } from '@/types'
+import { TALK_LABEL } from '@/shared/boards.mjs'
 
 // ── 컨텐츠 타입 ─────────────────────────────────────────────
 export const CONTENT_TYPES: { code: ContentType; label: string }[] = [
@@ -36,9 +37,10 @@ export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카�
 
 // ── 왼쪽 사이드바 게시판 (신규 구조) ────────────────────────
 // slug: 라우팅 식별자, path: 이동 경로 (영화·드라마는 기존 게시판 뷰 재사용)
-/** 토론방의 화면 이름. 사이드바·하단 탭·게시판 제목이 같은 것을 써야 한 곳만 고쳐도 안 갈린다.
- *  (2026-09-16 '토론방' → '방구석 토론방'. 주소 /talk 와 board='talk' 는 그대로다) */
-export const TALK_LABEL = '방구석 토론방'
+/** 토론방의 화면 이름. 정의는 `src/shared/boards.mjs` 에 있다 —
+ *  프리렌더(.mjs)도 같은 값을 써야 검색 결과 제목과 화면 이름이 안 갈린다(불변식 ④).
+ *  여기서는 기존 import 경로를 유지하려고 다시 내보내기만 한다. */
+export { TALK_LABEL }
 
 // ── 게시판 목록 규칙 ────────────────────────────────────────
 // 토론방 · 자유방 · 작품방이 **같은 값을 쓴다**. 세 곳에 따로 적어 두면 한 곳만 고치고

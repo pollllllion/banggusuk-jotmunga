@@ -6,6 +6,7 @@ import { DiscussionRow, DiscussionRowHead } from '@/components/content/Discussio
 import { BOARDS, BOARD_PER_PAGE, TRENDING_LIMIT, TRENDING_MIN_POSTS } from '@/utils/constants'
 import { promoteTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
+import { BOARD_SEO } from '@/shared/boards.mjs'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
 import '@/styles/discussion.css'
@@ -54,11 +55,8 @@ export function FreeBoardPage() {
 
   return (
     <>
-      <Seo
-        path="/board/relay"
-        title="자유방"
-        description="작품 얘기가 아니어도 괜찮은 오티티칼 자유 게시판. 뭘 볼지 묻고, 방금 본 걸 떠들고, 아무 말이나 남기는 곳."
-      />
+      {/* 제목·설명은 프리렌더와 같은 곳에서 가져온다 — 여기만 고치면 검색 결과 제목이 갈린다 */}
+      <Seo path={BOARD_SEO.relay.path} title={BOARD_SEO.relay.title} description={BOARD_SEO.relay.description} />
       {/* 자유방은 칸이 하나뿐이라 뛰어갈 곳이 없다 — 제목만 붙여 둔다 */}
       <BoardTopbar
         title={board ? board.label : '자유방'}
