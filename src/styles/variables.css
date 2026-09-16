@@ -39,6 +39,11 @@
   --lv-2: #9CC4F5;
   --lv-3: #CB9EDE;
 
+  /* 서랍 머리 블록 — 로고·알림·설정·프로필을 묶는 진한 띠.
+     아래 흰 목록과 색으로 갈려서 '나에 관한 것'과 '갈 곳'이 한눈에 나뉜다. */
+  --sb-top: #18181B;
+  --sb-top-fg: #FFFFFF;
+
   /* 점수 색상 */
   --score-high: #16A34A;
   --score-mid: #2563EB;
@@ -103,6 +108,10 @@
     --lv-2: #6E9ED8;
     --lv-3: #A874C0;
 
+    /* 바탕(#131316)보다 살짝 밝아야 '블록'으로 읽힌다 — 같으면 띠가 사라진다 */
+    --sb-top: #26262D;
+    --sb-top-fg: #F4F4F5;
+
     --success-light: #14331F;
     --danger-light: #3A1B1B;
     --info-light: #16233D;
@@ -144,6 +153,9 @@
   --lv-1: #7FB862;
   --lv-2: #6E9ED8;
   --lv-3: #A874C0;
+
+  --sb-top: #26262D;
+  --sb-top-fg: #F4F4F5;
 
   --success-light: #14331F;
   --danger-light: #3A1B1B;
