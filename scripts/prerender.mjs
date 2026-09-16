@@ -114,6 +114,8 @@ function docBody(p) {
 
 // 본문 문장은 src/shared/contentIndexable.mjs 가 만든다 — 색인 여부를 재는 글자수와
 // 실제로 그리는 본문이 같은 함수에서 나와야 sitemap 과 noindex 가 어긋나지 않는다.
+/** 사이트 메뉴(NAV)는 여기 안 붙인다 — 이 함수를 쓰는 작품 페이지에서는
+ *  뒤따르는 토론글·이웃 링크보다 메뉴가 앞서면 안 되기 때문이다. 호출한 쪽이 맨 끝에 붙인다. */
 function contentBody(c, today) {
   return [
     `<article>`,
@@ -121,8 +123,32 @@ function contentBody(c, today) {
     c.posterUrl ? `<img src="${esc(c.posterUrl)}" alt="${esc(c.title)} 포스터" width="200" />` : '',
     ...contentBodyLines(c, today).map(line => `<p>${esc(line)}</p>`),
     `</article>`,
-    NAV,
   ].filter(Boolean).join('\n      ')
+}
+
+/** 작품 페이지에 실을 토론글 수. 지금은 한 작품에 최대 4개뿐이라 넉넉하다 */
+const TALK_ON_CONTENT = 10
+
+/**
+ * 작품 페이지 안의 토론글 구역 — 제목은 링크, 뒤에 발췌 한 토막.
+ *
+ * **이 프리렌더에서 사람이 쓴 글이 들어가는 유일한 자리다.** 여기가 비어 있던 동안
+ * 크롤러가 작품 페이지에서 받은 것은 TMDB 메타데이터(제목·줄거리·장르·출연)뿐이었고,
+ * 그건 TMDB·네이버·왓챠피디아에 똑같이 있는 값이라 이 페이지만의 알맹이가 없었다.
+ * 앱 화면은 기본 탭이 토론글이라 사람에게는 처음부터 보였다 — 크롤러만 못 봤다.
+ *
+ * 발췌를 붙이는 이유는 제목만 늘어놓으면 이 페이지의 글자가 늘지 않아서다.
+ * 스포일러 글은 본문을 내보내지 않는다(글 상세 프리렌더와 같은 규칙).
+ */
+function talkSection(c, talks) {
+  const items = talks.slice(0, TALK_ON_CONTENT).map(d => {
+    const title = d.title || clampText(d.body, 40) || '(제목 없음)'
+    const excerpt = d.spoiler ? '스포일러가 포함된 글입니다.' : clampText(d.body, 140)
+    // 제목이 본문에서 잘려 나온 글은 발췌가 제목과 같은 말이 된다 → 그때는 발췌를 뺀다
+    const tail = excerpt && excerpt !== title ? ` — ${esc(excerpt)}` : ''
+    return `<li><a href="/talk/${esc(d.id)}">${esc(title)}</a>${tail}</li>`
+  }).join('')
+  return `<section><h2>${esc(c.title)} 토론글 ${talks.length}</h2><ul>${items}</ul></section>`
 }
 
 function render(template, head, body) {
@@ -215,6 +241,16 @@ async function main() {
   const talkCount = new Map()
   for (const d of discussions) talkCount.set(d.contentId, (talkCount.get(d.contentId) || 0) + 1)
 
+  // 작품별 토론글 목록(최신순) — 작품 페이지 본문에 그대로 싣는다(talkSection).
+  // 차례는 앱(getDiscussionsByContent)과 같은 최신순으로 둔다 — 크롤러와 사람이 같은 순서를 본다.
+  const talksByContent = new Map()
+  for (const d of [...discussions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))) {
+    if (!d.contentId || !SAFE_ID.test(d.id)) continue
+    const list = talksByContent.get(d.contentId) || []
+    list.push(d)
+    talksByContent.set(d.contentId, list)
+  }
+
   // ── 작품 상세 ──────────────────────────────────────────────
   // 이웃 링크를 걸 후보 — 색인 대상만 모은다. noindex 로 막아 둔 얇은 페이지를
   // 가리키면 앞에서 아껴 둔 크롤 예산을 도로 흘려보내는 셈이다.
@@ -246,8 +282,11 @@ async function main() {
     // 같은 그물을 보게 한다. 이게 없으면 작품 페이지는 전부 막다른 길이다.
     const related = pickRelated(c, linkPool)
     for (const r of related) linkedFromContent.add(r.id)
+    const talks = talksByContent.get(c.id) || []
     const body = [
       contentBody(c, today),
+      // 사람이 쓴 글 — 줄거리 바로 다음, 이웃 링크보다 위. 이 페이지의 알맹이다
+      talks.length ? talkSection(c, talks) : '',
       backlinks.length
         ? `<section><h2>이 작품이 실린 글</h2><ul>`
           + backlinks.map(x => `<li><a href="/curation/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
@@ -258,6 +297,7 @@ async function main() {
           + related.map(x => `<li><a href="/content/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
           + `</ul></section>`
         : '',
+      NAV,
     ].filter(Boolean).join('\n      ')
     writePage(`content/${c.id}`, render(template, head, body))
     n++

@@ -32,7 +32,7 @@ import { clickable } from '@/utils/a11y'
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
   const toast = useToastStore(s => s.show)
@@ -66,14 +66,17 @@ export function ContentDetailPage() {
     : content.status === 'ongoing' ? '연재중'
     : content.status === 'completed' ? '완결' : null
 
-  /** 어느 탭을 보고 있나. 기본은 토론글 — 주소에 ?tab= 이 없으면 글부터 보여준다.
-   *  (목록·내 피드에서 오는 링크가 이미 ?tab=talk 를 달고 있다) */
-  const tab: 'talk' | 'info' = searchParams.get('tab') === 'info' ? 'info' : 'talk'
-  const goTab = (next: 'talk' | 'info') => {
-    const q = new URLSearchParams(searchParams)
-    if (next === 'talk') q.delete('tab'); else q.set('tab', next)   // 기본값은 주소에 안 남긴다
-    setSearchParams(q, { replace: true })   // 탭질이 뒤로가기 기록을 채우지 않게
-  }
+  /**
+   * 상세정보(줄거리·출연진·별점 분포·실린 글)를 펼쳤나 — 2026-09-16.
+   *
+   * 예전에는 '토론글 / 작품상세정보' 두 탭이었다. 토론글이 기본이라 글은 바로 보였지만,
+   * 상세정보를 보려면 눌러야 했고 누르면 토론글이 사라졌다 — 둘을 같이 볼 방법이 없었다.
+   * 이제 탭을 없애고, 포스터 옆 띠에 **판단에 필요한 것만**(평점·장르·연출·출연) 남긴 뒤
+   * 나머지는 여기 접어 둔다. 그래야 토론글이 첫 화면 안으로 들어온다.
+   *
+   * `?tab=info` 로 들어온 옛 링크는 펼친 채로 연다 — 그 링크가 보러 온 것이 이 안에 있다.
+   */
+  const [infoOpen, setInfoOpen] = useState(searchParams.get('tab') === 'info')
 
   const discussions = DS.getDiscussionsByContent(content.id)
   // 별점 = 토론글 중 별점 단 글에서 집계
@@ -231,9 +234,7 @@ export function ContentDetailPage() {
       />
       <div className="back-btn" {...clickable(() => navigate('/browse'))}><BackIcon /> 목록으로</div>
 
-      {/* 탭 위에 늘 남는 한 줄 — 어느 작품 방인지만 말한다.
-          포스터·줄거리·버튼은 '작품상세정보' 탭으로 내려갔지만, 제목까지 내려가면
-          토론글 탭에 무슨 작품 글인지 알려 주는 것이 하나도 안 남는다. */}
+      {/* 어느 작품 방인지 말하는 한 줄 */}
       <div className="content-head fade-in">
         <span className={`type-badge type-${content.type}`}>{TYPE_LABELS[content.type]}</span>
         <h1>{content.title}</h1>
@@ -245,11 +246,11 @@ export function ContentDetailPage() {
         </span>
       </div>
 
-      {/* 작품에 대고 하는 것들 — 탭 위에 둔다.
-          '작품상세정보' 탭 안에 있을 땐 찜·공유를 누르려고 탭을 옮겨야 했다. 이 버튼들은
-          정보가 아니라 작품 자체에 붙는 행동이라, 어느 탭을 보고 있든 같은 자리에 있어야 한다.
-          '토론하기'는 여기 없다 — 토론글 목록 머리에 이미 있고, 글을 쓰는 건 그 목록에서
-          할 일이다. 좁은 화면에서는 아이콘 위·글자 아래로 균등 분할된다(global.css). */}
+      {/* 작품에 대고 하는 것들 — 제목 줄과 포스터 띠 사이.
+          정보가 아니라 작품 자체에 붙는 행동이라 상세정보와 같이 접히면 안 되고,
+          제목 바로 아래가 그 작품에 대고 무언가 하는 첫 자리다.
+          '토론하기'는 여기 없다 — 아래 토론글 목록 머리에 이미 있다.
+          좁은 화면에서는 아이콘 위·글자 아래로 균등 분할된다(global.css). */}
       <div className="content-actions">
         {/* 아직 안 나온 작품은 봤을 수가 없다 */}
         {!isUpcoming && (
@@ -279,101 +280,119 @@ export function ContentDetailPage() {
         </button>
       </div>
 
-      <div className="content-tabs" role="tablist">
-        <button
-          role="tab" aria-selected={tab === 'talk'}
-          className={tab === 'talk' ? 'active' : ''}
-          onClick={() => goTab('talk')}>
-          {/* 글 수는 붙이지 않는다 — 바로 아래 '토론글 12 [토론하기]' 줄이 이미 말한다 */}
-          토론글
-        </button>
-        <button
-          role="tab" aria-selected={tab === 'info'}
-          className={tab === 'info' ? 'active' : ''}
-          onClick={() => goTab('info')}>
-          작품상세정보
-        </button>
-      </div>
-
-      {tab === 'talk' ? (
-        /* 토론글(=글) 목록 + 작성 */
-        <DiscussionBoard contentId={content.id} />
-      ) : (
-        <>
-        {/* 포스터 · 줄거리 — 버튼 줄은 탭 위로 올라갔다(두 탭에서 다 쓰는 것이라) */}
-        <div className="content-hero fade-in">
-          <div style={{ width: 160, flexShrink: 0 }}>
-            <Poster content={content} showScore={false} />
-          </div>
-          <div className="content-hero-info">
-            <div className="content-hero-meta">
-              {content.platform && <span>{content.platform} · </span>}
-              {relDate ? <span>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</span> : content.releaseYear && <span>{content.releaseYear}년</span>}
-              {statusLabel && !relDate && <span> · {statusLabel}</span>}
-            </div>
-            {detail === 'ready'
-              ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
-              : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
-          </div>
+      {/* ── 포스터 + 기본정보 띠 ─────────────────────────────────
+          접힌 채로도 "무슨 작품인지"가 읽혀야 한다: 평점 · 장르 · 연출 · 주연.
+          줄거리를 두 줄만 자르는 것도 해봤지만 도입부만 잘려 나와 감이 덜 왔다.
+          띠가 얇아야 바로 아래 토론글이 첫 화면에 들어온다 — 그게 이 개편의 목적이다. */}
+      <div className="content-strip fade-in">
+        <div className="cs-poster">
+          <Poster content={content} showScore={false} />
         </div>
-
-        <ContentInfo content={content} detail={detail} />
-
-        {/* 별점 요약 + 분포 (출시된 작품만) */}
-        {!isUpcoming && (
-          <div className="content-hero fade-in" style={{ marginTop: 12, gap: 28 }}>
-            <div className="score-box" style={{ flexShrink: 0, minWidth: 120 }}>
-              <div className="score-box-label">전체 평점</div>
-              <div className="big" style={{ color: scoreColor(avgRating) }}>
-                {ratingCount ? avgRating.toFixed(1) : '-'}
-              </div>
-              <Stars score={avgRating} size={16} />
-              <div className="cnt">{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</div>
-              {/* 우리 별점이 없을 때만 TMDB 평점을 보여준다.
-                  네이버 유입 검색어 다섯 중 하나가 "○○ 평점"인데(2026-09-12 실측) 우리 별점이 달린
-                  작품은 2,300개 중 11개다 — 평점을 찾아온 사람이 '아직 별점 없음' 한 줄만 보고 나갔다.
-                  남의 수치이므로 출처를 붙이고, 우리 별점 자리(큰 숫자)는 비워 둔 채로 아래에 적는다. */}
-              {/* 별점 남기기 — 큰 숫자(전체 평점) 바로 아래. 한 번 눌러 고르면 끝난다 */}
+        <div className="cs-info">
+          {/* 아직 안 나온 작품은 별점이 있을 수 없다 — 그 줄을 통째로 뺀다 */}
+          {!isUpcoming && (
+            <div className="cs-score">
+              <span className="cs-score-num" style={{ color: ratingCount ? scoreColor(avgRating) : undefined }}>
+                {ratingCount ? avgRating.toFixed(1) : '–'}
+              </span>
+              <span className="cs-score-sub">
+                <Stars score={avgRating} size={13} />
+                <em>{ratingCount ? `${scoreLabel(avgRating)} · 별점 ${ratingCount}개` : '아직 별점 없음'}</em>
+              </span>
+              {/* 별점 남기기가 첫 화면으로 올라왔다 — 전에는 '작품상세정보' 탭 안, 스크롤 아래였다 */}
               <button type="button" className={`score-mine ${myRating != null ? 'on' : ''}`} onClick={openRating}>
                 {myRating != null
                   ? <>내 별점 <b style={{ color: scoreColor(myRating) }}>{myRating}</b></>
                   : '별점 남기기'}
               </button>
-              {!ratingCount && hasTmdbRating(content) && (
-                <div className="score-tmdb">
-                  <span className="score-tmdb-label">TMDB 평점</span>
-                  <span className="score-tmdb-val" style={{ color: scoreColor(content.voteAverage!) }}>
-                    {content.voteAverage!.toFixed(1)}
-                  </span>
-                  <span className="score-tmdb-cnt">· {content.voteCount!.toLocaleString('ko-KR')}명</span>
-                </div>
-              )}
-              {expertRating.count > 0 && (
-                <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
-                  <span className="score-expert-label">👑 좋문가 평점</span>
-                  <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
-                  <span className="score-expert-cnt">· {expertRating.count}명</span>
-                </div>
-              )}
             </div>
-            <div className="rating-dist" style={{ flex: 1, alignSelf: 'center', width: '100%' }}>
-              {dist.map(d => (
-                <div key={d.score} className="dist-row">
-                  <span className="lbl">{d.score}점</span>
-                  <div className="dist-bar-bg">
-                    <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
-                  </div>
-                  <span className="val">{d.count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
-        <CurationBacklinks contentId={content.id} />
-        </>
+          {/* 우리 별점이 없을 때만 TMDB 평점을 보여준다.
+              네이버 유입 검색어 다섯 중 하나가 "○○ 평점"인데(2026-09-12 실측) 우리 별점이 달린
+              작품은 2,300개 중 11개다 — 평점을 찾아온 사람이 '아직 별점 없음' 한 줄만 보고 나갔다.
+              남의 수치이므로 출처를 붙이고, 우리 별점 자리(큰 숫자)는 비워 둔 채로 여기 적는다. */}
+          {!ratingCount && hasTmdbRating(content) && (
+            <div className="score-tmdb">
+              <span className="score-tmdb-label">TMDB 평점</span>
+              <span className="score-tmdb-val" style={{ color: scoreColor(content.voteAverage!) }}>
+                {content.voteAverage!.toFixed(1)}
+              </span>
+              <span className="score-tmdb-cnt">· {content.voteCount!.toLocaleString('ko-KR')}명</span>
+            </div>
+          )}
+          {expertRating.count > 0 && (
+            <div className="score-expert" title={`좋문가 ${expertRating.count}명의 평균 별점`}>
+              <span className="score-expert-label">👑 좋문가 평점</span>
+              <span className="score-expert-val" style={{ color: scoreColor(expertRating.avg) }}>{expertRating.avg.toFixed(1)}</span>
+              <span className="score-expert-cnt">· {expertRating.count}명</span>
+            </div>
+          )}
+
+          {/* 장르 · 연출 · 주연 — 이 세 줄이 줄거리 대신 작품을 설명한다.
+              출연은 상세 로드에 있는 값이라 아직 안 왔으면 그 줄만 안 그린다(자리는 안 비워 둔다). */}
+          <dl className="cs-kv">
+            {content.genres && content.genres.length > 0 && (
+              <><dt>장르</dt><dd>{content.genres.join(' · ')}</dd></>
+            )}
+            {content.creators && content.creators.length > 0 && (
+              <><dt>{content.type === 'movie' ? '감독' : '연출'}</dt><dd>{content.creators.join(', ')}</dd></>
+            )}
+            {(content.castMembers?.length ?? 0) > 0 && (
+              <><dt>출연</dt><dd>{content.castMembers!.slice(0, 4).map(p => p.name).join(', ')}{content.castMembers!.length > 4 ? ' 외' : ''}</dd></>
+            )}
+          </dl>
+        </div>
+      </div>
+
+      {/* 펼친 상세정보 — 줄거리·출연진·별점 분포·실린 글.
+          띠 바로 아래에 열리고, 아래 버튼이 따라 내려간다. */}
+      {infoOpen && (
+        <div className="cs-detail fade-in" id="content-detail-info">
+          <section className="cs-panel">
+            <h3>줄거리</h3>
+            {detail === 'ready'
+              ? <p className="content-synopsis">{content.synopsis || '등록된 줄거리가 없습니다.'}</p>
+              : <ContentDetailFallback state={detail} onRetry={retryDetail} />}
+          </section>
+
+          <ContentInfo content={content} detail={detail} />
+
+          {/* 별점 분포 — 별점이 하나라도 있을 때만. 0개면 빈 막대 10줄이 남는다 */}
+          {!isUpcoming && ratingCount > 0 && (
+            <section className="cs-panel">
+              <h3>별점 분포</h3>
+              <div className="rating-dist">
+                {dist.map(d => (
+                  <div key={d.score} className="dist-row">
+                    <span className="lbl">{d.score}점</span>
+                    <div className="dist-bar-bg">
+                      <div className="dist-bar" style={{ width: `${(d.count / maxCount) * 100}%`, background: scoreColor(d.score) }} />
+                    </div>
+                    <span className="val">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
+          <CurationBacklinks contentId={content.id} />
+        </div>
       )}
+
+      <button
+        type="button"
+        className={`cs-more ${infoOpen ? 'on' : ''}`}
+        onClick={() => setInfoOpen(v => !v)}
+        aria-expanded={infoOpen}
+        aria-controls="content-detail-info"
+      >
+        {infoOpen ? '접기 ∧' : '상세정보 더보기 ∨'}
+      </button>
+
+      {/* 토론글 목록 + 작성 — 이 페이지의 주인공이다 */}
+      <DiscussionBoard contentId={content.id} />
 
       {rateOpen && (
         <RatingSheet

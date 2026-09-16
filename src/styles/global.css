@@ -700,10 +700,78 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* ============================================================
    Content Detail
    ============================================================ */
-/* 작품방 탭 — [토론글] [작품상세정보]. 토론글이 기본이다.
-   작품 정보는 한 번 읽으면 끝이지만 글은 계속 쌓인다 — 다시 오는 사람이 보러 오는 건 글 쪽이다.
-   위아래로 쌓아 두었을 땐 글을 보려면 매번 정보를 스크롤로 지나쳐야 했다.
-   어느 탭인지는 ?tab= 에 남는다 → 글을 읽고 뒤로 와도 보던 탭이 유지되고, 링크로도 보낼 수 있다. */
+/* ══════════════════════════════════════════════════════════════
+   작품방 머리 — 포스터 + 기본정보 띠 (2026-09-16)
+   ──────────────────────────────────────────────────────────────
+   전에는 '토론글 / 작품상세정보' 두 탭이었다. 토론글이 기본이라 글은 바로 보였지만
+   상세정보는 눌러야 나왔고, 누르면 토론글이 사라졌다 — 둘을 같이 볼 방법이 없었다.
+
+   이제 탭 대신 **얇은 띠 하나**다. 띠에는 판단에 필요한 것만 둔다:
+   평점 · 별점 남기기 · 장르 · 연출 · 주연. 줄거리·출연진·별점 분포는 '상세정보 더보기'
+   안으로 접는다. 띠가 얇아야 바로 아래 토론글이 첫 화면에 들어온다 — 그게 목적이다.
+
+   접는 것은 화면에서만이다. 검색엔진이 받는 정적 HTML(scripts/prerender.mjs)에는
+   줄거리·출연진이 접히지 않고 그대로 들어간다.
+   ══════════════════════════════════════════════════════════════ */
+.content-strip {
+  display: flex; gap: 14px; margin-top: 12px;
+  background: var(--card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 14px;
+}
+.cs-poster { width: 92px; flex-shrink: 0; }
+.cs-info { flex: 1; min-width: 0; }
+
+/* 평점 줄 — 큰 숫자 · 별 · 건수 · [별점 남기기] */
+.cs-score { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cs-score-num {
+  font-size: 30px; font-weight: 800; line-height: 1; color: var(--subtext);
+  font-variant-numeric: tabular-nums;
+}
+.cs-score-sub { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cs-score-sub em { font-style: normal; font-size: 11.5px; color: var(--subtext); }
+/* 별점 남기기는 오른쪽 끝으로 — 숫자를 읽은 다음 눈이 닿는 자리.
+   (.score-mine 의 기본은 width:100% 다. 세로로 쌓인 옛 점수 상자에서는 그게 맞았지만
+    여기서는 한 줄 안이라 글자 폭만큼만 차지해야 한다) */
+.cs-score .score-mine { margin: 0 0 0 auto; width: auto; flex-shrink: 0; }
+
+/* 장르 · 연출 · 주연 — 줄거리 대신 작품을 설명하는 세 줄 */
+.cs-kv {
+  display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 2px 8px;
+  margin-top: 10px; font-size: 12.5px; line-height: 1.55;
+}
+.cs-kv dt { color: var(--subtext); font-size: 11.5px; font-weight: 600; }
+.cs-kv dd { color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
+
+/* 더보기 — 띠(와 펼친 상세정보) 바로 아래 한 줄 */
+.cs-more {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  width: 100%; margin-top: 8px; padding: 8px 0;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-full);
+  font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
+  cursor: pointer; transition: var(--duration) var(--ease);
+}
+.cs-more:hover { border-color: var(--border); color: var(--text); }
+.cs-more.on { color: var(--link); }
+
+/* 좁은 화면 — 별점 남기기를 제 줄로 내린다.
+   포스터를 뺀 폭이 250px 남짓이라 숫자·별·건수 옆에 버튼까지 얹으면 버튼이 잘린다. */
+@media (max-width: 768px) {
+  .content-strip { gap: 11px; padding: 11px; }
+  .cs-poster { width: 84px; }
+  .cs-score .score-mine { flex: 1 0 100%; margin: 8px 0 0; width: auto; }
+}
+
+/* 펼친 상세정보 */
+.cs-detail { margin-top: 8px; }
+.cs-panel {
+  background: var(--card); border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg); padding: 14px; margin-bottom: 8px;
+}
+.cs-panel h3 { font-size: 13px; font-weight: 800; color: var(--heading); margin-bottom: 4px; }
+.cs-panel .content-synopsis { margin-top: 0; }
+.cs-panel .rating-dist { margin: 8px 0 0; }
+
+/* 계정 화면(MyPage)이 같은 탭 생김새를 쓴다 — 작품방에서는 걷어냈지만 여기 남는다 */
 .content-tabs { display: flex; margin: 18px 0 14px; border-bottom: 1px solid var(--border); }
 .content-tabs button {
   flex: 1; padding: 11px 8px; background: none; border: none;
@@ -714,7 +782,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .content-tabs button:hover { color: var(--text-secondary); }
 .content-tabs button.active { color: var(--text); border-bottom-color: var(--text); }
 
-/* 탭 위에 남는 한 줄 — 어느 작품 방인지만. 포스터·줄거리·버튼은 '작품상세정보' 탭에 있다 */
+/* 맨 위 한 줄 — 어느 작품 방인지 */
 .content-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 .content-head .type-badge { align-self: center; }
 .content-head h1 {
@@ -723,7 +791,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .content-head-meta { font-size: 12.5px; color: var(--text-secondary); }
 
-/* 작품 액션 줄 — [본 작품][찜][공유][신고]. 제목과 탭 사이.
+/* 작품 액션 줄 — [본 작품][찜][공유][신고]. 더보기 아래, 토론글 바로 위.
    '토론하기'는 여기 없다 — 토론글 목록 머리에 있는 것 하나로 충분하다. */
 .content-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .content-actions .btn-like:disabled { opacity: .5; cursor: default; }
