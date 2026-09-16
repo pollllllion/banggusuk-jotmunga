@@ -245,11 +245,14 @@ export function ContentDetailPage() {
       <div className="content-head fade-in">
         <span className={`type-badge type-${content.type}`}>{TYPE_LABELS[content.type]}</span>
         <h1>{content.title}</h1>
+        {/* 가운뎃점은 **있는 것들 사이에만** 찍는다. 예전엔 플랫폼 뒤에 붙여 놨는데,
+            공개일이 아직 안 정해진 작품(열혈사제2 등)에서 "TV/OTT ·" 로 점만 남았다. */}
         <span className="content-head-meta">
-          {content.platform && <>{content.platform} · </>}
-          {relDate
-            ? <>{relDate.replace(/-/g, '. ')} {isUpcoming ? '공개예정' : '공개'}</>
-            : content.releaseYear ? <>{content.releaseYear}년</> : null}
+          {[
+            content.platform,
+            relDate ? `${relDate.replace(/-/g, '. ')} ${isUpcoming ? '공개예정' : '공개'}`
+              : content.releaseYear ? `${content.releaseYear}년` : '',
+          ].filter(Boolean).join(' · ')}
         </span>
       </div>
 
