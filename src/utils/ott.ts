@@ -53,6 +53,7 @@ const PLATFORM_SPECS: Record<string, LogoSpec> = {
   appletv:          { bg: '#000000', fg: '#FFFFFF', label: 'tv' },
   amazonprimevideo: { bg: '#0F171E', fg: '#1F9FEF', label: 'P' },
   uplusmobiletv:    { bg: '#E6007E', fg: '#FFFFFF', label: 'U+' },
+  youtube:          { bg: '#FF0000', fg: '#FFFFFF', label: 'YT' },
   // ── 방송 채널 ──
   tvn:   { bg: '#ED1C24', fg: '#FFFFFF', label: 'tvN' },
   jtbc:  { bg: '#1E1E1E', fg: '#FFFFFF', label: 'JTBC' },
@@ -127,6 +128,9 @@ export const OTT_FILTERS: { name: string; label: string }[] = [
   { name: 'Apple TV', label: '애플TV' },
   { name: 'Amazon Prime Video', label: '프라임비디오' },
   { name: 'U+ Mobile TV', label: 'U+모바일tv' },
+  // 숏폼·웹드라마가 많이 올라오는 곳. TMDB 의 구독형 항목 이름은 'YouTube Premium' 이라
+  // 아래 별칭으로 흡수한다(그냥 'YouTube' 는 대여·구매라 flatrate 에 안 잡힌다).
+  { name: 'YouTube', label: '유튜브' },
 ]
 
 /**
@@ -146,6 +150,8 @@ function normName(s: string): string {
  */
 const PROVIDER_NAME_ALIASES: Record<string, string> = {
   appletvplus: 'appletv',
+  // TMDB 의 구독형 항목 이름은 'YouTube Premium' 이다 — 화면에는 '유튜브' 하나로 보인다
+  youtubepremium: 'youtube',
 }
 
 /** provider 이름 비교·조회용 키 (정규화 + 별칭 흡수) */

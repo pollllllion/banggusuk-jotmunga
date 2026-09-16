@@ -5,13 +5,13 @@ export const CONTENT_TYPES: { code: ContentType; label: string }[] = [
   { code: 'movie',    label: '영화' },
   { code: 'drama',    label: '드라마' },
   { code: 'variety',  label: '예능' },
-  { code: 'shortform', label: '숏폼드라마' },
+  { code: 'shortform', label: '숏폼' },
   { code: 'webtoon',  label: '웹툰' },
   { code: 'webnovel', label: '웹소설' },
 ]
 
 export const TYPE_LABELS: Record<string, string> = {
-  movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼드라마', webtoon: '웹툰', webnovel: '웹소설',
+  movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼', webtoon: '웹툰', webnovel: '웹소설',
 }
 
 // ── 웹툰/웹소설 플랫폼 (어드민 수기 등록 빠른 선택 칩 · 표기 흔들림 방지) ──

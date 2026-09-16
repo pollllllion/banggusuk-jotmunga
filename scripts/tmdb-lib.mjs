@@ -16,6 +16,9 @@ export const TARGET_PROVIDER_NAMES = [
   'Apple TV',        // 2025-10 'Apple TV+' → 'Apple TV' 리브랜딩. 별칭으로 옛 이름도 함께 매칭
   'Amazon Prime Video',
   'U+ Mobile TV',
+  // 숏폼·웹드라마가 많이 올라오는 곳. TMDB 의 구독형 항목 이름은 'YouTube Premium' 이라
+  // 아래 PROVIDER_NAME_ALIASES 로 흡수한다 — 그냥 'YouTube' 는 대여·구매라 flatrate 에 안 잡힌다.
+  'YouTube',
 ]
 
 export const IMG_POSTER = 'https://image.tmdb.org/t/p/w500'
@@ -101,6 +104,7 @@ const PROVIDER_NAME_ALIASES = {
   amazonprime: 'amazonprimevideo',
   disney: 'disneyplus',
   appletvplus: 'appletv',
+  youtubepremium: 'youtube',
 }
 
 /**
