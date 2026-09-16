@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { ProfileShowcase } from '@/components/profile/ProfileShowcase'
+import { ProfileGenres } from '@/components/profile/ProfileGenres'
 import { WatchedShelf, type WatchedEntry } from '@/components/profile/WatchedShelf'
 import { FeedBlank } from '@/components/profile/FeedBlank'
 import { DiscussionRow } from '@/components/content/DiscussionRow'
@@ -17,9 +18,13 @@ import type { Content } from '@/types'
 /**
  * 공개 프로필 — 닉네임을 누르면 오는 화면.
  *
- * 위쪽(인생작품·프로필·취향·별점·많이 본 장르)은 그 사람이 **내 피드에서 꾸민 그대로**다
+ * 위쪽(인생작품·프로필·취향)은 그 사람이 **내 피드에서 꾸민 그대로**다
  * (ProfileShowcase 를 /feed 와 같이 쓴다). 꾸민 것이 남에게 그대로 보여야 꾸미는 뜻이 있다.
- * 그 아래에 본 작품, 그리고 맨 밑에 쓴 글과 댓글이 온다 — 글은 '기록'이지 '꾸밈'이 아니라서
+ *
+ * 칸 차례는 내 피드(/feed)와 **똑같아야 한다** (2026-09-16):
+ *   프로필 → 본 작품 → 찜한 작품 → 많이 본 장르 → 토론 → 쓴 글 → 쓴 댓글
+ * 내 화면에서 익힌 차례가 남의 화면에서 뒤바뀌면 매번 눈으로 다시 찾아야 한다.
+ * 맨 밑 두 칸(쓴 글·쓴 댓글)은 여기만 있다 — 글은 '기록'이지 '꾸밈'이 아니라서
  * 취향을 다 보여준 뒤에 놓는다.
  */
 /** 남의 프로필에서 찜 가로 줄에 세울 최대 개수 — 여기는 훑어보는 자리다 */
@@ -183,6 +188,10 @@ export function UserProfilePage() {
           ))}
         </div>
       )}
+
+      {/* 많이 본 장르 — 본 작품·찜한 작품을 다 훑고 난 자리.
+          내 피드(/feed)와 칸 차례가 똑같아야 한다: 프로필 → 본 작품 → 찜한 작품 → 여기 → 토론 */}
+      <ProfileGenres user={u} watched={watched ?? []} editable={isMe} />
 
       {/* 내 토론 — 이 사람이 고른 자기 글. 공개로 둔 것만 보인다.
           본인이 볼 땐 비공개까지 보이고 표시가 붙는다(고치는 건 내 피드에서). */}

@@ -8,7 +8,7 @@ import { RegisterWatchedModal, type RegisterMode } from '@/components/content/Re
 import { RatingSheet } from '@/components/content/RatingSheet'
 import { EditContentModal } from '@/components/content/EditContentModal'
 import { ProfileShowcase } from '@/components/profile/ProfileShowcase'
-import { ProfileRatings } from '@/components/profile/ProfileRatings'
+import { ProfileGenres } from '@/components/profile/ProfileGenres'
 import { WatchedShelf, type WatchedEntry } from '@/components/profile/WatchedShelf'
 import { BookmarkShelf } from '@/components/profile/BookmarkShelf'
 import { boardDate, scoreColor } from '@/utils/helpers'
@@ -47,7 +47,9 @@ export function MyFeedPage() {
 
   if (!user) return null
 
-  /** 칸별 공개 여부 (본 작품 · 찜한 작품). 별점 쪽 스위치는 ProfileShowcase 가 갖고 있다.
+  /** 칸별 공개 여부 (본 작품 · 찜한 작품). 이제 이 둘뿐이다 —
+   *  '매긴 별점' 칸이 없어지면서 showRatings 스위치도 같이 사라졌다(2026-09-16).
+   *  컬럼과 타입은 남겨 둔다: 지우는 마이그레이션은 되돌릴 수 없고, 칸이 돌아올 수도 있다.
    *  마이그레이션 전(undefined)이면 공개로 본다 — 지금까지 공개였던 것을 조용히 감추지 않는다.
    *  비공개로 둬도 이 화면(본인)에는 계속 보인다: 감춘 것도 관리는 해야 한다. */
   const watchedPublic = user.showWatched !== false
@@ -203,11 +205,10 @@ export function MyFeedPage() {
           캘린더·토론방은 보러 온 것을 가리면 안 되는 화면이라 넣지 않는다. */}
       <InstallHintRow />
 
-      {/* 인생작품·프로필·취향·많이 본 장르는 남의 프로필(/u/:id)과 같은 것을 쓴다 —
+      {/* 인생작품·프로필·취향은 남의 프로필(/u/:id)과 같은 것을 쓴다 —
           본인이 꾸민 그대로 남에게 보여야 꾸미는 뜻이 있다.
-          별점 칸만 여기서 빼서 아래(찜한 작품 밑)에 따로 그린다 — 내 화면에서는
-          '무엇을 담아 뒀나'(본 작품·찜)를 먼저 손보고, 매긴 점수는 그 뒤에 돌아본다. */}
-      <ProfileShowcase user={user} watched={items} editable={isAccount} showRatings={false} />
+          칸 차례도 두 화면이 똑같다: 여기 → 본 작품 → 찜한 작품 → 많이 본 장르 → 토론. */}
+      <ProfileShowcase user={user} watched={items} editable={isAccount} />
 
       {/* ── 본 작품 (등록·묶기·필터는 그대로) ─────────────────── */}
       <div className="feed-header" style={{ marginTop: 24 }}>
@@ -257,11 +258,10 @@ export function MyFeedPage() {
         </>
       )}
 
-      {/* ── 내가 매긴 별점 ────────────────────────────────────
-          프로필 칸에서 여기로 내렸다(2026-09-16). 위쪽은 '무엇을 담아 뒀나'(본 것·볼 것)라
-          손이 자주 가는 칸이고, 별점은 그걸 다 훑고 나서 돌아보는 값이다.
-          숫자(별점 N · 평균 점수)는 여전히 위 프로필에 붙어 있다 — 같은 계산을 쓴다. */}
-      <ProfileRatings user={user} watched={items} editable={isAccount} />
+      {/* ── 많이 본 장르 ──────────────────────────────────────
+          본 작품·찜한 작품을 다 훑고 난 자리다. 무엇을 봤는지 보고 나서 "그래서 뭘 많이
+          봤나"가 오는 차례 — 위(취향 바로 아래)에 있을 때는 결론부터 읽혔다. */}
+      <ProfileGenres user={user} watched={items} editable={isAccount} />
 
       {/* ── 내 토론 (맨 아래) ──────────────────────────────────
           내가 쓴 글 전부가 아니라 **내가 고른 글**만 온다 — 깊게 판 글, 남에게 보여주고 싶은 글,
