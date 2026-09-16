@@ -2181,6 +2181,16 @@ p.content-synopsis .sk-line { display: block; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .follow-row-work { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--link); }
+/* 활동 한 줄 — "○○ 외 13편을 본 작품에 담았어요". 작품 이름만 굵게 집어 준다 */
+.follow-ev-line { font-size: 13px; color: var(--text); line-height: 1.45; }
+.follow-ev-line b { font-weight: 700; color: var(--heading); }
+/* 묶인 나머지 이름들 — 한 줄로 자른다(길면 줄이 두꺼워져 타임라인이 안 훑힌다) */
+.follow-ev-sub {
+  margin-top: 2px; font-size: 11.5px; color: var(--subtext);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 칸 제목 — 글 목록 제목(.feed-title)보다 한 단 작게 */
+.follow-sec-title { font-size: 15px; }
 
 /* 본 작품 카드의 아래 버튼 줄 — 시청 연도 · 추천 담기 */
 .watched-actions { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }

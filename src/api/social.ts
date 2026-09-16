@@ -45,6 +45,14 @@ export async function fetchUserBookmarks(userId: string): Promise<Bookmark[]> {
   return (data || []) as Bookmark[]
 }
 
+/** 여러 사람의 찜을 한 번에 (관심 피드). 사람 수만큼 요청하지 않으려고 in() 으로 묶는다. */
+export async function fetchUsersBookmarks(userIds: string[]): Promise<Bookmark[]> {
+  if (!userIds.length) return []
+  const { data, error } = await supabase.from('bookmarks').select('*').in('userId', userIds)
+  if (error) { console.error('[fetchUsersBookmarks]', error.message); return [] }
+  return (data || []) as Bookmark[]
+}
+
 // ── ContentAlert (공개알림) ─────────────────────────────────
 // 찜과 별개다. 찜해도 알림은 안 가고, 여기 행이 있는 작품만 공개일에 푸시된다.
 // 브라우저 푸시 구독(push_subscriptions)은 이것과 또 별개 — 둘 다 있어야 실제로 온다.
@@ -83,6 +91,14 @@ export function getWatched(): Watched[] { return load('watched') }
 export async function fetchUserWatched(userId: string): Promise<Watched[]> {
   const { data, error } = await supabase.from('watched').select('*').eq('userId', userId)
   if (error) { console.error('[fetchUserWatched]', error.message); return [] }
+  return (data || []) as Watched[]
+}
+
+/** 여러 사람의 본 작품을 한 번에 (관심 피드). 관심 목록이 늘어도 요청은 한 번이다. */
+export async function fetchUsersWatched(userIds: string[]): Promise<Watched[]> {
+  if (!userIds.length) return []
+  const { data, error } = await supabase.from('watched').select('*').in('userId', userIds)
+  if (error) { console.error('[fetchUsersWatched]', error.message); return [] }
   return (data || []) as Watched[]
 }
 
