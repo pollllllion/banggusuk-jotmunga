@@ -17,11 +17,12 @@ const SUBS: { key: string; label: string }[] = [
   { key: 'movie',    label: '영화' },
   { key: 'drama',    label: '드라마' },
   { key: 'variety',  label: '예능' },
+  { key: 'shortform', label: '숏폼' },
   { key: 'webtoon',  label: '웹툰' },
   { key: 'webnovel', label: '웹소설' },
   { key: 'other',    label: '기타' },
 ]
-const KNOWN_TYPES = ['movie', 'drama', 'variety', 'webtoon', 'webnovel']
+const KNOWN_TYPES = ['movie', 'drama', 'variety', 'shortform', 'webtoon', 'webnovel']
 
 /** 글이 이보다 적으면 인기글 섹션을 숨긴다 (아래 목록과 중복이라 자리만 먹음) */
 const TRENDING_MIN_POSTS = 8

@@ -163,7 +163,11 @@ export function CalendarPage() {
       if (!date) continue
       // '드라마·예능' 필터는 drama·variety 둘 다 포함
       if (filter !== 'all') {
-        const match = filter === 'drama' ? (c.type === 'drama' || c.type === 'variety') : c.type === filter
+        // '드라마·예능' 칩 하나가 드라마·예능·숏폼드라마를 함께 받는다 —
+        // 칩을 늘리면 좁은 화면에서 줄이 밀린다. 세부 구분은 작품 둘러보기가 맡는다.
+        const match = filter === 'drama'
+          ? (c.type === 'drama' || c.type === 'variety' || c.type === 'shortform')
+          : c.type === filter
         if (!match) continue
       }
       if (ott === THEATER_FILTER) {
