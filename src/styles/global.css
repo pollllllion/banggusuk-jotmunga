@@ -10,7 +10,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 /* 모바일 더블탭 확대 대기시간(300ms) 제거 — 버튼 반응이 굼떠 보이지 않게 */
-a, button, .sidebar-item, .mobile-nav-item, .cal-cell, .cal-item, .disc-row, .board-row, .content-card { touch-action: manipulation; }
+a, button, .sb-row, .mobile-nav-item, .cal-cell, .cal-item, .disc-row, .board-row, .content-card { touch-action: manipulation; }
 a { color: inherit; text-decoration: none; cursor: pointer; }
 button { cursor: pointer; border: none; font-family: inherit; font-size: inherit; background: none; }
 input, textarea, select { font-family: inherit; font-size: inherit; }
@@ -135,15 +135,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   border-bottom: 1px solid var(--border-light);
 }
 .sidebar-brand img { width: 100%; max-width: 168px; height: auto; display: block; }
-.sidebar-title { font-size: 11px; font-weight: 600; color: var(--subtext); text-transform: uppercase; letter-spacing: 1px; padding: 12px 16px 6px; }
-.sidebar-item {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px; margin: 1px 8px;
-  border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary);
-  transition: var(--duration) var(--ease); cursor: pointer;
-}
-.sidebar-item:hover { background: var(--bg); color: var(--text); }
-.sidebar-item.active { background: var(--primary-50); color: var(--primary); font-weight: 600; }
-.sidebar-divider { height: 1px; background: var(--border-light); margin: 8px 16px; }
+/* 메뉴 줄(.sb-row)·칸 제목(.sb-group)은 아래 "서랍 하나로 모은 메뉴" 구역에 있다 */
 
 /* Layout */
 .layout { display: flex; margin-top: 56px; min-height: calc(100vh - 56px); overflow-x: hidden; }
@@ -787,7 +779,10 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
     display: block; left: 0; width: min(280px, 82vw); z-index: 401;
     box-shadow: var(--shadow-xl); animation: drawerIn 0.18s var(--ease);
   }
-  .sidebar.open .sidebar-item { padding: 12px 16px; font-size: 14px; }
+  /* 서랍에서는 손가락이 누른다 — 줄을 조금 높이고 글자를 키운다 */
+  .sidebar.open .sb-row { padding: 11px 16px; font-size: 14px; }
+  .sidebar.open .sb-me { padding: 14px 16px; }
+  .sidebar.open .sb-group { padding: 14px 16px 5px; }
   .nav-scrim {
     display: block; position: fixed; inset: 0; z-index: 400;
     background: rgba(24,24,27,0.45); animation: fadeIn 0.15s var(--ease);
@@ -2188,35 +2183,58 @@ button.watched-rate:hover:not(.on) { border-color: var(--text-secondary); color:
    좁은 화면에서는 햄버거 하나가 이 전부를 연다.
    ══════════════════════════════════════════════════════════════ */
 
-/* 메뉴 맨 위 '나' — 누구로 들어와 있는지가 먼저 보여야 한다(유동닉/고정닉이 할 수 있는 일을 가른다) */
-.sidebar-me {
+/* 메뉴 맨 위 '나' — 누구로 들어와 있는지가 먼저 보여야 한다
+   (유동닉/고정닉이 이 앱에서 할 수 있는 일을 가른다) */
+.sb-me {
   display: flex; align-items: center; gap: 10px; cursor: pointer;
-  padding: 10px 12px; margin: 6px 8px 2px; border-radius: var(--radius-md);
+  padding: 12px 14px; background: var(--card);
+  border-bottom: 1px solid var(--border-light);
   transition: background var(--duration) var(--ease);
 }
-.sidebar-me:hover { background: var(--bg); }
-.sidebar-me-who { min-width: 0; }
-.sidebar-me-nick {
+.sb-me:hover { background: var(--bg); }
+.sb-me-who { min-width: 0; }
+.sb-me-nick {
   display: flex; align-items: center; gap: 5px;
-  font-size: 13.5px; font-weight: 700; color: var(--heading);
+  font-size: 14px; font-weight: 700; color: var(--heading);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sidebar-me-sub { font-size: 11.5px; color: var(--subtext); margin-top: 1px; }
+.sb-me-sub { font-size: 11.5px; color: var(--subtext); margin-top: 1px; }
 
-/* 아이콘이 붙는 줄 — 게시판 줄(글자만)과 달리 '내 활동·설정'은 아이콘으로 성격을 구분한다 */
-.sidebar-item-ic .sidebar-ic { display: flex; flex-shrink: 0; color: var(--subtext); }
-.sidebar-item-ic .sidebar-ic svg { width: 16px; height: 16px; }
-.sidebar-item-ic.active .sidebar-ic { color: inherit; }
-.sidebar-item.is-admin { color: var(--link); }
-.sidebar-item.is-danger { color: var(--danger); }
-.sidebar-item.is-danger:hover { background: var(--danger-light); color: var(--danger); }
-/* 안 읽은 알림 수 — 줄 오른쪽 끝에 붙는다 */
-.sidebar-count {
+/* 칸 제목 — 선이 아니라 이름이 칸을 가른다. 그래서 별도 구분선(.sidebar-divider)이 없다 */
+.sb-group {
+  padding: 13px 14px 5px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .09em; color: var(--subtext);
+}
+
+/* 메뉴 한 줄 — **이 목록에는 이 줄 한 종류뿐이다.**
+   전부 같은 높이, 전부 아이콘 하나, 전부 아래 실선 하나.
+   게시판만 글자 줄이고 아래쪽만 아이콘 줄이던 것을 없앴다 — 같은 목록 안에서
+   두 가지 모양이 번갈아 나오면 그게 조잡해 보이는 원인이다. */
+.sb-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; cursor: pointer;
+  font-size: 13.5px; color: var(--text-secondary);
+  background: var(--card); border-bottom: 1px solid var(--border-light);
+  transition: background var(--duration) var(--ease);
+}
+.sb-row:hover { background: var(--bg); color: var(--text); }
+.sb-row.active { background: var(--primary-50); color: var(--primary); font-weight: 700; }
+.sb-row.open { background: var(--bg); color: var(--text); }
+.sb-ic { display: flex; flex-shrink: 0; color: var(--subtext); }
+.sb-row.active .sb-ic, .sb-row.is-admin .sb-ic, .sb-row.is-danger .sb-ic { color: inherit; }
+.sb-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-row.is-admin { color: var(--link); }
+.sb-row.is-danger { color: var(--danger); }
+.sb-row.is-danger:hover { background: var(--danger-light); color: var(--danger); }
+/* 안 읽은 알림 수 */
+.sb-count {
   margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: var(--radius-full); background: var(--danger); color: #fff;
   font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
-
+/* 알림 줄의 펼침 표시 — 이 줄만 화면을 옮기지 않고 아래를 연다는 뜻 */
+.sb-caret { margin-left: auto; font-size: 11px; color: var(--subtext); line-height: 1; }
+.sb-count + .sb-caret { margin-left: 6px; }
 /* 서랍 안에서 펼쳐지는 알림 목록 — 화면을 갈아치우지 않는다.
    확인하고 접으면 보던 자리에 그대로 있다. */
 .notif-list {
