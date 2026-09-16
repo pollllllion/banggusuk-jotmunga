@@ -109,25 +109,29 @@ export function DiscussionRoomPage() {
       <BoardTopbar
         title={TALK_LABEL}
         action={<button className="btn btn-primary btn-small" onClick={openWrite}>토론하기</button>}
+        search={{ value: q, onChange: setQ, placeholder: '제목·내용·작품 검색', count: rows.length }}
       />
-      <div className="feed-header">
+      {/* 게시판 머리 — 제목 · 검색창 · 글쓰기 · 타입 칩이 **한 상자**에 들어 있다.
+          한 상자여야 화면 폭에 따라 CSS 가 차례와 보임을 바꿀 수 있다(styles/discussion.css):
+            넓은 화면 — [제목 ........ 검색창 N건 토론하기] / [타입 칩]
+            좁은 화면 — [타입 칩] 한 줄뿐. 게시판 이름은 위 고정 바가 말하고,
+                        검색은 그 바의 돋보기가 맡으므로 여기서는 둘 다 접는다 */}
+      <div className="disc-head">
         <h2 className="feed-title">{TALK_LABEL}</h2>
+        <div className="disc-searchbar">
+          <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·내용·작품 검색" />
+          <span className="disc-searchbar-count">{rows.length}건</span>
+        </div>
         {/* 좁은 화면에서는 고정 바에 같은 버튼이 있어 접는다(CSS). 넓은 화면에는 고정 바가
             없으므로 여기가 유일한 진입점이다 — 지우면 데스크톱에서 글을 못 쓴다. */}
         <button className="btn btn-primary btn-small feed-header-write" onClick={openWrite}>토론하기</button>
-      </div>
-
-      <div className="feed-typefilter">
-        {SUBS.map(s => (
-          <button key={s.key} className={sub === s.key ? 'active' : ''} onClick={() => setSub(s.key)}>
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="disc-searchbar">
-        <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·내용·작품 검색" />
-        <span className="disc-searchbar-count">{rows.length}건</span>
+        <div className="feed-typefilter">
+          {SUBS.map(s => (
+            <button key={s.key} className={sub === s.key ? 'active' : ''} onClick={() => setSub(s.key)}>
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {!rows.length ? (

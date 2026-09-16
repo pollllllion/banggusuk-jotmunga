@@ -198,7 +198,7 @@ export function Header() {
             <SearchIcon />
             <input
               type="text"
-              placeholder="작품·글·댓글 검색"
+              placeholder="통합검색"
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSuggestOpen(true) }}
               onFocus={() => setSuggestOpen(true)}
