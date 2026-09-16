@@ -67,7 +67,7 @@ export function NotificationSettingsPage() {
     return (
       <>
         <Seo title="알림 설정" noindex />
-        <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
+        <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 설정</div>
         <h2 className="settings-title">알림 설정</h2>
         <div className="settings-section">
           <h3>고정닉 계정이 필요해요</h3>
@@ -127,7 +127,7 @@ export function NotificationSettingsPage() {
   return (
     <>
       <Seo title="알림 설정" noindex />
-      <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 계정 설정</div>
+      <div className="back-btn" {...clickable(() => navigate('/settings'))}><BackIcon /> 설정</div>
       <h2 className="settings-title">알림 설정</h2>
 
       {/* ── 폰 알림: 무엇을 받을지 (계정을 따라다닌다) ──

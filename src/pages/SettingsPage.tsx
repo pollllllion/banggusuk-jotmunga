@@ -20,7 +20,6 @@ export function SettingsPage() {
   const { user, isAccount, updateProfile, deleteAccount } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const [guideOpen, setGuideOpen] = useState(false)
-  const [nickname, setNickname] = useState(user?.nickname || '')
   const [newPw, setNewPw] = useState('')
   const [newPwConfirm, setNewPwConfirm] = useState('')
   const [busy, setBusy] = useState(false)
@@ -35,16 +34,6 @@ export function SettingsPage() {
 
   // 알림 설정 줄에 "신청한 작품 N편"을 미리 보여준다 — 들어가 봐야 아는 것보다 낫다
   const alertCount = DS.getUserContentAlerts(user.id).length
-
-  const saveNickname = async () => {
-    if (!nickname.trim()) { toast('닉네임을 입력하세요.'); return }
-    try {
-      await updateProfile({ nickname: nickname.trim() })
-      toast('닉네임이 변경되었습니다.')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '닉네임을 바꾸지 못했어요.')
-    }
-  }
 
   const changePassword = async () => {
     if (!isPasswordValid(newPw)) { toast('새 비밀번호 조건을 충족해야 합니다.'); return }
@@ -71,8 +60,8 @@ export function SettingsPage() {
 
   return (
     <>
-      <Seo title="계정 설정" noindex />
-      <h2 className="settings-title">계정 설정</h2>
+      <Seo title="설정" noindex />
+      <h2 className="settings-title">설정</h2>
 
       {!isAccount && (
         <div className="settings-section">
@@ -84,18 +73,9 @@ export function SettingsPage() {
         </div>
       )}
 
-      <div className="settings-section">
-        <h3>기본 정보</h3>
-        {isAccount && <div className="settings-row"><label>이메일</label><span className="val">{user.email}</span></div>}
-        <div className="settings-row"><label>가입일</label><span className="val">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</span></div>
-        <div className="form-group" style={{ marginTop: 8 }}>
-          <label>닉네임</label>
-          <div className="form-row">
-            <input className="form-input" value={nickname} onChange={e => setNickname(e.target.value)} maxLength={20} />
-            <button className="btn btn-primary" onClick={saveNickname} style={{ whiteSpace: 'nowrap' }}>변경</button>
-          </div>
-        </div>
-      </div>
+      {/* '기본 정보'(이메일·가입일·닉네임)는 2026-09-16 에 내 정보(/me)로 합쳤다 —
+          거기 프로필 카드가 이미 같은 셋을 보여주고 있었다. 한 값을 두 화면에서 고치게
+          두면 어디서 바꿨는지 헷갈리고, 언젠가 한쪽만 고쳐진다. */}
 
       {isAccount && (
         <div className="settings-section">

@@ -89,7 +89,7 @@ export function Sidebar() {
   ]
   const settings: Row[] = [
     { path: '/me', icon: <DocumentIcon size={17} />, label: '내 정보' },
-    { path: '/settings', icon: <SettingsIcon size={17} />, label: '계정 설정' },
+    { path: '/settings', icon: <SettingsIcon size={17} />, label: '설정' },
     ...(isAdmin ? [
       { path: '/ranking', icon: <ShieldIcon size={17} />, label: '레벨', admin: true },
       { path: '/admin', icon: <ShieldIcon size={17} />, label: '관리자', admin: true },
@@ -130,6 +130,15 @@ export function Sidebar() {
             <div className="sb-me-nick">{user.nickname}<LevelTag authorId={user.id} /></div>
             <div className="sb-me-sub">{isAccount ? '내 피드 보기 ›' : '유동닉 (비로그인)'}</div>
           </div>
+          {/* 로그인 — 맨 아래 목록 줄이 아니라 여기 둔다. 지금 누구인지를 말하는 자리가
+              곧 '바꾸는' 자리다. 메뉴를 끝까지 내려야 보이던 것을 첫 줄로 올렸다.
+              (프로필 줄 전체가 내 피드로 가는 버튼이라 눌림이 위로 새지 않게 막는다) */}
+          {!isAccount && (
+            <button
+              className="sb-login"
+              onClick={e => { e.stopPropagation(); navigate('/auth') }}
+            >로그인</button>
+          )}
         </div>
       )}
 
@@ -153,7 +162,8 @@ export function Sidebar() {
 
       <div className="sb-group">설정</div>
       {settings.map(row)}
-      {isAccount ? (
+      {/* 로그인은 위 프로필 줄로 올라갔다 — 여기 남는 것은 로그아웃뿐이다 */}
+      {isAccount && (
         <div
           className="sb-row is-danger"
           {...clickable(() => { closeNavDrawer(); void logout().then(() => routerNavigate('/')) }, '로그아웃')}
@@ -161,8 +171,6 @@ export function Sidebar() {
           <span className="sb-ic"><LogoutIcon size={17} /></span>
           <span className="sb-label">로그아웃</span>
         </div>
-      ) : (
-        row({ path: '/auth', icon: <LogoutIcon size={17} />, label: '로그인 / 고정닉', admin: true })
       )}
     </nav>
   )

@@ -2192,7 +2192,15 @@ button.watched-rate:hover:not(.on) { border-color: var(--text-secondary); color:
   transition: background var(--duration) var(--ease);
 }
 .sb-me:hover { background: var(--bg); }
-.sb-me-who { min-width: 0; }
+.sb-me-who { min-width: 0; flex: 1; }
+/* 로그인 — 프로필 줄 오른쪽 끝. 유동닉일 때만 나온다 */
+.sb-login {
+  flex-shrink: 0; margin-left: auto; padding: 5px 11px;
+  border-radius: var(--radius-full); background: var(--emphasis); color: var(--on-emphasis);
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+  transition: opacity var(--duration) var(--ease);
+}
+.sb-login:hover { opacity: .85; }
 .sb-me-nick {
   display: flex; align-items: center; gap: 5px;
   font-size: 14px; font-weight: 700; color: var(--heading);

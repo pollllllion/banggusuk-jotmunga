@@ -153,7 +153,7 @@ export function MyPage() {
 
         <div className="me-card-actions">
           <button className="btn-text btn-small" onClick={() => navigate('/settings')}>
-            <SettingsIcon /> 계정 설정
+            <SettingsIcon /> 설정
           </button>
         </div>
       </div>
