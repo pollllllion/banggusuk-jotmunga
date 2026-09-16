@@ -2021,14 +2021,6 @@ p.content-synopsis .sk-line { display: block; }
 }
 .feed-more:hover { border-color: var(--text-secondary); color: var(--text); }
 
-/* 찜 화면으로 들어가는 길. '전체 보기'(.feed-more)와 나란히 서면 안 되므로
-   알약이 아니라 글자 링크로 둔다 — 펼치기와 화면 이동은 같은 무게가 아니다. */
-.feed-bookmarks-link {
-  display: block; width: 100%; margin-top: 6px; padding: 4px;
-  font-size: 12px; color: var(--subtext); background: none; text-align: center;
-}
-.feed-bookmarks-link:hover { color: var(--text-secondary); text-decoration: underline; }
-
 /* 많이 본 장르 — 본 작품에서 세어 낸 값. 막대는 1위 대비 비율이다 */
 .feed-genres {
   background: var(--card); border: 1px solid var(--border);

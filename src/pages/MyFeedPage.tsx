@@ -250,12 +250,7 @@ export function MyFeedPage() {
           <p style={{ fontSize: 12, marginTop: 6 }}>위 <b>+ 찜한 작품 등록</b>을 누르거나, 작품방에서 <b>찜</b>을 누르면 여기 모입니다.</p>
         </div>
       ) : (
-        <>
-          <BookmarkShelf items={bookmarks} onOpen={c => navigate(`/content/${c.id}`)} />
-          <button className="feed-bookmarks-link" onClick={() => navigate('/bookmarks')}>
-            찜 화면에서 정리하기 (빼기 · 공개일 알림) ›
-          </button>
-        </>
+        <BookmarkShelf items={bookmarks} onOpen={c => navigate(`/content/${c.id}`)} />
       )}
 
       {/* ── 많이 본 장르 ──────────────────────────────────────
