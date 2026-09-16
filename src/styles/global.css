@@ -2200,6 +2200,16 @@ p.content-synopsis .sk-line { display: block; }
 }
 .follow-row-work { margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--link); }
 /* 활동 한 줄 — "○○ 외 13편을 본 작품에 담았어요". 작품 이름만 굵게 집어 준다 */
+/* 줄 오른쪽 끝 — 점수(있으면) + 날짜. 날짜는 모든 줄에서 같은 자리다.
+   점수를 줄 바깥에 붙였더니 점수 있는 줄만 오른쪽으로 튀어나와 날짜와 어긋나 보였다. */
+.follow-row-right { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.follow-row-who .disc-time { margin-left: 0; }
+.follow-score {
+  min-width: 20px; padding: 1px 6px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 700; color: #fff; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .follow-ev-line { font-size: 13px; color: var(--text); line-height: 1.45; }
 .follow-ev-line b { font-weight: 700; color: var(--heading); }
 /* 묶인 나머지 이름들 — 한 줄로 자른다(길면 줄이 두꺼워져 타임라인이 안 훑힌다) */

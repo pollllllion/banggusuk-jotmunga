@@ -179,12 +179,24 @@ export function FollowFeedPage() {
     </div>
   )
 
-  const who = (u: User, at: string) => (
+  /**
+   * 한 줄의 머리 — 누가 · 언제, 그리고 점수가 있으면 날짜 왼쪽에.
+   *
+   * 2026-09-16 — 점수를 줄 바깥 오른쪽에 붙였더니 글 줄과 날짜 위치가 어긋나 보였다.
+   * 점수 있는 줄만 오른쪽에 알약이 튀어나오고 날짜는 그 위에 있었기 때문이다.
+   * 이제 날짜는 모든 줄에서 같은 자리(오른쪽 끝)고, 점수는 그 **왼쪽**에 붙는다.
+   */
+  const who = (u: User, at: string, score?: number | null) => (
     <div className="follow-row-who">
       <Avatar src={u.avatarUrl} name={u.nickname} size={20} />
       <span className="disc-author">{u.nickname}</span>
       <LevelTag authorId={u.id} />
-      <span className="disc-time">{boardDate(at)}</span>
+      <span className="follow-row-right">
+        {score != null && (
+          <span className="follow-score" style={{ background: scoreColor(score) }}>{score}</span>
+        )}
+        <span className="disc-time">{boardDate(at)}</span>
+      </span>
     </div>
   )
 
@@ -245,13 +257,10 @@ export function FollowFeedPage() {
                     {...clickable(() => navigate(x.postId ? `/talk/${x.postId}` : `/content/${x.content.id}?tab=talk`))}
                   >
                     <div className="follow-row-main">
-                      {who(x.user, x.at)}
+                      {who(x.user, x.at, x.rating)}
                       <div className="follow-ev-line">내가 찜한 <b>{x.content.title}</b>을(를) 봤어요</div>
                       {x.postId && <div className="follow-ev-sub">이 작품에 쓴 글이 있어요 ›</div>}
                     </div>
-                    {x.rating != null && (
-                      <span className="feed-rating-score" style={{ background: scoreColor(x.rating) }}>{x.rating}</span>
-                    )}
                   </div>
                 ))}
               </div>
@@ -282,7 +291,7 @@ export function FollowFeedPage() {
                   {...clickable(evOpen(e))}
                 >
                   <div className="follow-row-main">
-                    {who(e.user, e.at)}
+                    {who(e.user, e.at, e.kind === 'rate' && e.items.length === 1 ? e.items[0].rating : null)}
 
                     {e.kind === 'post' && (
                       <>
@@ -321,13 +330,6 @@ export function FollowFeedPage() {
                       </>
                     )}
                   </div>
-
-                  {/* 점수는 한 편일 때만 알약으로 — 여러 편이면 위 작은 글씨에 이미 적었다 */}
-                  {e.kind === 'rate' && e.items.length === 1 && (
-                    <span className="feed-rating-score" style={{ background: scoreColor(e.items[0].rating) }}>
-                      {e.items[0].rating}
-                    </span>
-                  )}
                 </div>
               ))}
             </div>

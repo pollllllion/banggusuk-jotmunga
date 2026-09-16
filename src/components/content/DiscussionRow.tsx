@@ -8,10 +8,12 @@ import { clickable } from '@/utils/a11y'
 
 /** 게시판 한 줄 (디시 목록 스타일). showContent=true면 작품 태그도 표시(전체 게시판).
  *  자유방 글은 작품이 없어 content 가 없다 — 그때는 작품 열을 통째로 뺀다. */
-export function DiscussionRow({ post, content, showContent, onOpen }: {
+export function DiscussionRow({ post, content, showContent, hot, onOpen }: {
   post: Discussion
   content?: Content
   showContent?: boolean
+  /** 인기글로 목록 맨 위에 끌어올려진 줄 — 왜 오래된 글이 위에 있는지 표시로 알린다 */
+  hot?: boolean
   onOpen: () => void
 }) {
   const navigate = useNavigate()
@@ -52,6 +54,7 @@ export function DiscussionRow({ post, content, showContent, onOpen }: {
       {/* 줄여서 … 로 자르는 건 제목 글자뿐이다. 스포·짤 표시와 댓글 수는 늘 보인다 —
           제목이 길다는 이유로 '댓글 12개'가 통째로 사라지면 목록에서 제일 중요한 신호를 잃는다. */}
       <span className="disc-row-title">
+        {hot && <span className="disc-hot-tag" title="조회·추천·댓글이 많아 위로 올라온 글">인기</span>}
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>}
         <span className="disc-row-titletext">{title}</span>
         {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}

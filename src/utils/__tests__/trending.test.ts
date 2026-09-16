@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickTrending, trendingScore } from '@/utils/trending'
+import { pickTrending, promoteTrending, trendingScore } from '@/utils/trending'
 import type { Discussion } from '@/types'
 
 const NOW = new Date('2026-08-07T00:00:00Z').getTime()
@@ -85,5 +85,46 @@ describe('pickTrending', () => {
       wrap(post('newer', { createdAt: hoursAgo(4) })),
     ]
     expect(pickTrending(items, () => 0, 2, NOW)[0].post.id).toBe('newer')
+  })
+})
+
+describe('promoteTrending — 인기글을 한 목록 위로', () => {
+  const rows = [
+    // 시간감쇠(GRAVITY 1.7)가 세서, 나흘 전 글이 한 시간 전 글을 이기려면
+    // 참여가 수천 단위여야 한다. 그 지점을 넘긴 글을 일부러 넣었다.
+    { post: post('old-hot', { createdAt: hoursAgo(100), views: 5000, likes: ['a', 'b'] }) },
+    { post: post('new1', { createdAt: hoursAgo(1) }) },
+    { post: post('new2', { createdAt: hoursAgo(2) }) },
+    { post: post('new3', { createdAt: hoursAgo(3) }) },
+  ]
+  const noComments = () => 0
+
+  it('한 글은 한 번만 나온다 — 위로 올라간 글은 아래에서 빠진다', () => {
+    const out = promoteTrending(rows, noComments, 2, NOW)
+    const ids = out.map(x => x.post.id)
+    expect(ids).toHaveLength(rows.length)
+    expect(new Set(ids).size).toBe(rows.length)
+  })
+
+  it('앞 limit 개가 인기글이고 hot 표시가 붙는다', () => {
+    const out = promoteTrending(rows, noComments, 2, NOW)
+    expect(out.slice(0, 2).every(x => x.hot)).toBe(true)
+    expect(out.slice(2).every(x => !x.hot)).toBe(true)
+  })
+
+  it('참여가 많은 옛 글도 위로 올라온다 — 그게 이 기능의 요지다', () => {
+    const out = promoteTrending(rows, noComments, 2, NOW)
+    expect(out.map(x => x.post.id)).toContain('old-hot')
+    expect(out.findIndex(x => x.post.id === 'old-hot')).toBeLessThan(2)
+  })
+
+  it('limit 이 글 수보다 크면 전부 hot 이고 잃는 글이 없다', () => {
+    const out = promoteTrending(rows, noComments, 99, NOW)
+    expect(out).toHaveLength(rows.length)
+    expect(out.every(x => x.hot)).toBe(true)
+  })
+
+  it('빈 목록도 빈 목록으로 돌아온다', () => {
+    expect(promoteTrending([], noComments, 10, NOW)).toEqual([])
   })
 })

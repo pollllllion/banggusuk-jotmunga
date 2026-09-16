@@ -110,6 +110,16 @@
 .disc-row-titletext {
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* 인기 표시 — 목록 맨 위로 끌어올려진 글. 안 붙이면 '왜 오래된 글이 위에 있지'가 된다.
+   스포 표시와 같은 크기·자리라 줄 높이를 밀지 않는다. */
+.disc-row .disc-hot-tag {
+  flex: 0 0 auto; display: inline-block; margin-right: 4px;
+  padding: 1px 4px; border-radius: var(--radius-xs);
+  background: var(--danger); color: #fff;
+  font-size: 9.5px; font-weight: 800; line-height: 1.5;
+}
+
+.disc-row-title > .disc-hot-tag,
 .disc-row-title > .disc-spoiler-tag,
 .disc-row-title > .disc-media-tag,
 .disc-row-title > .disc-row-cc { flex: 0 0 auto; }

@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
 import { BOARDS } from '@/utils/constants'
+import { promoteTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
@@ -11,6 +12,9 @@ import '@/styles/discussion.css'
 
 /** 한 페이지에 보여줄 글 수 — 토론방과 같게 */
 const PER_PAGE = 30
+/** 인기글을 위로 올리기 시작하는 최소 글 수 · 올릴 개수 — 토론방과 같게 */
+const TRENDING_MIN_POSTS = 8
+const TRENDING_LIMIT = 10
 
 
 /**
@@ -30,10 +34,19 @@ export function FreeBoardPage() {
   const blockedIds = user ? DS.getBlockedIds(user.id) : []
   const query = q.trim().toLowerCase()
 
-  const rows = DS.getDiscussionsByBoard('relay')
+  const sorted = DS.getDiscussionsByBoard('relay')
     .filter(p => !blockedIds.includes(p.authorId || ''))
     .filter(p => !query || (p.title || '').toLowerCase().includes(query) || p.body.toLowerCase().includes(query))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map(post => ({ post }))
+
+  /**
+   * 인기글을 목록 위로 끌어올린다 — 토론방과 같은 규칙이다(utils/trending 의 promoteTrending).
+   * 검색 중에는 안 올린다: 찾는 말과 무관한 차례로 섞이면 "왜 최신순이 아니지"가 된다.
+   */
+  const rows = (!query && sorted.length >= TRENDING_MIN_POSTS)
+    ? promoteTrending(sorted, p => DS.countDiscussionComments(p.id), TRENDING_LIMIT)
+    : sorted.map(x => ({ ...x, hot: false }))
 
   // 쪽 번호는 URL(?p=)에 둔다 — 글을 읽고 뒤로 와도 보던 쪽이 유지된다.
   const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE))
@@ -75,8 +88,8 @@ export function FreeBoardPage() {
         <>
           <div className="disc-board fade-in">
             <DiscussionRowHead />
-            {pageRows.map(post => (
-              <DiscussionRow key={post.id} post={post} onOpen={() => navigate(`/talk/${post.id}`)} />
+            {pageRows.map(({ post, hot }) => (
+              <DiscussionRow key={post.id} post={post} hot={hot} onOpen={() => navigate(`/talk/${post.id}`)} />
             ))}
           </div>
           <Pager page={page} total={totalPages} onGo={goPage} />

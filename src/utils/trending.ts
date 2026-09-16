@@ -58,3 +58,29 @@ export function pickTrending<T extends { post: Discussion }>(
   const older = items.filter(x => new Date(x.post.createdAt).getTime() < cutoff).sort(sort)
   return [...recent, ...older].slice(0, limit)
 }
+
+/**
+ * 인기글을 **목록 위로 끌어올린다** — 따로 떼어 놓지 않고 한 목록에 섞는다.
+ *
+ * 2026-09-16 이전에는 '지금 뜨는 글' 칸과 '전체 글' 칸이 따로 있었고, 인기글은
+ * 두 곳에 **똑같이 두 번** 나왔다. 게시판을 훑는 사람 입장에서는 같은 글을 두 번
+ * 지나치는 셈이고, 칸이 둘이라 어디까지 봤는지도 헷갈린다.
+ * 이제 목록은 하나다: 앞 limit 개가 인기글이고 그 뒤로 최신순이 이어진다.
+ * **한 글은 한 번만 나온다** — 위로 올라온 글은 아래 최신순에서 빠진다.
+ *
+ * 끌어올린 글에는 hot 표시를 붙여 돌려준다. 안 그러면 "왜 오래된 글이 맨 위에 있지"가 된다.
+ */
+export function promoteTrending<T extends { post: Discussion }>(
+  items: T[],
+  commentCountOf: (post: Discussion) => number,
+  limit = 10,
+  now: number = Date.now(),
+): (T & { hot: boolean })[] {
+  const hot = pickTrending(items, commentCountOf, limit, now)
+  const hotIds = new Set(hot.map(x => x.post.id))
+  const rest = items.filter(x => !hotIds.has(x.post.id))
+  return [
+    ...hot.map(x => ({ ...x, hot: true })),
+    ...rest.map(x => ({ ...x, hot: false })),
+  ]
+}
