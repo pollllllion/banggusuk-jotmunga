@@ -54,7 +54,7 @@ export function DiscussionRow({ post, content, showContent, hot, onOpen }: {
       {/* 줄여서 … 로 자르는 건 제목 글자뿐이다. 스포·짤 표시와 댓글 수는 늘 보인다 —
           제목이 길다는 이유로 '댓글 12개'가 통째로 사라지면 목록에서 제일 중요한 신호를 잃는다. */}
       <span className="disc-row-title">
-        {hot && <span className="disc-hot-tag" title="조회·추천·댓글이 많아 위로 올라온 글">인기</span>}
+        {hot && <span className="disc-hot-tag" title="조회·추천·댓글이 많아 위로 올라온 글" aria-label="인기글">▲</span>}
         {post.spoiler && <span className="disc-spoiler-tag">스포</span>}
         <span className="disc-row-titletext">{title}</span>
         {hasMedia && <span className="disc-media-tag" title="짤 첨부">🖼</span>}

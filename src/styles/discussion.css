@@ -111,12 +111,14 @@
   min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* 인기 표시 — 목록 맨 위로 끌어올려진 글. 안 붙이면 '왜 오래된 글이 위에 있지'가 된다.
-   스포 표시와 같은 크기·자리라 줄 높이를 밀지 않는다. */
+   화살표 하나다: '올라온 글'이라는 뜻이 그림 자체에 있어서 글자가 필요 없고,
+   제목 폭도 거의 안 먹는다(알약은 '인기' 두 글자 + 좌우 여백을 가져갔다).
+   바탕 없이 글자처럼 흘려 둔다 — 알약이 둘(인기·스포)이면 제목 앞이 시끄럽다. */
 .disc-row .disc-hot-tag {
-  flex: 0 0 auto; display: inline-block; margin-right: 4px;
-  padding: 1px 4px; border-radius: var(--radius-xs);
-  background: var(--danger); color: #fff;
-  font-size: 9.5px; font-weight: 800; line-height: 1.5;
+  flex: 0 0 auto; display: inline-block; margin-right: 3px;
+  background: none; padding: 0;
+  color: var(--danger);
+  font-size: 10px; font-weight: 800; line-height: 1.5;
 }
 
 .disc-row-title > .disc-hot-tag,
