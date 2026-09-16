@@ -632,6 +632,37 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .bf-clear { font-size: 12px; color: var(--subtext); text-decoration: underline dotted; background: none; }
 .bf-clear:hover { color: var(--text-secondary); }
 
+/* 없는 작품 등록 — 찾다가 없다는 걸 알게 되는 자리가 곧 넣는 자리다 */
+.bf-add {
+  flex-shrink: 0; padding: 6px 13px; border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 700; color: var(--link);
+  background: var(--card); border: 1.5px dashed var(--border);
+  transition: var(--duration) var(--ease);
+}
+.bf-add:hover { border-color: var(--link); border-style: solid; }
+
+/* 연도 직접 입력 — 칩으로 다 세울 수 없는 옛 연도(1992년까지 있다)를 친다 */
+.bf-yearin {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 3px 2px 8px; border-radius: var(--radius-full);
+  border: 1.5px solid var(--border); background: var(--card);
+}
+.bf-yearin-input {
+  width: 62px; border: 0; background: none; color: var(--text);
+  font-size: 12px; font-weight: 600; font-family: inherit; padding: 2px 0;
+}
+.bf-yearin-input::placeholder { color: var(--subtext); font-weight: 500; }
+.bf-yearin-input:focus { outline: none; }
+/* 숫자 입력의 위아래 화살표는 62px 안에서 자리만 먹는다 */
+.bf-yearin-input::-webkit-outer-spin-button,
+.bf-yearin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bf-yearin-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.bf-yearin-add {
+  padding: 4px 9px; border-radius: var(--radius-full);
+  font-size: 11.5px; font-weight: 700; color: #fff; background: var(--primary);
+}
+.bf-yearin-add:disabled { background: var(--border); color: var(--subtext); cursor: default; }
+
 /* 펼친 판 — 줄마다 '이름 + 칩들' 한 벌. 다섯 줄이 같은 모양이라 눈이 왼쪽 이름만 따라가면 된다 */
 .bf-panel {
   background: var(--card); border: 1px solid var(--border);

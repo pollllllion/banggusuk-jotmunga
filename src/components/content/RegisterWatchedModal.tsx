@@ -38,9 +38,9 @@ const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowe
  * 작품을 찾아 내 목록에 건다. 다른 건 어느 목록에 거느냐뿐이라 mode 로 가른다.
  * (검색·수기 등록·중복 연결 로직을 두 벌로 두면 한쪽만 고쳐지는 날이 온다)
  */
-export type RegisterMode = 'watched' | 'bookmark'
+export type RegisterMode = 'watched' | 'bookmark' | 'catalog'
 
-const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품' }
+const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품', catalog: '작품' }
 
 export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }: {
   onClose: () => void
@@ -95,14 +95,25 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
   }, [query])
 
   const register = async (input: DS.RegisterWatchedInput) => {
-    if (!user || !isAccount) { toast(`${label} 등록은 로그인(고정닉) 후 이용할 수 있어요.`); return }
-    const already = mode === 'watched'
-      ? DS.isWatched(user.id, input.contentId)
-      : DS.isBookmarked(user.id, input.contentId)
-    if (already) { toast(mode === 'watched' ? '이미 등록한 작품이에요.' : '이미 찜한 작품이에요.'); return }
+    // 'catalog' 는 내 목록에 거는 게 아니라 **작품 자체를 사이트에 만드는** 것이라
+    // 로그인을 막지 않는다 — ensure_content RPC 도 anon 에게 열려 있다
+    // (migration_ensure_content.sql, createdBy 는 'guest' 로 남는다).
+    if (mode !== 'catalog' && (!user || !isAccount)) {
+      toast(`${label} 등록은 로그인(고정닉) 후 이용할 수 있어요.`); return
+    }
+    if (mode !== 'catalog' && user) {
+      const already = mode === 'watched'
+        ? DS.isWatched(user.id, input.contentId)
+        : DS.isBookmarked(user.id, input.contentId)
+      if (already) { toast(mode === 'watched' ? '이미 등록한 작품이에요.' : '이미 찜한 작품이에요.'); return }
+    }
+    // 이미 사이트에 있는 작품이면 새로 만들 것 없이 그리로 보낸다 —
+    // 없어서 등록하러 온 사람에게 "이미 있어요"는 혼내는 말이지 안내가 아니다.
+    const existing = mode === 'catalog' ? DS.getContentById(input.contentId) : undefined
+    if (existing) { toast(`'${existing.title}' 는 이미 있어요.`); onRegistered(existing); onClose(); return }
     setSaving(true)
     try {
-      // 찜은 작품 행만 있으면 된다 — 없으면 만들고(ensureContent) 찜 링크를 건다.
+      // 찜·목록 등록은 작품 행만 있으면 된다 — 없으면 만들고(ensureContent) 링크를 건다.
       // 본 작품은 registerWatched 가 그 둘을 한 번에 한다.
       const content = mode === 'watched'
         ? await DS.registerWatched(input)
@@ -111,8 +122,8 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
           posterUrl: input.posterUrl, releaseYear: input.releaseYear,
           synopsis: input.synopsis, platform: input.platform,
         })
-      if (mode === 'bookmark') DS.toggleBookmark(user.id, content.id)
-      toast(`'${content.title}' ${mode === 'watched' ? '등록' : '찜'} 완료!`)
+      if (mode === 'bookmark' && user) DS.toggleBookmark(user.id, content.id)
+      toast(`'${content.title}' ${mode === 'watched' ? '등록' : mode === 'bookmark' ? '찜' : '등록'} 완료!`)
       onRegistered(content)
       onClose()
     } catch (e: any) {
