@@ -8,7 +8,7 @@ import { promoteTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
-import { TALK_LABEL } from '@/utils/constants'
+import { TALK_LABEL, BOARD_PER_PAGE, TRENDING_LIMIT, TRENDING_MIN_POSTS } from '@/utils/constants'
 import '@/styles/discussion.css'
 
 /** 세부 탭 — 글의 작품 타입으로 필터 */
@@ -24,12 +24,7 @@ const SUBS: { key: string; label: string }[] = [
 ]
 const KNOWN_TYPES = ['movie', 'drama', 'variety', 'shortform', 'webtoon', 'webnovel']
 
-/** 글이 이보다 적으면 인기글을 위로 올리지 않는다 — 최신순과 똑같아 보여 뜻이 없다 */
-const TRENDING_MIN_POSTS = 8
-/** 목록 맨 위로 끌어올릴 인기글 수 */
-const TRENDING_LIMIT = 10
-/** 한 페이지에 보여줄 글 수 (디시 50 · 클리앙 30 — 방좋은 글이 길어서 30) */
-const PER_PAGE = 30
+/* 쪽 수·인기글 기준은 utils/constants 에 있다 — 토론방·자유방·작품방이 같은 값을 쓴다 */
 
 export function DiscussionRoomPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -88,9 +83,9 @@ export function DiscussionRoomPage() {
 
   // 페이지 나누기 — 쪽 번호는 URL(?p=)에 둔다. 글을 읽고 뒤로 와도 보던 쪽이 유지된다.
   // 검색으로 결과가 줄면 현재 쪽이 범위를 넘을 수 있어 clamp 한다(빈 화면 방지).
-  const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE))
+  const totalPages = Math.max(1, Math.ceil(rows.length / BOARD_PER_PAGE))
   const { page, goPage } = usePageParam(searchParams, setSearchParams, totalPages)
-  const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const pageRows = rows.slice((page - 1) * BOARD_PER_PAGE, page * BOARD_PER_PAGE)
 
   const openWrite = () => {
     if (!user) { toast('로그인 후 이용해주세요.'); return }

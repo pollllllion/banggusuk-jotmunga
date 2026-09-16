@@ -40,6 +40,17 @@ export const WEBTOON_PLATFORMS = ['네이버웹툰', '카카오웹툰', '카카�
  *  (2026-09-16 '토론방' → '방구석 토론방'. 주소 /talk 와 board='talk' 는 그대로다) */
 export const TALK_LABEL = '방구석 토론방'
 
+// ── 게시판 목록 규칙 ────────────────────────────────────────
+// 토론방 · 자유방 · 작품방이 **같은 값을 쓴다**. 세 곳에 따로 적어 두면 한 곳만 고치고
+// "왜 여기만 다르게 보이지"가 된다 — 2026-09-16 에 작품방을 붙이면서 세 번째 사본이
+// 생길 뻔해 여기로 모았다.
+/** 한 쪽에 보여줄 글 수 (디시 50 · 클리앙 30 — 방좋은 글이 길어서 30) */
+export const BOARD_PER_PAGE = 30
+/** 글이 이보다 적으면 인기글을 위로 올리지 않는다 — 최신순과 똑같아 보여 뜻이 없다 */
+export const TRENDING_MIN_POSTS = 8
+/** 목록 맨 위로 끌어올릴 인기글 수 */
+export const TRENDING_LIMIT = 10
+
 export const BOARDS: { slug: string; label: string; path: string }[] = [
   { slug: 'calendar', label: '개봉·공개 캘린더', path: '/' },
   { slug: 'talk',     label: TALK_LABEL,         path: '/talk' },

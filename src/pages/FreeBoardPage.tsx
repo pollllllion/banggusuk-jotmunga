@@ -3,18 +3,14 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { DiscussionRow, DiscussionRowHead } from '@/components/content/DiscussionRow'
-import { BOARDS } from '@/utils/constants'
+import { BOARDS, BOARD_PER_PAGE, TRENDING_LIMIT, TRENDING_MIN_POSTS } from '@/utils/constants'
 import { promoteTrending } from '@/utils/trending'
 import { Seo } from '@/components/seo/Seo'
 import { Pager, usePageParam } from '@/components/ui/Pager'
 import { BoardTopbar } from '@/components/content/BoardTopbar'
 import '@/styles/discussion.css'
 
-/** 한 페이지에 보여줄 글 수 — 토론방과 같게 */
-const PER_PAGE = 30
-/** 인기글을 위로 올리기 시작하는 최소 글 수 · 올릴 개수 — 토론방과 같게 */
-const TRENDING_MIN_POSTS = 8
-const TRENDING_LIMIT = 10
+/* 쪽 수·인기글 기준은 utils/constants 에 있다 — 토론방·자유방·작품방이 같은 값을 쓴다 */
 
 
 /**
@@ -49,9 +45,9 @@ export function FreeBoardPage() {
     : sorted.map(x => ({ ...x, hot: false }))
 
   // 쪽 번호는 URL(?p=)에 둔다 — 글을 읽고 뒤로 와도 보던 쪽이 유지된다.
-  const totalPages = Math.max(1, Math.ceil(rows.length / PER_PAGE))
+  const totalPages = Math.max(1, Math.ceil(rows.length / BOARD_PER_PAGE))
   const { page, goPage } = usePageParam(searchParams, setSearchParams, totalPages)
-  const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const pageRows = rows.slice((page - 1) * BOARD_PER_PAGE, page * BOARD_PER_PAGE)
 
   // 로그인 강제는 하지 않는다 — 글쓰기 화면이 유동닉을 받는다(비회원 상자).
   const openWrite = () => navigate('/talk/write?board=relay')
