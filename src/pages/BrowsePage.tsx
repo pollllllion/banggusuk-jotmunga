@@ -4,7 +4,8 @@ import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
 import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import { Pager, usePageParam } from '@/components/ui/Pager'
-import { CONTENT_TYPES, GENRES, TYPE_LABELS } from '@/utils/constants'
+import { CONTENT_TYPES, TYPE_LABELS } from '@/utils/constants'
+import { BROWSE_GENRES, matchesGenres } from '@/utils/genres'
 import { originOf, ORIGIN_FILTERS } from '@/utils/origin'
 import { CALENDAR_OTT_FILTERS, OTHER_FILTER, THEATER_FILTER, hasProvider, hasMinorProvider, isTheatricalRelease } from '@/utils/ott'
 import { Seo } from '@/components/seo/Seo'
@@ -205,7 +206,9 @@ export function BrowsePage() {
    */
   const passes = (c: Content) => {
     if (types.length && !types.includes(c.type)) return false
-    if (genres.length && !genres.some(g => c.genres.includes(g))) return false
+    // 정확일치가 아니라 정규화 후 비교다 — TMDB 의 `SF·판타지`·`액션·모험` 을
+    // 'SF'·'액션' 으로도 찾을 수 있어야 한다 (utils/genres.ts)
+    if (!matchesGenres(c, genres)) return false
     if (origins.length && !origins.includes(originOf(c))) return false
     if (statuses.length && !statuses.includes(c.status || '')) return false
     if (years.length && !years.includes(String(c.releaseYear ?? ''))) return false
@@ -363,7 +366,7 @@ export function BrowsePage() {
           />
           <FilterRow
             label="장르" values={genres} onClear={() => setList('genre', [])}
-            options={GENRES.map(g => ({ code: g, label: g }))} onToggle={v => toggle('genre', v)}
+            options={BROWSE_GENRES.map(g => ({ code: g, label: g }))} onToggle={v => toggle('genre', v)}
           />
         </div>
       )}
