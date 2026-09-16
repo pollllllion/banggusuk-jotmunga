@@ -80,6 +80,11 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .search-bar:focus-within { border-color: var(--primary); background: var(--card); box-shadow: 0 0 0 3px var(--primary-50); }
 .search-bar input { border: none; background: none; outline: none; flex: 1; font-size: 13px; color: var(--text); }
 .search-bar input::placeholder { color: var(--subtext); }
+/* type="search" 는 브라우저가 자동완성을 안 걸게 하려고 쓴다(Header.tsx 주석).
+   대신 웹킷이 제 ✕ 버튼을 끼워 넣는데, 이 칸에는 이미 우리 .search-clear 가 있어
+   두 개가 나란히 보인다. 네이티브 쪽을 지운다 — 지우는 동작은 우리 버튼이 한다. */
+.search-bar input::-webkit-search-cancel-button,
+.search-bar input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
 .search-bar svg { width: 16px; height: 16px; color: var(--subtext); flex-shrink: 0; }
 .search-clear {
   border: none; background: none; cursor: pointer; color: var(--subtext);

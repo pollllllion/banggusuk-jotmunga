@@ -17,8 +17,12 @@ export function GuestCred({ name, pw, onName, onPw, what = '글' }: {
         <span>로그인 없이 쓰는 중이에요. 닉네임과 비밀번호를 정해주세요.</span>
       </div>
       <div className="form-row">
-        <input className="form-input" placeholder="닉네임" maxLength={12} value={name} onChange={e => onName(e.target.value)} />
-        <input className="form-input" type="password" placeholder="비밀번호" maxLength={20} value={pw} onChange={e => onPw(e.target.value)} />
+        {/* 자동완성을 꺼 둔다. 이 두 칸은 **계정과 아무 상관이 없다** — 이 글 하나를
+            나중에 고치고 지우는 데만 쓰는 임시 닉네임·비밀번호다.
+            비밀번호 관리자가 여기에 계정 비밀번호를 채워 넣으면, 사용자가 그대로 올려
+            자기 계정 비밀번호가 글 비밀번호가 된다. new-password 는 '채우지 말라'는 뜻이다. */}
+        <input className="form-input" autoComplete="off" placeholder="닉네임" maxLength={12} value={name} onChange={e => onName(e.target.value)} />
+        <input className="form-input" type="password" autoComplete="new-password" placeholder="비밀번호" maxLength={20} value={pw} onChange={e => onPw(e.target.value)} />
       </div>
       <p className="guest-cred-note">
         이 비밀번호로 나중에 {what}을 고치거나 지울 수 있어요. 쉬운 비밀번호는 남이 지울 수도 있으니 피해주세요.

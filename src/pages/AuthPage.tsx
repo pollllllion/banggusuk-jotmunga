@@ -112,11 +112,11 @@ export function AuthPage() {
           <form onSubmit={e => { e.preventDefault(); handleLogin() }}>
             <div className="form-group">
               <label>이메일</label>
-              <input type="email" className="form-input" placeholder="example@email.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
+              <input type="email" autoComplete="username" className="form-input" placeholder="example@email.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} />
             </div>
             <div className="form-group">
               <label>비밀번호</label>
-              <input type="password" className="form-input" placeholder="비밀번호를 입력하세요" value={loginPw} onChange={e => setLoginPw(e.target.value)} />
+              <input type="password" autoComplete="current-password" className="form-input" placeholder="비밀번호를 입력하세요" value={loginPw} onChange={e => setLoginPw(e.target.value)} />
             </div>
             <label className="auth-remember">
               <input type="checkbox" checked={remember} onChange={e => setRememberChecked(e.target.checked)} />
@@ -133,11 +133,11 @@ export function AuthPage() {
           <form onSubmit={e => { e.preventDefault(); handleRegister() }}>
             <div className="form-group">
               <label>이메일 (아이디)</label>
-              <input type="email" className="form-input" placeholder="example@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
+              <input type="email" autoComplete="username" className="form-input" placeholder="example@email.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
             </div>
             <div className="form-group">
               <label>비밀번호</label>
-              <input type="password" className="form-input" placeholder="비밀번호를 입력하세요" value={regPw} onChange={e => setRegPw(e.target.value)} />
+              <input type="password" autoComplete="new-password" className="form-input" placeholder="비밀번호를 입력하세요" value={regPw} onChange={e => setRegPw(e.target.value)} />
               <ul className="validation-list">
                 {pwRules.map(r => (
                   <li key={r.key} className={r.pass ? 'pass' : 'fail'}>
@@ -148,13 +148,13 @@ export function AuthPage() {
             </div>
             <div className="form-group">
               <label>비밀번호 확인</label>
-              <input type="password" className="form-input" placeholder="비밀번호를 다시 입력" value={regPwConfirm} onChange={e => setRegPwConfirm(e.target.value)} />
+              <input type="password" autoComplete="new-password" className="form-input" placeholder="비밀번호를 다시 입력" value={regPwConfirm} onChange={e => setRegPwConfirm(e.target.value)} />
               {pwMatch && <div className="email-check-msg ok">{'✓'} 비밀번호가 일치합니다.</div>}
               {pwMismatch && <div className="email-check-msg err">비밀번호가 일치하지 않습니다.</div>}
             </div>
             <div className="form-group">
               <label>닉네임 (고정닉)</label>
-              <input type="text" className="form-input" placeholder="활동할 닉네임" maxLength={20} value={regNickname} onChange={e => setRegNickname(e.target.value)} />
+              <input type="text" autoComplete="nickname" className="form-input" placeholder="활동할 닉네임" maxLength={20} value={regNickname} onChange={e => setRegNickname(e.target.value)} />
             </div>
             <button type="submit" className="auth-btn" disabled={!canRegister || busy}>{busy ? '처리 중...' : '가입하기'}</button>
             <div className="auth-switch">이미 계정이 있으신가요? <a onClick={() => { setMode('login'); setError('') }}>로그인</a></div>
@@ -165,7 +165,7 @@ export function AuthPage() {
           <form onSubmit={e => { e.preventDefault(); handleReset() }}>
             <div className="form-group">
               <label>가입한 이메일</label>
-              <input type="email" className="form-input" placeholder="example@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
+              <input type="email" autoComplete="username" className="form-input" placeholder="example@email.com" value={resetEmail} onChange={e => setResetEmail(e.target.value)} />
             </div>
             <button type="submit" className="auth-btn" disabled={busy}>{busy ? '전송 중...' : '재설정 메일 보내기'}</button>
             <div className="auth-switch">기억나셨나요? <a onClick={() => { setMode('login'); setError('') }}>로그인</a></div>

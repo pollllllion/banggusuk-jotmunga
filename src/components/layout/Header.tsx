@@ -150,8 +150,14 @@ export function Header() {
         <div className="search-wrap" ref={searchRef}>
           <div className="search-bar">
             <SearchIcon />
+            {/* type=search + autoComplete=off — 브라우저 비밀번호 관리자가 이 칸을
+                '아이디 칸'으로 착각해 이메일을 채워 넣던 것을 막는다. 비밀번호 칸이 있는
+                화면(설정·로그인)에서 그 짝을 DOM 에서 찾는데, 힌트가 없으면 가장 가까운
+                글자 입력칸을 집는다 — 헤더 검색창이 늘 위에 떠 있어 그게 걸렸다. */}
             <input
-              type="text"
+              type="search"
+              name="q"
+              autoComplete="off"
               placeholder="통합검색"
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setSuggestOpen(true) }}

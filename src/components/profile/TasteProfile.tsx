@@ -160,7 +160,7 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
           )}
           {works.length < MAX_WORKS && (
             <>
-              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="작품 제목 검색해서 추가 (영화·드라마·예능은 전체 검색)" />
+              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} autoComplete="off" placeholder="작품 제목 검색해서 추가 (영화·드라마·예능은 전체 검색)" />
               {(matches.length > 0 || tmdbCands.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (

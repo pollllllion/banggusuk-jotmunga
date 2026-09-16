@@ -287,7 +287,7 @@ export function BrowsePage() {
             className="form-input"
             value={q}
             onChange={e => runSearch(e.target.value)}
-            placeholder="작품 검색"
+            autoComplete="off" placeholder="작품 검색"
             aria-label="작품 검색"
           />
           {q && (

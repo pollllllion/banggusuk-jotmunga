@@ -67,7 +67,7 @@ export function FreeBoardPage() {
       <div className="disc-head">
         <h2 className="feed-title">{board ? board.label : '자유방'}</h2>
         <div className="disc-searchbar">
-          <input className="form-input" value={q} onChange={e => setQ(e.target.value)} placeholder="제목·내용 검색" />
+          <input className="form-input" value={q} onChange={e => setQ(e.target.value)} autoComplete="off" placeholder="제목·내용 검색" />
           <span className="disc-searchbar-count">{rows.length}건</span>
         </div>
         {/* 좁은 화면에서는 고정 바에 같은 버튼이 있어 접는다(CSS) */}

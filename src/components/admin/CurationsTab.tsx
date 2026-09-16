@@ -399,7 +399,7 @@ function ItemAdder({ existing, onAdd }: { existing: string[]; onAdd: (id: string
     <div className="cur-adder">
       <input
         type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)}
-        placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
+        autoComplete="off" placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
       />
       {hits.length > 0 && (
         <ul className="cur-adder-list">

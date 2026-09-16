@@ -319,7 +319,7 @@ export function WriteDiscussionPage() {
             </>
           ) : (
             <>
-              <input className="form-input" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} />
+              <input className="form-input" autoComplete="off" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} />
               {(matches.length > 0 || tmdbHits.length > 0) && (
                 <div className="tmdb-results">
                   {matches.map(c => (

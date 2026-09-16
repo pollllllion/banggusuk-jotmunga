@@ -241,7 +241,7 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
           style={{ flex: 1, minWidth: 180, maxWidth: 320, marginBottom: 0 }}
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="작품 제목 검색…"
+          autoComplete="off" placeholder="작품 제목 검색…"
         />
         <span style={{ fontSize: 12, color: 'var(--subtext)' }}>{contents.length}편</span>
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--subtext)', cursor: 'pointer' }}>

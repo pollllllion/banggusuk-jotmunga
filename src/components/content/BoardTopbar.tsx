@@ -76,7 +76,7 @@ export function BoardTopbar({ title, section, action, search }: {
             value={search.value}
             onChange={e => search.onChange(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape') close() }}
-            placeholder={search.placeholder}
+            autoComplete="off" placeholder={search.placeholder}
           />
           <span className="disc-searchbar-count">{search.count}건</span>
         </div>

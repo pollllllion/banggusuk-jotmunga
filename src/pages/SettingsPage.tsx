@@ -82,14 +82,14 @@ export function SettingsPage() {
           <h3>비밀번호 변경</h3>
           <div className="form-group">
             <label>새 비밀번호</label>
-            <input type="password" className="form-input" value={newPw} onChange={e => setNewPw(e.target.value)} />
+            <input type="password" autoComplete="new-password" className="form-input" value={newPw} onChange={e => setNewPw(e.target.value)} />
             {newPw && (
               <ul className="validation-list">
                 {pwRules.map(r => <li key={r.key} className={r.pass ? 'pass' : 'fail'}><span className="vicon">{r.pass ? '✓' : '✗'}</span> {r.label}</li>)}
               </ul>
             )}
           </div>
-          <div className="form-group"><label>새 비밀번호 확인</label><input type="password" className="form-input" value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)} /></div>
+          <div className="form-group"><label>새 비밀번호 확인</label><input type="password" autoComplete="new-password" className="form-input" value={newPwConfirm} onChange={e => setNewPwConfirm(e.target.value)} /></div>
           <button className="btn btn-primary" onClick={changePassword} disabled={busy}>{busy ? '변경 중...' : '비밀번호 변경'}</button>
         </div>
       )}

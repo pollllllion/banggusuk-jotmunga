@@ -240,7 +240,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
         {!manual && (
           <>
             <input
-              className="form-input" autoFocus placeholder="제목으로 검색 (영화·드라마·예능·웹툰·웹소설)"
+              className="form-input" autoFocus autoComplete="off" placeholder="제목으로 검색 (영화·드라마·예능·웹툰·웹소설)"
               value={query}
               onChange={e => setQuery(e.target.value)}
             />
