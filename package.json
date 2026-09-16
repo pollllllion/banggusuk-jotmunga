@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "sitemap": "node scripts/generate-sitemap.mjs",
-    "prebuild": "npm run sitemap",
+    "rss": "node scripts/generate-rss.mjs",
+    "prebuild": "npm run sitemap && npm run rss",
     "build": "vite build",
     "postbuild": "npm run prerender",
     "prerender": "node scripts/prerender.mjs",
