@@ -153,7 +153,8 @@ export function Sidebar() {
       {/* 알림 — 화면을 갈아치우지 않고 머리 블록 바로 아래에서 펼친다 */}
       {notifOpen && <NotificationList onNavigate={() => { closeNavDrawer(); setNotifOpen(false) }} />}
 
-      <div className="sb-sec">게시판</div>
+      {/* 첫 칸에는 제목을 안 붙인다 — 머리 블록 바로 아래 오는 목록이 게시판이라는 건
+          굳이 안 적어도 읽힌다. 아래 칸들은 성격이 갈려서 이름이 있어야 한다. */}
       {boards.map(row)}
 
       <div className="sb-sec">내 활동</div>
