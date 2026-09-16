@@ -1,7 +1,8 @@
 /**
  * 토론방 — 토론글(discussions) + 그 댓글(discussion_comments) + 유동닉 비번 RPC.
  *
- * 작품 평점(avgRating/reviewCount)은 별점을 단 토론글에서 집계한다 → recomputeContentRating.
+ * 작품 평점(avgRating/reviewCount)은 **토론글 별점 + 본 작품 별점**에서 집계한다
+ * → contentRatings / recomputeContentRating. 합치는 규칙은 utils/rating.ts 한 곳에 있다.
  * (contents 캐시를 직접 손대므로 contents.ts 를 import 하지 않는다 — 순환 참조 방지)
  */
 import { supabase } from '@/lib/supabaseClient'
@@ -11,6 +12,7 @@ import { cache, load, store, SaveFailedError } from './cache'
 import { buildNotification, insertNotifications } from './social'
 import { getUserById } from './users'
 import { commentNotifyTargets, likeNotifyTarget, postLabel } from '@/utils/notify'
+import { mergeContentRatings, summarizeRatings } from '@/utils/rating'
 import { scorePost } from '@/utils/postSearch'
 
 export function getDiscussions(): Discussion[] { return load('discussions') }
@@ -96,25 +98,35 @@ export function displayRatingFor(userId: string, contentId: string, watchedRatin
 }
 
 /**
- * 평점 재집계 — 캐시만 갱신(즉시 표시용). DB 는 트리거가 같은 규칙으로 맞춘다
- * (supabase/migration_watched_rating.sql 의 recompute_content_rating).
+ * 이 작품에 매겨진 **별점 전부** — 토론글 별점 + 본 작품에서 바로 매긴 별점.
  *
- * 재료는 둘이다: **별점 단 토론글** + **본 작품에서 바로 매긴 별점**.
  * 같은 사람이 둘 다 가지고 있으면 토론글 쪽만 센다 — 글로 남긴 평가가 더 무겁고
  * 1작품 1별점 규칙과도 맞는다. 유동닉 글의 별점은 묶을 상대가 없어 그대로 센다.
+ *
+ * **집계하는 곳은 전부 이 함수를 쓴다.** 예전에는 작품방 화면이 토론글 별점만 따로
+ * 세고 있었다. 그래서 프리렌더·목록(contents.avgRating)은 '4.0 · 별점 1개'인데
+ * 작품방만 '아직 별점 없음'이라고 말하는 일이 생겼다(2026-09-16 군체에서 확인).
+ * 규칙이 두 벌이면 언젠가 또 갈린다.
+ *
+ * DB 쪽도 같은 규칙이다 — supabase/migration_watched_rating.sql 의 recompute_content_rating.
+ */
+export function contentRatings(contentId: string | null | undefined): number[] {
+  if (!contentId) return []
+  return mergeContentRatings(
+    getDiscussions().filter(d => d.contentId === contentId),
+    (cache.watched as any[]).filter(w => w.contentId === contentId),
+  )
+}
+
+/**
+ * 평점 재집계 — 캐시만 갱신(즉시 표시용). DB 는 트리거가 같은 규칙으로 맞춘다
+ * (supabase/migration_watched_rating.sql 의 recompute_content_rating).
  *
  * 자유방 글은 작품이 없어 null 이 들어온다 — DB 쪽 함수와 마찬가지로 조용히 넘긴다.
  */
 export function recomputeContentRating(contentId: string | null | undefined) {
   if (!contentId) return
-  const rated = getDiscussions().filter(d => d.contentId === contentId && d.rating != null)
-  const ratedAuthors = new Set(rated.map(d => d.authorId).filter(Boolean))
-  const fromWatched = (cache.watched as any[])
-    .filter(w => w.contentId === contentId && w.rating != null && !ratedAuthors.has(w.userId))
-    .map(w => w.rating as number)
-  const scores = [...rated.map(d => d.rating || 0), ...fromWatched]
-  const count = scores.length
-  const avg = count ? Math.round((scores.reduce((s, r) => s + r, 0) / count) * 10) / 10 : 0
+  const { avg, count } = summarizeRatings(contentRatings(contentId))
   const idx = cache.contents.findIndex((c: any) => c.id === contentId)
   if (idx >= 0) {
     const next = [...cache.contents]

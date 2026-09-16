@@ -742,16 +742,17 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .cs-kv dt { color: var(--subtext); font-size: 11.5px; font-weight: 600; }
 .cs-kv dd { color: var(--text-secondary); min-width: 0; overflow-wrap: anywhere; }
 
-/* 더보기 — 띠(와 펼친 상세정보) 바로 아래 한 줄 */
+/* 더보기 — **띠 안**, 정보 아래.
+   전에는 띠 밖 전체 폭 버튼이었는데, 누르는 일이 드문 것 하나가 띠와 토론글 사이에서
+   한 줄을 통째로 먹었다. 여기서는 글자 폭만 차지한다 — 알약도 테두리도 없이 링크처럼. */
 .cs-more {
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  width: 100%; margin-top: 8px; padding: 8px 0;
-  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-full);
-  font-size: 12.5px; font-weight: 700; color: var(--text-secondary);
-  cursor: pointer; transition: var(--duration) var(--ease);
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-top: 10px; padding: 0;
+  background: none; border: 0;
+  font-size: 12px; font-weight: 700; color: var(--link);
+  cursor: pointer; transition: color var(--duration) var(--ease);
 }
-.cs-more:hover { border-color: var(--border); color: var(--text); }
-.cs-more.on { color: var(--link); }
+.cs-more:hover { text-decoration: underline; }
 
 /* 좁은 화면 — 별점 남기기를 제 줄로 내린다.
    포스터를 뺀 폭이 250px 남짓이라 숫자·별·건수 옆에 버튼까지 얹으면 버튼이 잘린다. */

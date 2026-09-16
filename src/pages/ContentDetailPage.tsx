@@ -19,6 +19,7 @@ import { ShareButton } from '@/components/ui/ShareButton'
 import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
+import { summarizeRatings } from '@/utils/rating'
 import { SITE_URL } from '@/utils/seo'
 import {
   buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, hasTmdbRating,
@@ -79,16 +80,22 @@ export function ContentDetailPage() {
   const [infoOpen, setInfoOpen] = useState(searchParams.get('tab') === 'info')
 
   const discussions = DS.getDiscussionsByContent(content.id)
-  // 별점 = 토론글 중 별점 단 글에서 집계
-  const rated = discussions.filter(d => d.rating != null)
-  const ratingCount = rated.length
-  const avgRating = ratingCount ? Math.round((rated.reduce((s, d) => s + (d.rating || 0), 0) / ratingCount) * 10) / 10 : 0
+  /**
+   * 별점 = **토론글 별점 + 본 작품에서 바로 매긴 별점** (DS.contentRatings).
+   *
+   * 2026-09-16 까지 이 화면만 토론글 별점을 따로 셌다. 그래서 목록·프리렌더
+   * (contents.avgRating)는 '4.0 · 별점 1개'인데 작품방만 '아직 별점 없음'이라고
+   * 말하는 일이 생겼다. 이제 집계는 한 함수에서만 나온다 — 규칙이 두 벌이면 또 갈린다.
+   */
+  const scores = DS.contentRatings(content.id)
+  const { avg: avgRating, count: ratingCount } = summarizeRatings(scores)
   const dist = Array.from({ length: 10 }, (_, i) => {
     const score = 10 - i
-    return { score, count: rated.filter(d => d.rating === score).length }
+    return { score, count: scores.filter(r => r === score).length }
   })
   const maxCount = Math.max(1, ...dist.map(d => d.count))
-  const expertRating = expertRatingFor(rated)
+  // 좋문가 평점은 글에만 붙는다 — 레벨은 글쓴이에게 매겨지는 값이라 본 작품 별점에는 없다
+  const expertRating = expertRatingFor(discussions.filter(d => d.rating != null))
 
   const bookmarked = user ? DS.isBookmarked(user.id, content.id) : false
   const alerted = user ? DS.isContentAlerted(user.id, content.id) : false
@@ -342,11 +349,23 @@ export function ContentDetailPage() {
               <><dt>출연</dt><dd>{content.castMembers!.slice(0, 4).map(p => p.name).join(', ')}{content.castMembers!.length > 4 ? ' 외' : ''}</dd></>
             )}
           </dl>
+
+          {/* 더보기는 **띠 안**에 둔다. 전에는 띠 아래 전체 폭 버튼이었는데,
+              누르는 일이 드문 것 하나가 띠와 토론글 사이에서 한 줄을 통째로 먹었다.
+              여기서는 글자 폭만 차지하고, 펼치면 아래로 상세정보가 이어진다. */}
+          <button
+            type="button"
+            className="cs-more"
+            onClick={() => setInfoOpen(v => !v)}
+            aria-expanded={infoOpen}
+            aria-controls="content-detail-info"
+          >
+            {infoOpen ? '접기 ∧' : '상세정보 더보기 ∨'}
+          </button>
         </div>
       </div>
 
-      {/* 펼친 상세정보 — 줄거리·출연진·별점 분포·실린 글.
-          띠 바로 아래에 열리고, 아래 버튼이 따라 내려간다. */}
+      {/* 펼친 상세정보 — 줄거리·출연진·별점 분포·실린 글. 띠 바로 아래에 열린다 */}
       {infoOpen && (
         <div className="cs-detail fade-in" id="content-detail-info">
           <section className="cs-panel">
@@ -380,16 +399,6 @@ export function ContentDetailPage() {
           <CurationBacklinks contentId={content.id} />
         </div>
       )}
-
-      <button
-        type="button"
-        className={`cs-more ${infoOpen ? 'on' : ''}`}
-        onClick={() => setInfoOpen(v => !v)}
-        aria-expanded={infoOpen}
-        aria-controls="content-detail-info"
-      >
-        {infoOpen ? '접기 ∧' : '상세정보 더보기 ∨'}
-      </button>
 
       {/* 토론글 목록 + 작성 — 이 페이지의 주인공이다 */}
       <DiscussionBoard contentId={content.id} />
