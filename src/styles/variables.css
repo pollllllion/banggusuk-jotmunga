@@ -30,6 +30,13 @@
   --danger-light: #FEE2E2;
   --info: #2563EB;
   --info-light: #DBEAFE;
+  /* 레벨 마크 색 계단 (components/profile/LevelMark.tsx).
+     초록 → 파랑 → 보라. 게임에서 등급을 세는 차례라 숫자를 안 읽어도 순서가 짐작된다.
+     흰 숫자를 얹으므로 너무 밝은 색은 못 쓴다 — 초록을 한 단 낮춘 이유다. */
+  --lv-1: #5E9E36;
+  --lv-2: #3E7BC4;
+  --lv-3: #9B3FB5;
+
   /* 점수 색상 */
   --score-high: #16A34A;
   --score-mid: #2563EB;
@@ -89,6 +96,11 @@
     --link: #7EA8FF;          /* 코발트(#1B54D6)는 어두운 바탕에서 거의 안 읽힌다 */
     --link-dark: #A3C0FF;
 
+    /* 어두운 바탕에서는 세 색 다 한 단 올린다 — 안 올리면 카드에 눌어붙는다 */
+    --lv-1: #6FB245;
+    --lv-2: #5090DA;
+    --lv-3: #B152CB;
+
     --success-light: #14331F;
     --danger-light: #3A1B1B;
     --info-light: #16233D;
@@ -126,6 +138,10 @@
 
   --link: #7EA8FF;
   --link-dark: #A3C0FF;
+
+  --lv-1: #6FB245;
+  --lv-2: #5090DA;
+  --lv-3: #B152CB;
 
   --success-light: #14331F;
   --danger-light: #3A1B1B;
