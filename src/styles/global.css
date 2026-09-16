@@ -387,6 +387,27 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 }
 .feed-sort button.active { background: var(--card); color: var(--text); box-shadow: var(--shadow-xs); }
 
+/* ── 작품 둘러보기의 작품 검색칸 (2026-09-16) ─────────────
+   제목 줄 안, 정렬 왼쪽 — 게시판 검색칸과 같은 자리다.
+   ?search= 자체는 예전부터 있었지만 헤더 통합검색에서 넘어올 때만 붙었다.
+   목록을 보다가 "그 작품 어딨지" 할 때 칠 곳이 이 화면에 없었다. */
+.browse-head { gap: 10px; }
+.browse-search { position: relative; margin-left: auto; flex: 0 0 auto; width: 240px; }
+.browse-search .form-input { width: 100%; padding: 5px 28px 5px 12px; font-size: 13px; }
+.browse-search-clear {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  background: none; border: 0; cursor: pointer; line-height: 1;
+  font-size: 11px; color: var(--subtext); padding: 2px;
+}
+.browse-search-clear:hover { color: var(--text); }
+
+@media (max-width: 768px) {
+  /* 손가락이 눌러야 해서 제 줄을 통째로 쓴다 — 제목 옆에 240px 을 끼우면 둘 다 좁아진다.
+     (.feed-header 가 이미 flex-wrap: wrap 이라 이 줄만으로 다음 줄로 내려간다) */
+  .browse-search { order: 3; flex: 1 0 100%; width: auto; margin-left: 0; }
+  .browse-search .form-input { padding: 9px 30px 9px 14px; font-size: 14px; }
+}
+
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 10px; }
 .section-head h3 { font-size: 15px; font-weight: 800; color: var(--heading); display: flex; align-items: center; gap: 6px; }
 .section-head a { font-size: 12px; color: var(--subtext); }

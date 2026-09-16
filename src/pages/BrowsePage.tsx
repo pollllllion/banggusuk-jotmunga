@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
@@ -97,6 +97,25 @@ export function BrowsePage() {
   const [registering, setRegistering] = useState(false)
   /** 연도 직접 입력칸 */
   const [yearInput, setYearInput] = useState('')
+  /**
+   * 작품 검색칸 — 이 화면 안에서 찾는다.
+   *
+   * ?search= 는 예전부터 있었지만 헤더 통합검색·통합검색 화면에서 넘어올 때만 붙었다.
+   * 정작 목록을 보다가 "그 작품 어딨지" 할 때 칠 곳이 이 화면에 없었다.
+   * 입력칸은 로컬 상태로 두고 주소는 replace 로 따라 붙인다 —
+   * 글자마다 push 하면 뒤로가기가 타이핑 기록으로 가득 찬다.
+   */
+  const [q, setQ] = useState(search)
+  // 주소의 검색어가 밖에서 바뀌면(통합검색에서 들어옴 · 뒤로가기 · 필터가 검색을 지움) 칸도 따라간다
+  useEffect(() => { setQ(search) }, [search])
+
+  const runSearch = (value: string) => {
+    setQ(value)
+    const next = new URLSearchParams(searchParams)
+    if (value.trim()) next.set('search', value.trim()); else next.delete('search')
+    next.delete('p')   // 검색어가 바뀌면 결과가 통째로 달라진다 → 1쪽부터
+    setSearchParams(next, { replace: true })
+  }
 
   /**
    * 필터·정렬을 바꾸면 **쪽 번호를 반드시 버린다.**
@@ -216,8 +235,22 @@ export function BrowsePage() {
         description={`${seoTitle} — 공개일·평점·별점을 한 곳에서. 넷플릭스·디즈니+·티빙·웨이브 등 OTT 작품과 극장 개봉작, 웹툰·웹소설까지 ${contents.length}편을 모아봤습니다.`}
         noindex={!!search || detailFiltered || multiPicked}
       />
-      <div className="feed-header">
+      <div className="feed-header browse-head">
         <h2 className="feed-title">{search ? `"${search}" 검색 결과` : '작품 둘러보기'}</h2>
+        {/* 제목 줄 안, 정렬 왼쪽 — 게시판 검색칸과 같은 자리다.
+            좁은 화면에서는 CSS 가 제 줄로 내린다(손가락이 눌러야 하므로 전체 폭). */}
+        <div className="browse-search">
+          <input
+            className="form-input"
+            value={q}
+            onChange={e => runSearch(e.target.value)}
+            placeholder="작품 검색"
+            aria-label="작품 검색"
+          />
+          {q && (
+            <button className="browse-search-clear" onClick={() => runSearch('')} aria-label="검색어 지우기">✕</button>
+          )}
+        </div>
         <div className="feed-sort">
           <button className={sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'latest')}>최신</button>
           <button className={sort === 'year' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
