@@ -1616,7 +1616,12 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* 맺음말 — 작품 카드 뒤. 마지막 카드와 같은 구분선으로 끊어 "목록 밖의 글"임을 보인다 */
 .cur-outro { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--border-light); }
 .cur-item { display: flex; gap: 16px; padding-top: 20px; border-top: 1px solid var(--border-light); }
-.cur-item-poster { width: 90px; border-radius: var(--radius-md); flex-shrink: 0; cursor: pointer; }
+/* 포스터는 위에 붙이고 제 비율을 지킨다 — flex 기본값(stretch)이면 코멘트가 길수록
+   세로로 늘어났다. 글이 더 길면 포스터 아래는 그냥 여백으로 둔다 */
+.cur-item-poster {
+  width: 90px; height: auto; aspect-ratio: 2 / 3; object-fit: cover; align-self: flex-start;
+  border-radius: var(--radius-md); flex-shrink: 0; cursor: pointer;
+}
 .cur-item-body { min-width: 0; }
 .cur-item-body h2 { font-size: 17px; font-weight: 800; color: var(--heading); cursor: pointer; }
 .cur-item-body h2:hover { color: var(--info); }

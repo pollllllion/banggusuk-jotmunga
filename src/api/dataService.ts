@@ -15,7 +15,7 @@
  *   discussions.ts    토론글 + 그 댓글 + 유동닉 비번 RPC + 평점 재집계
  *   social.ts         찜·본작품·차단·알림·신고·공지
  *   curations.ts      큐레이션(기획 글)
- *   watchLogs.ts      나만의 캘린더(시청 기록) — 시작 로드 밖, 화면에서 받는다
+ *   watchLogs.ts      작품일지(시청 기록) — 시작 로드 밖, 화면에서 받는다
  */
 export { cache, load, store, loadAll, loadEssential, loadRest, saveBootSnapshot, restoreBootSnapshot, isContentsComplete, setOnContentsComplete, reloadUserScoped, seed, SaveFailedError, type Table, type PersistResult } from './cache'
 export { CONTENT_LIST_COLS, CONTENT_DETAIL_COLS } from './contentColumns'

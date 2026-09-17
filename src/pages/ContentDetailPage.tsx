@@ -71,7 +71,7 @@ export function ContentDetailPage() {
     : content.status === 'completed' ? '완결' : null
 
   /**
-   * 상세정보(줄거리·출연진·별점 분포·실린 글)를 펼쳤나 — 2026-09-16.
+   * 상세정보(줄거리·출연진·별점 분포)를 펼쳤나 — 2026-09-16.
    *
    * 예전에는 '토론글 / 작품상세정보' 두 탭이었다. 토론글이 기본이라 글은 바로 보였지만,
    * 상세정보를 보려면 눌러야 했고 누르면 토론글이 사라졌다 — 둘을 같이 볼 방법이 없었다.
@@ -371,7 +371,7 @@ export function ContentDetailPage() {
         </div>
       </div>
 
-      {/* 펼친 상세정보 — 줄거리·출연진·별점 분포·실린 글. 띠 바로 아래에 열린다 */}
+      {/* 펼친 상세정보 — 줄거리·출연진·별점 분포. 띠 바로 아래에 열린다 */}
       {infoOpen && (
         <div className="cs-detail fade-in" id="content-detail-info">
           {/* 줄거리가 없으면 칸 자체를 안 그린다 — '등록된 줄거리가 없습니다' 한 줄은
@@ -406,14 +406,15 @@ export function ContentDetailPage() {
               </div>
             </section>
           )}
-
-          {/* 이 작품이 실린 기획 글 — 작품 → 큐레이션 역링크 */}
-          <CurationBacklinks contentId={content.id} />
         </div>
       )}
 
       {/* 토론글 목록 + 작성 — 이 페이지의 주인공이다 */}
       <DiscussionBoard contentId={content.id} />
+
+      {/* 이 작품이 실린 큐레이션 — 토론글 바로 아래, 늘 보인다 (2026-09-17).
+          전에는 펼쳐야 보이는 상세정보 안에 있어서 거의 아무도 못 봤다. 실린 글이 없으면 안 그린다 */}
+      <CurationBacklinks contentId={content.id} />
 
       {rateOpen && (
         <RatingSheet

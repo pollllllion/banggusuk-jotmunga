@@ -39,7 +39,7 @@ const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowe
  */
 export type RegisterMode = 'watched' | 'bookmark' | 'catalog' | 'pick'
 
-/* 'pick' — 나만의 캘린더에서 기록할 작품을 고른다. 목록에 걸지 않고 작품만 돌려준다
+/* 'pick' — 작품일지에서 기록할 작품을 고른다. 목록에 걸지 않고 작품만 돌려준다
    (사이트에 없으면 만들어서). 본 작품에 거는 건 기록을 저장할 때 한다. */
 const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품', catalog: '작품', pick: '기록할 작품' }
 

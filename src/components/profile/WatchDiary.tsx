@@ -4,6 +4,7 @@ import * as DS from '@/api/dataService'
 import { useToastStore } from '@/components/ui/Toast'
 import { WatchLogModal } from './WatchLogModal'
 import { clickable } from '@/utils/a11y'
+import { holidayOf } from '@/shared/holidays.mjs'
 import type { WatchLog } from '@/types'
 import '@/styles/diary.css'
 
@@ -15,7 +16,11 @@ const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const MAX_IN_CELL = 4
 
 /**
- * 나만의 캘린더 — 본 날 칸에 포스터가 채워지는 달력 + 고른 날의 기록.
+ * 작품일지 — 본 날 칸에 포스터가 채워지는 달력 + 고른 날의 기록.
+ *
+ * 날짜를 누르면: 기록이 없는 날은 바로 기록 창이 열린다(내 일지일 때). 기록이 있는 날은
+ * 그날 기록이 아래에 펼쳐지고, 거기 '+ 이날 기록'으로 더 쓴다 — 있는 기록을 못 보고
+ * 창부터 뜨면 이미 쓴 걸 또 쓰게 된다.
  *
  * 내 피드(editable)에서는 쓰고 고치고, 남의 프로필에서는 공개로 둔 기록만 본다
  * (RLS 가 비공개 줄을 아예 안 준다). 찜 달력(CalendarPage)과 같은 포스터 칸 방식이다.
@@ -111,13 +116,25 @@ export function WatchDiary({ userId, editable, title }: {
             const k = keyOf(cursor.y, cursor.m, d)
             const here = byDay.get(k) ?? []
             const shown = here.slice(0, MAX_IN_CELL)
+            const holiday = holidayOf(k) as string | null
+            // 일요일·공휴일은 빨강, 토요일은 파랑 — 공개 캘린더(CalendarPage)와 같은 규칙
+            const dow = (firstDow + d - 1) % 7
+            const red = dow === 0 || !!holiday
+            const open = () => {
+              setSelected(k)
+              if (editable && !here.length) setEditing({ day: k })
+            }
+            const label = [`${cursor.m + 1}월 ${d}일`, holiday, here.length ? `기록 ${here.length}개` : editable ? '기록하기' : null]
+              .filter(Boolean).join(' · ')
             return (
               <div
                 key={k}
-                className={`diary-cell ${here.length ? 'has' : ''} ${k === today ? 'today' : ''} ${k === selected ? 'sel' : ''}`}
-                {...clickable(() => setSelected(k), `${cursor.m + 1}월 ${d}일${here.length ? ` 기록 ${here.length}개` : ''}`)}
+                className={`diary-cell ${here.length ? 'has' : ''} ${k === today ? 'today' : ''} ${k === selected ? 'sel' : ''} ${red ? 'sun' : dow === 6 ? 'sat' : ''}`}
+                title={label}
+                {...clickable(open, label)}
               >
                 <span className="diary-day">{d}</span>
+                {holiday && <span className="diary-holiday">{holiday}</span>}
                 {shown.length > 0 && (
                   <div className={`diary-posters n${shown.length}`}>
                     {shown.map(l => {
@@ -139,7 +156,7 @@ export function WatchDiary({ userId, editable, title }: {
       <div className="diary-day-panel">
         <div className="diary-day-head">
           <strong>{sm}월 {sd}일</strong>
-          <span>{WEEK[new Date(sy, sm - 1, sd).getDay()]}요일</span>
+          <span>{WEEK[new Date(sy, sm - 1, sd).getDay()]}요일{holidayOf(selected) ? ` · ${holidayOf(selected)}` : ''}</span>
           {editable && (
             <button className="btn-text btn-small" onClick={() => setEditing({ day: selected })}>+ 이날 기록</button>
           )}

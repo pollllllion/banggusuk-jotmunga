@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════════
-   나만의 캘린더 (2026-09-17) — components/profile/WatchDiary.tsx
+   작품일지 (2026-09-17) — components/profile/WatchDiary.tsx
    ──────────────────────────────────────────────────────────────
    본 날 칸에 포스터가 채워지는 달력 + 고른 날의 기록.
    찜 달력(calendar.css 의 .cal-favposters)과 같은 포스터 칸 규칙을 쓰지만
@@ -50,6 +50,16 @@
 }
 /* 고른 날 — 아래 패널이 이 날을 말한다는 걸 칸에서도 짚는다 */
 .diary-cell.sel { box-shadow: inset 0 0 0 2px var(--primary); }
+.diary-cell.sun .diary-day { color: var(--danger); }
+.diary-cell.sat .diary-day { color: var(--link); }
+/* 오늘 동그라미 안에서는 흰 글씨가 이긴다 */
+.diary-cell.today .diary-day { color: #fff; }
+/* 공휴일 이름 — 숫자 맞은편에 띄워 세로 자리를 안 먹는다. 좁은 화면에선 숨기고 숫자 색만 남긴다 */
+.diary-holiday {
+  position: absolute; top: 4px; right: 4px; max-width: calc(100% - 22px);
+  font-size: 9.5px; font-weight: 700; color: var(--danger); line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 .diary-posters {
   flex: 1; min-height: 0; display: grid; gap: 2px;
@@ -146,6 +156,7 @@
 @media (max-width: 640px) {
   .diary-cell { height: 76px; padding: 3px; }
   .diary-day { font-size: 10px; }
+  .diary-holiday { display: none; }
   .diary-entry-poster { width: 48px; }
 }
 

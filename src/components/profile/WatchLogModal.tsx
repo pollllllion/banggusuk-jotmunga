@@ -4,14 +4,27 @@ import { useToastStore } from '@/components/ui/Toast'
 import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { uuid } from '@/utils/helpers'
-import type { Content, WatchLog } from '@/types'
+import type { Content, ContentType, WatchLog } from '@/types'
 
 /* 자주 쓰는 값은 눌러서 넣고, 나머지는 직접 쓴다 — 칩을 누르면 입력칸이 그 글자로 바뀐다 */
 const PLACES = ['집', '극장', '이동 중', '친구 집']
 const COMPANIONS = ['혼자', '친구', '가족', '연인']
 
+/* '어디까지'는 회차가 있는 작품에만 묻는다 — 영화는 한 편이라 뜻이 없다.
+   종류마다 세는 말이 달라 예시도 바꾼다 */
+const PROGRESS_HINT: Partial<Record<ContentType, string>> = {
+  drama: '예: 3~5화, 끝까지',
+  variety: '예: 120회, 최신화',
+  webtoon: '예: 45~60화, 시즌1 완결',
+  webnovel: '예: 120화까지, 외전',
+  shortform: '예: 1~10화',
+  youtube: '예: 3편',
+  etc: '예: 3~5화',
+}
+const hasProgress = (c?: Content) => !!c && c.type !== 'movie'
+
 /**
- * 나만의 캘린더 — 기록 쓰기·고치기.
+ * 작품일지 — 기록 쓰기·고치기.
  *
  * 작품 고르기는 '최근 본 작품·찜한 작품' 칩이 먼저다: 기록하는 건 대개 방금 본 것이고
  * 그건 이미 내 목록에 있다. 없으면 '작품 찾기'로 본 작품 등록과 같은 검색 창을 연다.
@@ -55,7 +68,9 @@ export function WatchLogModal({ userId, day, initial, onClose, onSaved }: {
       const log = await DS.saveWatchLog({
         id: initial?.id ?? uuid(),
         userId, contentId: content.id, watchedOn,
-        place: place.trim(), companions: companions.trim(), progress: progress.trim(), memo: memo.trim(),
+        place: place.trim(), companions: companions.trim(),
+        // 영화로 바꿔 골랐으면 앞서 적어 둔 회차는 버린다
+        progress: hasProgress(content) ? progress.trim() : '', memo: memo.trim(),
         isPublic,
         createdAt: initial?.createdAt ?? now, updatedAt: now,
       })
@@ -144,11 +159,14 @@ export function WatchLogModal({ userId, day, initial, onClose, onSaved }: {
               onChange={e => setCompanions(e.target.value)} placeholder="직접 쓰기" />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="diary-progress">어디까지</label>
-            <input id="diary-progress" className="form-input" maxLength={40} value={progress}
-              onChange={e => setProgress(e.target.value)} placeholder="예: 3~5화, 끝까지 (선택)" />
-          </div>
+          {hasProgress(content) && (
+            <div className="form-group">
+              <label htmlFor="diary-progress">어디까지</label>
+              <input id="diary-progress" className="form-input" maxLength={40} value={progress}
+                onChange={e => setProgress(e.target.value)}
+                placeholder={`${PROGRESS_HINT[content!.type] ?? '예: 3~5화'} (선택)`} />
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="diary-memo">메모</label>

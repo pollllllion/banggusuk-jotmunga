@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import type { Curation } from '@/types'
+import { clickable } from '@/utils/a11y'
 
 /**
- * "이 작품이 실린 글" — 작품 페이지 → 큐레이션 역링크.
+ * "이 작품이 실린 큐레이션" — 작품 페이지 → 큐레이션 역링크. 작품방 토론글 목록 바로 아래.
  *
  * 큐레이션 → 작품 단방향만 두면, 작품 페이지 1,800여 개에 쌓인 크롤 예산이
  * 원본 글로 흐르지 않는다. 역링크를 걸어야 얇은 작품 페이지들이 글을 가리키는
@@ -27,10 +28,10 @@ export function CurationBacklinks({ contentId }: { contentId: string }) {
 
   return (
     <section className="cur-backlinks">
-      <h2>이 작품이 실린 글</h2>
+      <h2>이 작품이 실린 큐레이션</h2>
       <ul>
         {list.map(c => (
-          <li key={c.id} onClick={() => navigate(`/curation/${c.id}`)}>
+          <li key={c.id} {...clickable(() => navigate(`/curation/${c.id}`), c.title)}>
             <span className="cur-backlink-title">{c.title}</span>
             {c.summary && <span className="label">{c.summary}</span>}
           </li>

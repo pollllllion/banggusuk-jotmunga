@@ -287,7 +287,7 @@ export interface Watched {
   rating?: number | null
 }
 
-/** 나만의 캘린더 한 줄 — 언제·어디서·누구랑·어디까지 봤나 + 메모 (migration_watch_logs) */
+/** 작품일지 한 줄 — 언제·어디서·누구랑·어디까지 봤나 + 메모 (migration_watch_logs) */
 export interface WatchLog {
   id: string
   userId: string

@@ -289,7 +289,7 @@ async function main() {
       // 사람이 쓴 글 — 줄거리 바로 다음, 이웃 링크보다 위. 이 페이지의 알맹이다
       talks.length ? talkSection(c, talks) : '',
       backlinks.length
-        ? `<section><h2>이 작품이 실린 글</h2><ul>`
+        ? `<section><h2>이 작품이 실린 큐레이션</h2><ul>`
           + backlinks.map(x => `<li><a href="/curation/${esc(x.id)}">${esc(x.title)}</a></li>`).join('')
           + `</ul></section>`
         : '',
