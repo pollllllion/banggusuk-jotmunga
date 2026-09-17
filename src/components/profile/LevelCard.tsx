@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useAuthStore } from '@/stores/authStore'
-import { EXPERT_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
+import { EXPERT_TIER, LEVELS_PER_TIER, computeStats, computeXp, computeLevel, isExpert } from '@/utils/level'
 import { LevelGuideModal } from '@/components/profile/LevelGuideModal'
 import { LevelMark } from '@/components/profile/LevelMark'
 import type { User } from '@/types'
@@ -27,21 +27,21 @@ export function LevelCard({ user, tick }: { user: User; tick?: number }) {
       <div className="level-card-head">
         {expert
           ? <span className="level-emoji" aria-hidden>{EXPERT_TIER.emoji}</span>
-          : <LevelMark level={level.tierIndex + 1} big />}
+          : <LevelMark level={level.level} big />}
         <div className="level-head-text">
           <div className="level-tier-row">
             <span className="level-tier-name">{expert ? EXPERT_TIER.name : level.tier.name}</span>
-            {!expert && <span className="level-lv">Lv.{level.tierIndex + 1}</span>}
+            {!expert && <span className="level-lv">Lv.{level.level}</span>}
             {stats.streak > 0 && <span className="level-streak" title={`누적 방문 ${stats.visitDays}일`}>🔥 {stats.streak}일 연속</span>}
           </div>
           <div className="level-xp-sub">
             {expert
               ? <>관리자가 인정한 좋문가예요</>
-              : level.next
-                ? (isAdmin
-                    ? <>다음 <b>{level.next.name}</b>까지 {level.toNext} XP</>
-                    : <>다음 단계는 <b>{level.next.name}</b></>)
-                : <>활동 레벨 최고 단계</>}
+              : level.isMax
+                ? <>만렙이에요 — 활동 레벨 최고 단계</>
+                : (isAdmin
+                    ? <>다음 <b>Lv.{level.level + 1}</b>까지 {level.toNextLevel} XP{level.next && <> · <b>{level.next.name}</b>까지 {level.toNext} XP</>}</>
+                    : <>다음은 <b>Lv.{level.level + 1}</b>{level.next && <> · <b>{level.next.name}</b>은 Lv.{(level.tierIndex + 1) * LEVELS_PER_TIER + 1}부터</>}</>)}
           </div>
         </div>
         {/* 일반 사용자에게는 XP 수치를 일절 안 보여준다 — 진행 상황은 아래 진행바로만 */}

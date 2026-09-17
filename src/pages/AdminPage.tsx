@@ -8,11 +8,11 @@ import { timeAgo, normalizeTitle } from '@/utils/helpers'
 import { OTT_FILTERS } from '@/utils/ott'
 import { smartSearchTmdb, tmdbEnabled, tmdbContentId, type TmdbResult } from '@/utils/tmdb'
 import { PosterUploader } from '@/components/content/PosterUploader'
-import { LevelTag } from '@/components/profile/LevelTag'
 import { Seo } from '@/components/seo/Seo'
 import { CurationsTab } from '@/components/admin/CurationsTab'
 import { AnalyticsTab } from '@/components/admin/AnalyticsTab'
-import type { Content, ContentType, User } from '@/types'
+import { UsersTab } from '@/components/admin/UsersTab'
+import type { Content, ContentType } from '@/types'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { clickable } from '@/utils/a11y'
 
@@ -46,17 +46,6 @@ export function AdminPage() {
   const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
-  /** 계정 권한 변경(좋문가·정지) — 서버까지 간 걸 확인한 뒤에 성공을 알린다.
-   *  RLS 거부는 throw 하지 않고 { error } 로 오므로, 확인하지 않으면 조용히 실패한다. */
-  const setAccount = async (u: { id: string }, patch: Partial<User>, done: string) => {
-    try {
-      await DS.updateProfileRow(u.id, patch)
-      toast(done)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '처리하지 못했어요.')
-    }
-    rerender()
-  }
   if (!user || user.role !== 'admin') return null
 
   // 회원 관리는 고정닉 계정(profiles)을 다룬다 — 좋문가·정지가 사는 표가 여기다.
@@ -65,6 +54,13 @@ export function AdminPage() {
   const contents = DS.getContents()
   const reviews = DS.getReviews()
   const reports = DS.getReports()
+  /** 저장 결과를 보고 나서 말한다 — 예전엔 실패해도 '처리되었습니다'가 떴다 */
+  const setReportStatus = async (id: string, status: 'resolved' | 'dismissed') => {
+    const ok = await DS.updateReport(id, { status })
+    toast(!ok ? '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'
+      : status === 'resolved' ? '신고가 처리되었습니다.' : '신고가 기각되었습니다.')
+    rerender()
+  }
   const announcements = DS.getAnnouncements()
   const pendingReports = reports.filter(r => r.status === 'pending')
 
@@ -106,36 +102,14 @@ export function AdminPage() {
               <div className="label" style={{ marginTop: 4 }}>상태: {r.status === 'pending' ? <span style={{ color: 'var(--danger)', fontWeight: 600 }}>대기중</span> : r.status === 'resolved' ? <span style={{ color: 'var(--success)' }}>처리됨</span> : <span style={{ color: 'var(--subtext)' }}>기각</span>}</div>
             </div>
             {r.status === 'pending' && <div className="admin-card-actions">
-              <button className="btn btn-primary btn-small" onClick={() => { DS.updateReport(r.id, { status: 'resolved' }); toast('신고가 처리되었습니다.'); rerender() }}>처리</button>
-              <button className="btn btn-secondary btn-small" onClick={() => { DS.updateReport(r.id, { status: 'dismissed' }); toast('신고가 기각되었습니다.'); rerender() }}>기각</button>
+              <button className="btn btn-primary btn-small" onClick={() => void setReportStatus(r.id, 'resolved')}>처리</button>
+              <button className="btn btn-secondary btn-small" onClick={() => void setReportStatus(r.id, 'dismissed')}>기각</button>
             </div>}
           </div>
         ))
       )}
 
-      {tab === 'users' && users.filter(u => u.role !== 'admin').map(u => (
-        <div key={u.id} className="admin-card fade-in">
-          <div className="admin-card-body">
-            <div className="value">
-              {u.nickname} <LevelTag authorId={u.id} />
-              {' '}<span style={{ color: 'var(--subtext)', fontSize: 12 }}>{u.email}</span>
-            </div>
-            <div className="label">
-              가입일: {new Date(u.createdAt).toLocaleDateString('ko-KR')}
-              {u.expert && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · 👑 좋문가</span>}
-              {u.banned && <span style={{ color: 'var(--danger)', fontWeight: 600 }}> · 정지됨</span>}
-            </div>
-          </div>
-          <div className="admin-card-actions">
-            {/* 좋문가는 XP 로 못 오르는 마지막 칸 — 여기서만 준다 (migration_level_simplify.sql) */}
-            {u.expert
-              ? <button className="btn btn-secondary btn-small" onClick={() => void setAccount(u, { expert: false }, `'${u.nickname}' 좋문가를 해제했습니다.`)}>좋문가 해제</button>
-              : <button className="btn btn-secondary btn-small" onClick={() => { if (!confirm(`'${u.nickname}' 님을 좋문가로 지정할까요?`)) return; void setAccount(u, { expert: true }, `'${u.nickname}' 님이 좋문가가 되었습니다.`) }}>좋문가 지정</button>}
-            {u.banned ? <button className="btn btn-primary btn-small" onClick={() => void setAccount(u, { banned: false }, '정지가 해제되었습니다.')}>정지 해제</button> :
-              <button className="btn btn-danger-solid btn-small" onClick={() => { if (!confirm('이 사용자를 정지하시겠습니까?')) return; void setAccount(u, { banned: true }, '사용자가 정지되었습니다.') }}>정지</button>}
-          </div>
-        </div>
-      ))}
+      {tab === 'users' && <UsersTab rerender={rerender} />}
 
       {tab === 'announce' && <AnnounceTab rerender={rerender} />}
       {tab === 'stats' && <AnalyticsTab />}

@@ -305,6 +305,24 @@ export async function fetchAnalytics(days: number): Promise<AnalyticsSummary | n
   return data as AnalyticsSummary
 }
 
+/** 관리자 사용자 탭용 부가 정보 — profiles 에 없는 것들(이메일 등). migration_admin_user_list.sql */
+export interface AdminUserExtra {
+  id: string
+  email: string | null
+  /** 에디터(페르소나) 계정인가 — 판별은 서버가 한다(명단·규칙을 번들에 싣지 않으려고) */
+  persona: boolean
+  lastSignInAt: string | null
+  /** 웹푸시 구독 기기 수 */
+  pushCount: number
+}
+
+/** 관리자만 부를 수 있다. 마이그레이션 전이거나 권한이 없으면 null — 화면은 그 칸만 비우고 굴러간다 */
+export async function fetchAdminUserList(): Promise<AdminUserExtra[] | null> {
+  const { data, error } = await supabase.rpc('admin_user_list')
+  if (error) { console.error('[admin_user_list]', error.message); return null }
+  return (data as AdminUserExtra[]) || []
+}
+
 // ── Reports ─────────────────────────────────────────────────
 export function getReports(): Report[] { return load('reports') }
 export function saveReports(reports: Report[]) { store('reports', reports) }
@@ -315,12 +333,29 @@ export function createReport(data: Partial<Report>): Report {
   return report
 }
 
-export function updateReport(id: string, updates: Partial<Report>) {
-  const reports = getReports()
-  const idx = reports.findIndex(r => r.id === id)
-  if (idx < 0) return
-  const next = [...reports]; next[idx] = { ...reports[idx], ...updates }
-  saveReports(next)
+/**
+ * 신고 처리·기각 (관리자). 저장에 실패하면 캐시를 되돌리고 false.
+ *
+ * store() 를 거치지 않고 **update 로 직접** 보낸다. store() 는 upsert(INSERT … ON CONFLICT)라
+ * 이미 있는 행을 고칠 때도 BEFORE INSERT 트리거가 돈다 — reports 에는 중복 신고를 막는
+ * cap_report_flood 가 걸려 있어서 "이미 신고한 대상입니다"로 매번 튕겼다. 그런데 결과를
+ * 아무도 안 봐서 처리한 관리자 화면(캐시)만 바뀌고 DB 는 '대기중' 그대로였다(2026-09-17 —
+ * 다른 관리자 계정에서 보니 반영이 안 돼 있어 드러났다).
+ */
+export async function updateReport(id: string, updates: Partial<Report>): Promise<boolean> {
+  const prev = getReports()
+  const idx = prev.findIndex(r => r.id === id)
+  if (idx < 0) return false
+  const next = [...prev]; next[idx] = { ...prev[idx], ...updates }
+  cache.reports = next
+  // RLS 에 막힌 update 는 에러 없이 0행으로 끝난다 — 고쳐진 행을 돌려받아 확인한다
+  const { data, error } = await supabase.from('reports').update(updates).eq('id', id).select('id')
+  if (error || !data?.length) {
+    console.error('[updateReport]', error?.message || '0 rows (권한 없음?)')
+    cache.reports = prev
+    return false
+  }
+  return true
 }
 
 export function hasReported(userId: string, targetType: string, targetId: string): boolean {

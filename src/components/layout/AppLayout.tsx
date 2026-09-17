@@ -4,6 +4,7 @@ import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { TopNav } from './TopNav'
 import { MobileNav } from './MobileNav'
+import { PullToRefresh } from './PullToRefresh'
 import { Footer } from './Footer'
 import { ReportModal } from '@/components/report/ReportModal'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
@@ -121,6 +122,7 @@ export function AppLayout() {
         </main>
       </div>
       <MobileNav />
+      <PullToRefresh />
       <InstallPrompt />
       <ReportModal />
     </>

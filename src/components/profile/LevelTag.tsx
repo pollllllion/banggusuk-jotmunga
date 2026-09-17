@@ -31,5 +31,5 @@ export function LevelTag({ authorId, expertOnly }: {
     )
   }
   if (expertOnly) return null
-  return <LevelMark level={info.tierIndex + 1} title={`Lv.${info.tierIndex + 1} ${info.tier.name}${xpPart}`} />
+  return <LevelMark level={info.level} title={`Lv.${info.level} ${info.tier.name}${xpPart}`} />
 }

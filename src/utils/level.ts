@@ -32,6 +32,34 @@ export const LEVEL_TIERS = [
 ] as const
 export type Tier = (typeof LEVEL_TIERS)[number]
 
+/**
+ * 숫자 레벨 — 등급 하나를 10칸으로 쪼갠다 (2026-09-17).
+ *   백수 Lv.1~10 · 한량 Lv.11~20 · 여포 Lv.21~30(만렙)
+ *
+ * 등급이 셋뿐이면 한 번 오른 뒤 다음까지가 너무 멀다 — 한량(25)에서 여포(90)까지 65 XP 동안
+ * 화면에 아무 변화가 없었다. 칸을 잘게 나누고, 같은 등급 안에서도 레벨이 오를수록 마크 색이
+ * 진해지게 했다(LevelMark.tsx). 등급 경계(25·90)는 그대로라 기존 회원의 등급은 안 바뀐다.
+ *
+ * LEVEL_MINS[n-1] = Lv.n 이 되는 최소 XP. 간격은 위로 갈수록 벌어진다:
+ *   백수  한 칸 2~3 XP   — 글 하나·출석 하루에 한 칸. 처음엔 자주 올라야 재미가 붙는다
+ *   한량  한 칸 4~9 XP
+ *   여포  한 칸 15 → 320 XP — **일부러, 그리고 갈수록 더 어렵게.** 칸마다 폭이 1.3~1.7배씩 불어난다
+ *                          (15·25·40·60·90·130·180·250·320). 무발화 상한(70)+추천 상한(40)을 다 채워도
+ *                          110 이라 Lv.22 에서 멈추고, 그 위는 전부 글로만 오른다.
+ *                          Lv.25(230)는 장문 30편쯤, 만렙(1200)은 장문 270편쯤 —
+ *                          하루 한 편씩 써도 아홉 달이다. 마지막 한 칸(Lv.29→30)이 Lv.1→24 전체보다 길다.
+ * Lv.30 은 마크가 진한 빨강으로 바뀐다 — 보라 계단의 끝이 아니라 '다 올랐다'는 별도 표시.
+ *
+ * 좋문가는 여전히 이 사다리 밖이다(관리자 지정). Lv.31 이 아니다.
+ */
+export const LEVELS_PER_TIER = 10
+export const LEVEL_MINS = [
+  0, 2, 4, 6, 8, 10, 13, 16, 19, 22,                    // 백수 Lv.1~10
+  25, 29, 34, 39, 45, 51, 58, 65, 73, 81,               // 한량 Lv.11~20
+  90, 105, 130, 170, 230, 320, 450, 630, 880, 1200,     // 여포 Lv.21~30
+] as const
+export const MAX_LEVEL = LEVEL_MINS.length
+
 /** 레벨 사다리의 마지막 칸 — XP 로는 못 오르고 관리자가 지정한다. */
 export const EXPERT_TIER = { name: '좋문가', emoji: '👑' } as const
 
@@ -143,7 +171,10 @@ export function computeStats(userId: string, createdAt: string): UserStats {
   receivedNetLikes = Math.round(receivedNetLikes)
 
   const watched = DS.getUserWatched(userId).length
-  const comments = DS.getComments().filter(c => c.authorId === userId && (c.content || '').length >= XP_RULE.commentMin).length
+  // 토론방 댓글을 센다. 예전엔 DS.getComments()(옛 리뷰 댓글 표 — 0행)를 세고 있어서
+  // 댓글을 아무리 달아도 XP 가 0 이었다(2026-09-17 발견).
+  const comments = DS.getDiscussionComments()
+    .filter(c => c.authorId === userId && !c.deleted && (c.body || '').length >= XP_RULE.commentMin).length
   const accountAgeDays = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000))
   const u = DS.getUserById(userId)
   const visitDays = u?.visitDays ?? 0
@@ -155,12 +186,21 @@ export function computeStats(userId: string, createdAt: string): UserStats {
 // ── 활동 레벨 ───────────────────────────────────────────────
 export interface LevelInfo {
   xp: number
+  /** 숫자 레벨 1~30 (LEVEL_MINS) */
+  level: number
+  /** 등급 안에서 몇 번째 칸인가 0~9 — 마크 색의 진하기 */
+  step: number
+  /** 만렙(Lv.30)인가 — 마크가 빨강으로 바뀐다 */
+  isMax: boolean
   tierIndex: number
   tier: Tier
+  /** 다음 **등급** (최고 등급이면 null) */
   next: Tier | null
-  /** 다음 티어까지 진행도 0~1 (최고 티어면 1) */
+  /** 다음 **레벨**까지 진행도 0~1 (만렙이면 1) — 프로필 진행바 */
   progress: number
-  toNext: number // 다음 티어까지 남은 XP (최고 티어면 0)
+  /** 다음 **레벨**까지 남은 XP (만렙이면 0) */
+  toNextLevel: number
+  toNext: number // 다음 등급까지 남은 XP (최고 등급이면 0)
 }
 
 /** 집계 통계 → 총 활동 XP. */
@@ -183,9 +223,19 @@ export function computeLevel(xp: number): LevelInfo {
   }
   const tier = LEVEL_TIERS[idx]
   const next = idx < LEVEL_TIERS.length - 1 ? LEVEL_TIERS[idx + 1] : null
-  const progress = next ? Math.min(1, (xp - tier.min) / (next.min - tier.min)) : 1
   const toNext = next ? Math.max(0, next.min - xp) : 0
-  return { xp, tierIndex: idx, tier, next, progress, toNext }
+
+  let level = 1
+  for (let i = MAX_LEVEL - 1; i >= 0; i--) {
+    if (xp >= LEVEL_MINS[i]) { level = i + 1; break }
+  }
+  const isMax = level === MAX_LEVEL
+  const curMin = LEVEL_MINS[level - 1]
+  const nextMin = isMax ? curMin : LEVEL_MINS[level]
+  const progress = isMax ? 1 : Math.min(1, Math.max(0, (xp - curMin) / (nextMin - curMin)))
+  const toNextLevel = isMax ? 0 : Math.max(0, nextMin - xp)
+  const step = (level - 1) % LEVELS_PER_TIER
+  return { xp, level, step, isMax, tierIndex: idx, tier, next, progress, toNextLevel, toNext }
 }
 
 // ── 좋문가 (관리자 지정) ────────────────────────────────────
@@ -271,8 +321,8 @@ export function computeSeasonRanking(limit = 30): { entries: SeasonEntry[]; days
     const net = weightedLikesOfPost(p, weightFor(p.authorId), p.authorId)
     add(p.authorId, base + qualityXp(net))
   }
-  for (const c of DS.getComments()) {
-    if (inWindow(c.createdAt) && (c.content || '').length >= XP_RULE.commentMin) add(c.authorId, XP_RULE.commentEach)
+  for (const c of DS.getDiscussionComments()) {
+    if (!c.deleted && inWindow(c.createdAt) && (c.body || '').length >= XP_RULE.commentMin) add(c.authorId ?? null, XP_RULE.commentEach)
   }
   for (const w of DS.getWatched()) {
     if (inWindow(w.createdAt)) add(w.userId, XP_RULE.watchedEach)
@@ -299,7 +349,7 @@ export function computeOverallRanking(limit = 30): { entries: SeasonEntry[] } {
   const ids = new Set<string>()
   for (const d of DS.getDiscussions()) if (d.authorId && d.authorId !== 'deleted') ids.add(d.authorId)
   for (const w of DS.getWatched()) ids.add(w.userId)
-  for (const c of DS.getComments()) if (c.authorId && c.authorId !== 'deleted') ids.add(c.authorId)
+  for (const c of DS.getDiscussionComments()) if (c.authorId && c.authorId !== 'deleted') ids.add(c.authorId)
 
   const entries: SeasonEntry[] = []
   for (const userId of ids) {

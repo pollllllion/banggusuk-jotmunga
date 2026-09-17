@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useDataStore } from '@/stores/dataStore'
 import { StillLoading } from '@/components/ui/StillLoading'
@@ -32,10 +32,11 @@ import { ContentDetailFallback } from '@/components/content/ContentDetailFallbac
 import { clickable } from '@/utils/a11y'
 import { WatchLogModal } from '@/components/profile/WatchLogModal'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useGoBack } from '@/hooks/useGoBack'
+import '@/styles/discussion.css'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, isAccount } = useAuthStore()
   const { openReportModal } = useUIStore()
@@ -55,6 +56,8 @@ export function ContentDetailPage() {
   const { state: detail, retry: retryDetail } = useContentDetail(id)
 
   const contentsComplete = useDataStore(s => s.contentsComplete)
+  // ← 는 누르기 직전 화면으로 — 캘린더에서 왔으면 캘린더, 토론글에서 왔으면 그 글 (useGoBack 주석)
+  const goBack = useGoBack('/browse')
   const content = DS.getContentById(id!)
   // 시작 로드가 2단계라 "캐시에 없다"가 곧 "없는 작품"이 아니다 —
   // 2단계가 끝나기 전에 튕기면 멀쩡한 공유 링크가 목록으로 날아간다.
@@ -249,7 +252,17 @@ export function ContentDetailPage() {
         nofollow={content.hidden === true}
         jsonLd={jsonLd}
       />
-      <div className="back-btn" {...clickable(() => navigate('/browse'))}><BackIcon /> 목록으로</div>
+      {/* 좁은 화면 고정 헤더 — 토론글 상세(.disc-topbar)와 같은 자리·같은 모양.
+          앱(홈 화면)에는 브라우저 뒤로 가기가 없어 이 ← 가 돌아가는 유일한 길이다.
+          넓은 화면에서는 CSS 로 숨기고 아래 '뒤로'를 쓴다. */}
+      <div className="disc-topbar">
+        <button className="disc-topbar-btn" onClick={goBack} aria-label="뒤로 가기"><BackIcon /></button>
+        <span className="disc-topbar-title">{content.title}</span>
+        {/* 제목을 가운데 두려고 ← 와 같은 폭을 오른쪽에도 비워 둔다 */}
+        <span className="disc-topbar-btn" aria-hidden="true" />
+      </div>
+      <div className="page-topbar-gap" />
+      <div className="back-btn content-back" {...clickable(goBack)}><BackIcon /> 뒤로</div>
 
       {/* 어느 작품 방인지 말하는 한 줄 */}
       <div className="content-head fade-in">

@@ -18,8 +18,10 @@ import { Seo } from '@/components/seo/Seo'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { markPostRead } from '@/utils/readPosts'
+import { firstViewThisSession } from '@/utils/viewOnce'
 import { isExpertAuthor } from '@/utils/level'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useGoBack } from '@/hooks/useGoBack'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
 
@@ -65,13 +67,21 @@ export function DiscussionDetailPage() {
 
   // 조회수 +1 (인기글 점수 재료). ref 가드 — StrictMode 이중 실행/리렌더로 두 번 세지 않게.
   // 읽은 글 표시도 여기서 남긴다 — 목록을 거치지 않고 링크로 바로 들어온 경우까지 잡으려고.
+  //
+  // 일반 방문자는 같은 글을 한 세션에 한 번만 센다(새로고침 연타 방지). 관리자는 볼 때마다 오른다.
+  // viewerIsAdmin 을 의존성에 넣는 이유: 새로고침 직후엔 서버 확인 전이라 관리자도 잠깐
+  // 일반 회원으로 보인다(authStore.bootFromSnapshot). 그때 '이번 세션에 이미 봄'으로 걸러졌더라도
+  // 관리자로 확인되는 순간 이번 방문을 센다. counted 는 실제로 센 경우에만 채운다.
+  const viewerIsAdmin = !!user && isAccount && user.role === 'admin'
   const counted = useRef<string | null>(null)
   useEffect(() => {
-    if (!id || counted.current === id) return
-    counted.current = id
+    if (!id) return
     markPostRead(id)
+    if (counted.current === id) return
+    if (!viewerIsAdmin && !firstViewThisSession('d:' + id)) return
+    counted.current = id
     void DS.incrementDiscussionViews(id)
-  }, [id])
+  }, [id, viewerIsAdmin])
 
   // 글이 바뀌면(이전글/다음글로 이동) 열려 있던 메뉴·수정칸을 닫는다 — 같은 화면이 재활용되므로
   useEffect(() => { setMenuOpen(false); setEditingId(null); setReplyTo(null); setRbody('') }, [id])
@@ -89,6 +99,8 @@ export function DiscussionDetailPage() {
   // 작품이 있어야 하는 건 토론방 글뿐이고, 그건 DB 제약이 지킨다.
   const content = post ? DS.getContentById(post.contentId) : undefined
   const isFree = (post?.board || 'talk') === 'relay'
+  // ← 는 누르기 직전 화면으로(목록이면 읽던 자리까지). 훅이라 아래 조기 return 보다 앞에 둔다
+  const goBack = useGoBack(isFree ? '/board/relay' : '/talk')
   // 글 자체는 1단계에 다 들어온다. 작품만 2단계를 기다릴 수 있다.
   if (!isFree && post && !content && !contentsComplete) return <StillLoading />
   // 지워졌거나 잘못된 주소 — 목록으로 던지면 공유 링크를 타고 온 사람은 영문을 모르고,
@@ -377,7 +389,7 @@ export function DiscussionDetailPage() {
           뒤로 가거나 메뉴를 열 수 있다. 넓은 화면에서는 CSS 로 숨기고 아래 '목록으로'를 쓴다.
           사이트 헤더(52px) 아래에 sticky 로 물린다 — 헤더를 가리면 검색·알림이 사라진다. */}
       <div className="disc-topbar">
-        <button className="disc-topbar-btn" onClick={() => navigate(boardPath)} aria-label="목록으로">
+        <button className="disc-topbar-btn" onClick={goBack} aria-label="뒤로 가기">
           <BackIcon />
         </button>
         <span className="disc-topbar-title">{post.title || '(제목 없음)'}</span>
@@ -408,7 +420,7 @@ export function DiscussionDetailPage() {
         )}
       </div>
 
-      <div className="back-btn" {...clickable(() => navigate(boardPath))}><BackIcon /> 목록으로</div>
+      <div className="back-btn" {...clickable(goBack)}><BackIcon /> 뒤로</div>
 
       <div className="disc-detail-titlerow">
         {post.rating != null && (

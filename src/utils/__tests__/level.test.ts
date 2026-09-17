@@ -15,7 +15,7 @@ vi.mock('@/api/dataService', () => ({
   isAccountId: () => false,
 }))
 
-const { LEVEL_TIERS, XP_RULE, computeLevel, computeXp, qualityXp, isExpert } = await import('@/utils/level')
+const { LEVEL_TIERS, LEVEL_MINS, LEVELS_PER_TIER, MAX_LEVEL, XP_RULE, computeLevel, computeXp, qualityXp, isExpert } = await import('@/utils/level')
 
 const user = (over: Partial<User> = {}): User => ({
   id: 'u1', nickname: '테스터', email: 't@t.com', role: 'user', banned: false,
@@ -35,11 +35,62 @@ describe('활동 레벨 티어 (백수 → 한량 → 여포)', () => {
     expect(computeLevel(xp).tier.name).toBe(name)
   })
 
-  it('최고 티어에서는 next 가 없고 진행도가 1이다', () => {
-    const top = computeLevel(999)
+  it('최고 등급에서는 다음 등급이 없다 — 진행도는 이제 레벨 기준이라 만렙에서만 1이다', () => {
+    const top = computeLevel(999)          // 여포지만 아직 Lv.29
     expect(top.next).toBeNull()
-    expect(top.progress).toBe(1)
     expect(top.toNext).toBe(0)
+    expect(top.progress).toBeLessThan(1)
+    const max = computeLevel(99999)
+    expect(max.progress).toBe(1)
+    expect(max.toNextLevel).toBe(0)
+  })
+})
+
+describe('숫자 레벨 Lv.1~30 (등급당 10칸)', () => {
+  it('등급 경계와 레벨 경계가 어긋나지 않는다 — Lv.11 = 한량, Lv.21 = 여포', () => {
+    expect(MAX_LEVEL).toBe(LEVEL_TIERS.length * LEVELS_PER_TIER)
+    LEVEL_TIERS.forEach((t, i) => expect(LEVEL_MINS[i * LEVELS_PER_TIER]).toBe(t.min))
+  })
+
+  it('기준 XP 는 계속 오르고, 한 칸의 폭은 줄어들지 않는다 (위로 갈수록 어렵다)', () => {
+    const gaps = LEVEL_MINS.slice(1).map((m, i) => m - LEVEL_MINS[i])
+    gaps.forEach(g => expect(g).toBeGreaterThan(0))
+    gaps.slice(1).forEach((g, i) => expect(g).toBeGreaterThanOrEqual(gaps[i]))
+  })
+
+  it.each([
+    [0, 1, 0], [1, 1, 0], [2, 2, 1], [24, 10, 9],
+    [25, 11, 0], [89, 20, 9],
+    [90, 21, 0], [104, 21, 0], [105, 22, 1], [449, 26, 5], [450, 27, 6],
+    [1199, 29, 8], [1200, 30, 9], [99999, 30, 9],
+  ])('XP %i → Lv.%i (등급 안 %i번째 칸)', (xp, level, step) => {
+    const info = computeLevel(xp)
+    expect(info.level).toBe(level)
+    expect(info.step).toBe(step)
+    // 숫자 레벨이 속한 등급과 XP 로 정한 등급이 늘 같아야 한다
+    expect(Math.ceil(info.level / LEVELS_PER_TIER) - 1).toBe(info.tierIndex)
+  })
+
+  it('만렙은 Lv.30 하나뿐이다 — 빨간 마크', () => {
+    expect(computeLevel(1199).isMax).toBe(false)
+    expect(computeLevel(1200).isMax).toBe(true)
+  })
+
+  it('진행바는 다음 **레벨**까지다', () => {
+    const mid = computeLevel(97)          // Lv.21(90) → Lv.22(105) 의 중간쯤
+    expect(mid.toNextLevel).toBe(8)
+    expect(mid.progress).toBeCloseTo(7 / 15)
+  })
+
+  it('여포 안에서는 칸마다 폭이 **눈에 띄게** 불어난다 — 매 칸 직전의 1.25배 이상', () => {
+    const yeopo = LEVEL_MINS.slice(2 * LEVELS_PER_TIER)
+    const gaps = yeopo.slice(1).map((m, i) => m - yeopo[i])
+    gaps.slice(1).forEach((g, i) => expect(g / gaps[i]).toBeGreaterThanOrEqual(1.25))
+  })
+
+  it('여포 구간은 어렵다 — 글 없이 얻는 XP 와 추천 상한을 다 채워도 Lv.22 를 못 넘는다', () => {
+    const noPosts = XP_RULE.watchedCap + XP_RULE.commentCap + XP_RULE.attendanceCap + qualityXp(100000)
+    expect(computeLevel(noPosts).level).toBeLessThanOrEqual(22)
   })
 })
 

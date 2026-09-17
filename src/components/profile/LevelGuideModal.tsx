@@ -1,5 +1,5 @@
 import { useAuthStore } from '@/stores/authStore'
-import { LEVEL_TIERS, EXPERT_TIER, LONG_POST_MIN, XP_RULE, ANTIABUSE, QUALITY_CURVE, type LevelInfo } from '@/utils/level'
+import { LEVEL_TIERS, LEVELS_PER_TIER, MAX_LEVEL, EXPERT_TIER, LONG_POST_MIN, XP_RULE, ANTIABUSE, QUALITY_CURVE, type LevelInfo } from '@/utils/level'
 import { LevelMark } from '@/components/profile/LevelMark'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
@@ -35,12 +35,17 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
         </p>
 
         {/* 4단계 사다리 — 마지막 칸만 XP 가 아니다 */}
-        <div className="lg-sec-title">레벨 · 총 {LEVEL_TIERS.length + 1}단계</div>
+        <div className="lg-sec-title">등급 {LEVEL_TIERS.length}개 · Lv.1~{MAX_LEVEL} · 그리고 좋문가</div>
         <div className="lg-tiers">
           {LEVEL_TIERS.map((t, i) => (
             <div key={t.name} className={`lg-tier ${!isExpert && i === currentTierIndex ? 'cur' : ''}`}>
-              <span className="lg-tier-emoji"><LevelMark level={i + 1} big /></span>
-              <span className="lg-tier-lv">Lv.{i + 1}</span>
+              {/* 등급의 첫 칸과 끝 칸 — 같은 색이 어디까지 진해지는지 보여준다(여포의 끝은 만렙 빨강) */}
+              <span className="lg-tier-emoji lg-tier-range">
+                <LevelMark level={i * LEVELS_PER_TIER + 1} big />
+                <span aria-hidden>›</span>
+                <LevelMark level={(i + 1) * LEVELS_PER_TIER} big />
+              </span>
+              <span className="lg-tier-lv">Lv.{i * LEVELS_PER_TIER + 1}~{(i + 1) * LEVELS_PER_TIER}</span>
               <span className="lg-tier-name">{t.name}</span>
               {isAdmin && <span className="lg-tier-xp">{t.min.toLocaleString()} XP</span>}
               {!isExpert && i === currentTierIndex && <span className="lg-tier-here">현재</span>}
@@ -59,8 +64,10 @@ export function LevelGuideModal({ level, isExpert, onClose }: {
         {!isAdmin && !isExpert && level && (
           <p className="lg-note">
             {level.next
-              ? <>지금은 <b>{level.tier.name}</b>. 다음 단계는 <b>{level.next.name}</b>예요. 진행 상황은 프로필의 막대로 확인할 수 있어요.</>
-              : <>활동 레벨 최고 단계예요</>}
+              ? <>지금은 <b>{level.tier.name} Lv.{level.level}</b>. 레벨이 오를수록 마크 색이 진해지고, Lv.{(level.tierIndex + 1) * LEVELS_PER_TIER + 1}부터 <b>{level.next.name}</b>예요. 진행 상황은 프로필의 막대로 확인할 수 있어요.</>
+              : level.isMax
+                ? <>만렙이에요 — 빨간 마크는 Lv.{MAX_LEVEL}만 답니다</>
+                : <>지금은 <b>{level.tier.name} Lv.{level.level}</b>. 여기서부터는 천천히 올라요. 끝까지 가면(Lv.{MAX_LEVEL}) 마크가 빨강으로 바뀝니다.</>}
           </p>
         )}
 
