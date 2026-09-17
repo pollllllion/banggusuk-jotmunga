@@ -10,6 +10,7 @@ import { uuid } from '@/utils/helpers'
 import type { Bookmark, ContentAlert, Watched, Block, Notification, NotificationType, Report, Announcement, Content, ContentType } from '@/types'
 import { cache, load, store } from './cache'
 import { currentUser } from './session'
+import { trackEvent } from '@/utils/analytics'
 
 // ── Bookmarks ───────────────────────────────────────────────
 export function getBookmarks(): Bookmark[] { return load('bookmarks') }
@@ -20,6 +21,8 @@ export function toggleBookmark(userId: string, contentId: string): boolean {
   const exists = bm.some(b => b.userId === userId && b.contentId === contentId)
   if (exists) saveBookmarks(bm.filter(b => !(b.userId === userId && b.contentId === contentId)))
   else saveBookmarks([...bm, { userId, contentId, createdAt: new Date().toISOString() }])
+  // 끈 것은 행이 지워져 흔적이 없다 — 관리자 회원 분석용으로 따로 남긴다
+  trackEvent(exists ? 'bookmark_off' : 'bookmark_on', { target: contentId })
   return !exists
 }
 
@@ -64,6 +67,7 @@ export function toggleContentAlert(userId: string, contentId: string): boolean {
   const exists = rows.some(a => a.userId === userId && a.contentId === contentId)
   if (exists) saveContentAlerts(rows.filter(a => !(a.userId === userId && a.contentId === contentId)))
   else saveContentAlerts([...rows, { userId, contentId, createdAt: new Date().toISOString() }])
+  trackEvent(exists ? 'alert_off' : 'alert_on', { target: contentId })
   return !exists
 }
 
@@ -312,8 +316,69 @@ export interface AdminUserExtra {
   /** 에디터(페르소나) 계정인가 — 판별은 서버가 한다(명단·규칙을 번들에 싣지 않으려고) */
   persona: boolean
   lastSignInAt: string | null
+  /** 마지막으로 앱을 연 시각 — migration_last_seen.sql 적용 전에는 안 온다 */
+  lastSeenAt?: string | null
   /** 웹푸시 구독 기기 수 */
   pushCount: number
+  /** 공개알림 건 작품 수 · 최근 30일 화면 이동 수 — migration_user_insight.sql 적용 전에는 안 온다 */
+  alertCount?: number
+  views30?: number
+}
+
+// ── 회원 분석 (관리자) — migration_user_insight.sql ─────────
+interface InsightWork { contentId: string; title: string | null; type?: string | null; createdAt?: string }
+
+/** 회원 한 명의 이용 기록. 원본 표는 클라이언트가 못 읽는다 — 관리자 전용 함수로만 나온다 */
+export interface UserInsight {
+  totals: { views: number; activeDays: number; sessions: number; firstAt: string | null; lastAt: string | null }
+  lastSeenAt: string | null
+  alerts: (InsightWork & { releaseDate: string | null })[]
+  bookmarks: InsightWork[]
+  bookmarkCount: number
+  watched: (InsightWork & { rating: number | null })[]
+  watchedCount: number
+  watchedTypes: { type: string; count: number }[]
+  /** picked 가 있으면 검색 제안에서 바로 고른 것, 없으면 검색 결과 화면까지 간 것 */
+  searches: { q: string | null; at: string; picked: string | null }[]
+  topContents: { contentId: string; title: string | null; views: number; lastAt: string }[]
+  sections: { section: string; views: number }[]
+  hours: { hour: number; views: number }[]
+  daily: { day: string; views: number }[]
+  refs: { ref: string; views: number }[]
+  trail: { path: string; q: string | null; at: string; title: string | null }[]
+  events: { name: string; target: string | null; title: string | null; meta: Record<string, unknown> | null; at: string }[]
+  push: { devices: number; lastOkAt: string | null; failing: number }
+  social: { following: number; followers: number; likesGiven: number; reportsFiled: number; reportsReceived: number }
+}
+
+/** 회원 전체 요약 — 에디터(페르소나)·관리자는 서버에서 뺀다 */
+export interface MembersOverview {
+  days: number
+  funnel: {
+    members: number; newInDays: number; active7: number; activeInDays: number
+    wrote: number; commented: number; watched: number; bookmarked: number; alerted: number; pushOn: number; appUsers: number
+  }
+  daily: { day: string; active: number; signups: number }[]
+  topAlerts: { contentId: string; title: string | null; type: string | null; releaseDate: string | null; count: number }[]
+  topBookmarks: { contentId: string; title: string | null; type: string | null; count: number }[]
+  topQueries: { q: string; count: number; members: number }[]
+  topContents: { contentId: string; title: string | null; views: number; members: number }[]
+  sections: { section: string; views: number; members: number }[]
+  hours: { hour: number; views: number }[]
+  topDropped: { contentId: string | null; title: string | null; name: string; count: number }[]
+}
+
+/** 마이그레이션 전이거나 권한이 없으면 null */
+export async function fetchUserInsight(userId: string): Promise<UserInsight | null> {
+  const { data, error } = await supabase.rpc('admin_user_insight', { p_user_id: userId })
+  if (error) { console.error('[admin_user_insight]', error.message); return null }
+  return data as UserInsight
+}
+
+export async function fetchMembersOverview(days: number): Promise<MembersOverview | null> {
+  const { data, error } = await supabase.rpc('admin_members_overview', { p_days: days })
+  if (error) { console.error('[admin_members_overview]', error.message); return null }
+  return data as MembersOverview
 }
 
 /** 관리자만 부를 수 있다. 마이그레이션 전이거나 권한이 없으면 null — 화면은 그 칸만 비우고 굴러간다 */

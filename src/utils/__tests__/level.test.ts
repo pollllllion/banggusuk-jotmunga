@@ -28,15 +28,15 @@ describe('활동 레벨 티어 (백수 → 한량 → 여포)', () => {
   })
 
   it.each([
-    [0, '백수'], [1, '백수'], [24, '백수'],
-    [25, '한량'], [26, '한량'], [89, '한량'],
-    [90, '여포'], [10000, '여포'],
+    [0, '백수'], [1, '백수'], [79, '백수'],
+    [80, '한량'], [81, '한량'], [309, '한량'],
+    [310, '여포'], [10000, '여포'],
   ])('XP %i → %s', (xp, name) => {
     expect(computeLevel(xp).tier.name).toBe(name)
   })
 
   it('최고 등급에서는 다음 등급이 없다 — 진행도는 이제 레벨 기준이라 만렙에서만 1이다', () => {
-    const top = computeLevel(999)          // 여포지만 아직 Lv.29
+    const top = computeLevel(1500)         // 여포지만 아직 Lv.29
     expect(top.next).toBeNull()
     expect(top.toNext).toBe(0)
     expect(top.progress).toBeLessThan(1)
@@ -59,10 +59,10 @@ describe('숫자 레벨 Lv.1~30 (등급당 10칸)', () => {
   })
 
   it.each([
-    [0, 1, 0], [1, 1, 0], [2, 2, 1], [24, 10, 9],
-    [25, 11, 0], [89, 20, 9],
-    [90, 21, 0], [104, 21, 0], [105, 22, 1], [449, 26, 5], [450, 27, 6],
-    [1199, 29, 8], [1200, 30, 9], [99999, 30, 9],
+    [0, 1, 0], [4, 1, 0], [5, 2, 1], [79, 10, 9],
+    [80, 11, 0], [309, 20, 9],
+    [310, 21, 0], [349, 21, 0], [350, 22, 1], [804, 26, 5], [805, 27, 6],
+    [1564, 29, 8], [1565, 30, 9], [99999, 30, 9],
   ])('XP %i → Lv.%i (등급 안 %i번째 칸)', (xp, level, step) => {
     const info = computeLevel(xp)
     expect(info.level).toBe(level)
@@ -72,14 +72,14 @@ describe('숫자 레벨 Lv.1~30 (등급당 10칸)', () => {
   })
 
   it('만렙은 Lv.30 하나뿐이다 — 빨간 마크', () => {
-    expect(computeLevel(1199).isMax).toBe(false)
-    expect(computeLevel(1200).isMax).toBe(true)
+    expect(computeLevel(1564).isMax).toBe(false)
+    expect(computeLevel(1565).isMax).toBe(true)
   })
 
   it('진행바는 다음 **레벨**까지다', () => {
-    const mid = computeLevel(97)          // Lv.21(90) → Lv.22(105) 의 중간쯤
-    expect(mid.toNextLevel).toBe(8)
-    expect(mid.progress).toBeCloseTo(7 / 15)
+    const mid = computeLevel(326)         // Lv.21(310) → Lv.22(350) 의 중간쯤
+    expect(mid.toNextLevel).toBe(24)
+    expect(mid.progress).toBeCloseTo(16 / 40)
   })
 
   it('여포 안에서는 칸마다 폭이 **눈에 띄게** 불어난다 — 매 칸 직전의 1.25배 이상', () => {
@@ -88,9 +88,9 @@ describe('숫자 레벨 Lv.1~30 (등급당 10칸)', () => {
     gaps.slice(1).forEach((g, i) => expect(g / gaps[i]).toBeGreaterThanOrEqual(1.25))
   })
 
-  it('여포 구간은 어렵다 — 글 없이 얻는 XP 와 추천 상한을 다 채워도 Lv.22 를 못 넘는다', () => {
+  it('글 없이 얻는 XP 와 추천 상한을 다 채워도 한량 초입(Lv.13)을 못 넘는다', () => {
     const noPosts = XP_RULE.watchedCap + XP_RULE.commentCap + XP_RULE.attendanceCap + qualityXp(100000)
-    expect(computeLevel(noPosts).level).toBeLessThanOrEqual(22)
+    expect(computeLevel(noPosts).level).toBeLessThanOrEqual(13)
   })
 })
 
@@ -104,14 +104,14 @@ describe('무발화 상한 — 글 없이 여포가 되면 안 된다', () => {
     expect(passiveCeiling).toBeLessThan(yeopo)
   })
 
-  it('상한을 다 채워도 한량까지만 간다', () => {
+  it('상한을 다 채워도 백수를 못 벗어난다 — 한량부터는 글을 써야 한다 (2026-09-17)', () => {
     const xp = computeXp({
       posts: 0, ratedPosts: 0, longPosts: 0,
       watched: 9999, comments: 9999, receivedNetLikes: 0,
       accountAgeDays: 9999, visitDays: 9999, streak: 0,
     })
     expect(xp).toBe(passiveCeiling)
-    expect(computeLevel(xp).tier.name).toBe('한량')
+    expect(computeLevel(xp).tier.name).toBe('백수')
   })
 })
 

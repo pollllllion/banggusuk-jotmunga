@@ -4,15 +4,17 @@ import * as DS from '@/api/dataService'
 import { useToastStore } from '@/components/ui/Toast'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { timeAgo } from '@/utils/helpers'
+import { MembersOverviewPanel, UserInsightPanel } from './UserInsight'
 import type { AdminUserExtra } from '@/api/social'
 import type { User } from '@/types'
 
-type SortKey = 'joined-new' | 'joined-old' | 'active' | 'posts'
+type SortKey = 'joined-new' | 'joined-old' | 'active' | 'posts' | 'views'
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'joined-new', label: '최근 가입순' },
   { key: 'joined-old', label: '오래된 가입순' },
   { key: 'active', label: '최근 활동순' },
   { key: 'posts', label: '글 많은 순' },
+  { key: 'views', label: '많이 쓰는 순 (30일)' },
 ]
 
 type Kind = 'all' | 'real' | 'persona' | 'app' | 'banned'
@@ -41,6 +43,8 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
   const [sort, setSort] = useState<SortKey>('joined-new')
   const [kind, setKind] = useState<Kind>('all')
   const [openId, setOpenId] = useState<string | null>(null)
+  /** '분석' 을 펼친 사람 — 글·댓글 목록(openId)과 따로 연다 */
+  const [insightId, setInsightId] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -73,10 +77,26 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
 
   const isPersona = (u: User) => extra?.get(u.id)?.persona === true
   const usesApp = (u: User) => !!u.appInstalledOn?.length
-  /** 최근 활동 — 마지막 로그인·마지막 출석·마지막 글 중 가장 늦은 것 */
+  // 문자열로 견주면 안 된다 — 시각은 UTC, lastVisit 은 한국 날짜라 새벽엔 날짜 쪽이 이겨 버린다
+  const ms = (s: string) => Date.parse(s.length === 10 ? s + 'T00:00:00+09:00' : s) || 0
+  /** 최근 활동 — 마지막 로그인·마지막 접속·마지막 출석·마지막 글 중 가장 늦은 것 */
   const lastActive = (u: User): string => {
-    const cands = [extra?.get(u.id)?.lastSignInAt || '', u.lastVisit || '', stats.get(u.id)?.lastAt || '']
-    return cands.sort().pop() || ''
+    const x = extra?.get(u.id)
+    const cands = [x?.lastSignInAt || '', x?.lastSeenAt || '', u.lastVisit || '', stats.get(u.id)?.lastAt || '']
+    return cands.reduce((best, c) => (c && ms(c) > ms(best) ? c : best), '')
+  }
+  /**
+   * 출석(lastVisit)은 시각 없이 날짜만 남는다. 자정으로 쳐서 timeAgo 에 넣으면 방금 다녀간
+   * 사람이 밤 9시에 '21시간 전'으로 찍힌다 — 날짜만 있을 땐 날 수로만 말한다.
+   */
+  const activeLabel = (at: string): string => {
+    if (at.length !== 10) return timeAgo(at)
+    const now = new Date()
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+    const days = Math.round((today - Date.parse(at + 'T00:00:00Z')) / 86400000)
+    if (days <= 0) return '오늘'
+    if (days === 1) return '어제'
+    return days < 30 ? `${days}일 전` : new Date(at + 'T00:00:00').toLocaleDateString('ko-KR')
   }
 
   /** 계정 권한 변경(좋문가·정지) — 서버까지 간 걸 확인한 뒤에 성공을 알린다.
@@ -116,7 +136,8 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
       || (extra?.get(u.id)?.email || '').toLowerCase().includes(q))
     .sort((a, b) => {
       if (sort === 'joined-old') return a.createdAt.localeCompare(b.createdAt)
-      if (sort === 'active') return lastActive(b).localeCompare(lastActive(a))
+      if (sort === 'active') return ms(lastActive(b)) - ms(lastActive(a))
+      if (sort === 'views') return (extra?.get(b.id)?.views30 || 0) - (extra?.get(a.id)?.views30 || 0)
       if (sort === 'posts') {
         const sa = stats.get(a.id), sb = stats.get(b.id)
         return ((sb?.posts || 0) + (sb?.comments || 0)) - ((sa?.posts || 0) + (sa?.comments || 0))
@@ -126,6 +147,8 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
 
   return (
     <>
+      <MembersOverviewPanel />
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
         <input
           className="form-input"
@@ -186,7 +209,7 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
               </div>
               <div className="label" style={{ marginTop: 4 }}>
                 가입 {new Date(u.createdAt).toLocaleDateString('ko-KR')}
-                {' · '}최근 활동 {active ? timeAgo(active.length === 10 ? active + 'T00:00:00+09:00' : active) : '없음'}
+                {' · '}최근 활동 {active ? activeLabel(active) : '없음'}
                 {' · '}방문 {u.visitDays || 0}일
                 {u.expert && <span style={{ color: 'var(--primary)', fontWeight: 600 }}> · 👑 좋문가</span>}
                 {u.banned && <span style={{ color: 'var(--danger)', fontWeight: 600 }}> · 정지됨</span>}
@@ -195,6 +218,11 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
                 <button type="button" className="user-activity-toggle" onClick={() => setOpenId(open ? null : u.id)}
                   disabled={!s} aria-expanded={open}>
                   글 {s?.posts || 0} · 댓글 {s?.comments || 0}{s ? (open ? ' ▴' : ' ▾') : ''}
+                </button>
+                {' · '}
+                <button type="button" className="user-activity-toggle" aria-expanded={insightId === u.id}
+                  onClick={() => setInsightId(insightId === u.id ? null : u.id)}>
+                  분석{x?.alertCount != null && ` (공개알림 ${x.alertCount} · 30일 ${x.views30 || 0}뷰)`}{insightId === u.id ? ' ▴' : ' ▾'}
                 </button>
               </div>
             </div>
@@ -212,6 +240,7 @@ export function UsersTab({ rerender }: { rerender: () => void }) {
             )}
 
             {open && <UserActivity userId={u.id} />}
+            {insightId === u.id && <UserInsightPanel userId={u.id} />}
           </div>
         )
       })}

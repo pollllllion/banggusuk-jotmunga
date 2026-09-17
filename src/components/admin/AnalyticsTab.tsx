@@ -15,12 +15,12 @@ const RANGES = [
 ]
 
 /** 막대 하나 — 값이 0이어도 자리는 남겨 목록이 들쭉날쭉해지지 않게 */
-function Bar({ value, max }: { value: number; max: number }) {
+export function Bar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0
   return <span className="stat-bar"><span className="stat-bar-fill" style={{ width: `${pct}%` }} /></span>
 }
 
-function Table({ title, rows, empty, note }: {
+export function Table({ title, rows, empty, note }: {
   title: string
   rows: { label: string; value: number; sub?: string }[]
   empty: string

@@ -15,6 +15,7 @@ import { useTmdbFallback, ensureFromTmdb, type TmdbHit } from '@/hooks/useTmdbFa
 import { snippet } from '@/utils/postSearch'
 import { boardDate } from '@/utils/helpers'
 import { clickable } from '@/utils/a11y'
+import { trackEvent } from '@/utils/analytics'
 
 /** 네 갈래 결과를 한 줄로 세운 것 — 키보드 이동·선택이 목록을 넘나들 수 있게.
  *  차례는 화면에 그리는 차례와 같아야 한다(작품 → 글 → 댓글 → 아직 등록 안 된 작품). */
@@ -75,6 +76,7 @@ export function Header() {
   const closeSearch = () => { setSuggestOpen(false); setActiveIdx(-1) }
 
   const goContent = (c: Content) => {
+    trackEvent('search_pick', { target: c.id, meta: { q: searchQuery.trim().slice(0, 100) } })
     closeSearch()
     setSearchQuery('')
     navigate(`/content/${c.id}`)
@@ -82,6 +84,7 @@ export function Header() {
 
   /** 글·댓글로 이동 — 자유방 글도 상세는 /talk/:id 다 */
   const goPost = (discussionId: string) => {
+    trackEvent('search_pick', { target: discussionId, meta: { q: searchQuery.trim().slice(0, 100), kind: 'post' } })
     closeSearch()
     setSearchQuery('')
     navigate(`/talk/${discussionId}`)
@@ -100,6 +103,7 @@ export function Header() {
     setRegistering(true)
     try {
       const content = await ensureFromTmdb(hit)
+      trackEvent('search_pick', { target: content.id, meta: { q: searchQuery.trim().slice(0, 100), kind: 'tmdb', title: content.title } })
       closeSearch()
       setSearchQuery('')
       navigate(`/content/${content.id}`)

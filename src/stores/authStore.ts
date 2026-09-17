@@ -117,6 +117,7 @@ function startBackgroundLoad() {
 /** 계정 로그인 시 출석 streak 을 집계하고, 갱신된 값을 유저에 반영한다.
  *  (profiles 마이그레이션 미적용 시 touchAttendance 가 null → 원본 그대로) */
 async function withAttendance(account: User): Promise<User> {
+  DS.touchLastSeen()
   const att = await DS.touchAttendance(account.id)
   return att ? { ...account, streak: att.streak, visitDays: att.visitDays } : account
 }

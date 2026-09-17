@@ -34,11 +34,15 @@ export function AppLayout() {
 
   /**
    * 방문 기록. 여기 한 곳에만 두면 새 화면을 만들어도 빠지지 않는다.
-   * 경로만 남기고 쿼리스트링은 버린다 — 다만 사이트 검색어(?search=)는 따로 담는다.
+   * 경로만 남기고 쿼리스트링은 버린다 — 다만 사이트 검색어는 따로 담는다.
+   * 검색어가 실리는 곳이 둘이다: 작품 찾기(/browse?search=)와 헤더 통합검색(/search?q=).
+   * 2026-09-17 까지 앞의 것만 담아서, 정작 많이 쓰는 헤더 검색이 통계에서 통째로 빠져 있었다.
    */
-  const search = searchParams.get('search')
+  const search = pathname === '/browse' ? searchParams.get('search')
+    : pathname === '/search' ? searchParams.get('q')
+    : null
   useEffect(() => {
-    trackPageView(pathname, { q: pathname === '/browse' ? search : null, uid, admin: isAdmin })
+    trackPageView(pathname, { q: search, uid, admin: isAdmin })
   }, [pathname, search, uid, isAdmin])
 
   /**

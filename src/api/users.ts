@@ -198,6 +198,17 @@ export async function touchAttendance(userId: string): Promise<{ streak: number;
   return { streak, visitDays }
 }
 
+/**
+ * 마지막 접속 '시각' 을 남긴다 — 관리자 사용자 탭의 '최근 활동' 용(migration_last_seen.sql).
+ * lastVisit 은 날짜뿐이라 몇 시에 왔는지 모른다. 시각은 profiles(누구나 읽는 표)에 두지 않고
+ * 관리자만 읽는 표에 따로 적는다. 앱을 열 때마다 한 번. 실패해도(마이그레이션 전) 조용히 넘어간다.
+ */
+export function touchLastSeen(): void {
+  void supabase.rpc('touch_last_seen').then(({ error }) => {
+    if (error) console.warn('[touch_last_seen]', error.message)
+  })
+}
+
 // ── 게스트(유동닉) 계정 ─────────────────────────────────────
 /**
  * 유동닉이 '탈퇴'할 때 — 옛 글·댓글에서 작성자 표시만 지운다(본문은 남긴다).

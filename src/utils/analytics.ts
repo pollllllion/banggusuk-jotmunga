@@ -24,6 +24,7 @@
  * ──────────────────────────────────────────────────────────────
  */
 import { supabase } from '@/lib/supabaseClient'
+import { insertUserEvent } from '@/api/events'
 
 const SID_KEY = 'bangjot_sid'
 const INTERNAL_KEY = 'bangjot_internal'
@@ -140,6 +141,28 @@ function referrerHost(): string | null {
   }
 }
 
+/** 지금 로그인한 계정 id — AppLayout 이 trackPageView 로 매 화면 알려 준다. 유동닉·비회원이면 null */
+let currentUid: string | null = null
+
+/**
+ * 회원 행동 기록 — 표에 흔적이 안 남는 것만 (migration_user_insight.sql 의 user_events).
+ *   search_pick    검색 제안에서 바로 고른 작품 (검색 화면을 안 거쳐 page_views.q 에 안 잡힌다)
+ *   alert_on/off · bookmark_on/off   끈 것은 행이 지워져서 이게 없으면 알 길이 없다
+ *   push_on/off    이 기기 알림 켬·끔
+ *
+ * **회원만** 남긴다. 비회원·유동닉이면 아무 일도 안 한다 — RLS 도 본인 uid 가 아니면 거절한다.
+ * 실패는 조용히 넘어간다(마이그레이션 전이면 표가 없다).
+ */
+export function trackEvent(name: string, opts: { target?: string | null; meta?: Record<string, unknown> } = {}) {
+  if (isLocal() || !currentUid || botKind()) return
+  insertUserEvent({
+    uid: currentUid,
+    name: name.slice(0, 40),
+    target: opts.target ? opts.target.slice(0, 200) : null,
+    meta: opts.meta ?? null,
+  })
+}
+
 /** 같은 경로를 연속으로 세지 않기 위한 직전 기록 (뒤로가기·리렌더 중복 방지) */
 let lastKey = ''
 let lastAt = 0
@@ -156,6 +179,7 @@ export function trackPageView(
   path: string,
   opts: { q?: string | null; uid?: string | null; admin?: boolean } = {},
 ) {
+  currentUid = opts.uid || null   // trackEvent 가 쓴다 — dev 에서도 값은 맞춰 둔다
   if (isLocal()) return
   if (opts.admin) setInternalDevice(true)
   // 봇도 남긴다 — 다만 봇이라고 표시해서 사람 숫자와 섞이지 않게 한다.

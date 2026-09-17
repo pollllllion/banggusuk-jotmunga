@@ -8,6 +8,7 @@
  * 비밀키는 절대 프런트에 들어가지 않는다(.env / GitHub Secrets 전용).
  */
 import { supabase } from '@/lib/supabaseClient'
+import { trackEvent } from './analytics'
 
 const DEFAULT_VAPID_PUBLIC = 'BBIxyps5i-yTX9-Y1Xd9BS2UYL3CSmcXZK4sCa7Y0EoRiUI-tj3LcwWDANMam2-4DMBlEHtGY45Y8h2uGUo5TfA'
 const VAPID_PUBLIC = (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) || DEFAULT_VAPID_PUBLIC
@@ -91,6 +92,7 @@ export async function enablePush(userId: string): Promise<void> {
     await sub.unsubscribe().catch(() => {})
     throw new Error('알림 등록에 실패했어요. 잠시 후 다시 시도해주세요.')
   }
+  trackEvent('push_on')
 }
 
 /** 알림 끄기. 이 기기의 구독만 해제한다. */
@@ -100,4 +102,5 @@ export async function disablePush(): Promise<void> {
   if (!sub) return
   await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
   await sub.unsubscribe().catch(() => {})
+  trackEvent('push_off')
 }
