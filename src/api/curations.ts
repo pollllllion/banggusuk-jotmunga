@@ -121,9 +121,13 @@ export async function getCurationsForContent(contentId: string): Promise<Curatio
   if (!contentId) return []
   const { data, error } = await supabase
     .from('curations')
-    .select('id,title,summary,publishedAt')
+    // items 도 받는다 — 역링크 칸이 요약 대신 실린 작품 포스터를 늘어놓는다
+    .select('id,title,summary,publishedAt,items')
     .eq('status', 'published')
-    .contains('items', [{ contentId }])
+    // ⚠️ 배열을 그대로 넘기면 안 된다 — supabase-js 는 배열을 Postgres 배열 리터럴로 바꿔
+    //    `cs.{[object Object]}` 를 보내고, jsonb 컬럼이라 '잘못된 json' 으로 거절된다.
+    //    그래서 이 목록은 한 번도 안 떴다. JSON 문자열로 주면 `cs.[{"contentId":...}]` 가 된다.
+    .contains('items', JSON.stringify([{ contentId }]))
     .order('publishedAt', { ascending: false })
   if (error) { console.error('[getCurationsForContent]', error.message); return [] }
   return (data || []) as Curation[]
