@@ -6,7 +6,8 @@ import { useNotifStore } from '@/stores/notifStore'
 import { NotificationList } from '@/components/notification/NotificationList'
 import { Avatar } from '@/components/profile/Avatar'
 import { LevelTag } from '@/components/profile/LevelTag'
-import { BellIcon, LogoutIcon, SettingsIcon } from '@/components/ui/Icons'
+import { BellIcon, LogoutIcon, SettingsIcon, SunIcon, MoonIcon } from '@/components/ui/Icons'
+import { applyTheme, isDarkNow, watchSystemTheme } from '@/utils/theme'
 import { ADMIN_ROWS, BOARD_ROWS, MINE_ROWS, isNavActive, type NavRow } from './navRows'
 import { clickable } from '@/utils/a11y'
 
@@ -46,6 +47,11 @@ export function Sidebar() {
   const { unread, sync, reload } = useNotifStore()
   /** 알림 목록을 펼쳤나 — 서랍 안에서 접었다 폈다 한다(화면을 갈아치우지 않는다) */
   const [notifOpen, setNotifOpen] = useState(false)
+  /** 지금 어두운 화면인가 — 해/달 버튼 모양. 설정 화면에서 바꾸고 돌아오거나(주소가 바뀐다)
+   *  '시스템' 인 채로 OS 가 바뀌면 다시 읽는다. 사이드바는 넓은 화면에서도 계속 마운트돼 있다 */
+  const [dark, setDark] = useState(isDarkNow)
+  useEffect(() => watchSystemTheme(() => setDark(isDarkNow())), [])
+  useEffect(() => { setDark(isDarkNow()) }, [location.pathname])
 
   /**
    * 알림 재조회는 **여기서** 건다. 목록(NotificationList)은 펼쳤을 때만 그려지는데,
@@ -100,6 +106,17 @@ export function Sidebar() {
           >
             <BellIcon size={19} />
             {unread > 0 && <span className="sb-top-dot">{unread > 99 ? '99+' : unread}</span>}
+          </button>
+          {/* 라이트·다크 바로 바꾸기 — 설정까지 들어가지 않고 한 번에. 지금 화면의 반대쪽
+              아이콘을 보여준다(밝을 땐 달, 어두울 땐 해). 누르면 '시스템 따라가기'가 아니라
+              그 모드로 고정된다. 시스템으로 되돌리기는 설정 화면에 그대로 있다 */}
+          <button
+            className="sb-top-btn"
+            onClick={() => { applyTheme(dark ? 'light' : 'dark'); setDark(!dark) }}
+            aria-label={dark ? '라이트 모드로 바꾸기' : '다크 모드로 바꾸기'}
+            title={dark ? '라이트 모드로 바꾸기' : '다크 모드로 바꾸기'}
+          >
+            {dark ? <SunIcon size={19} /> : <MoonIcon size={18} />}
           </button>
           <button className="sb-top-btn" onClick={() => navigate('/settings')} aria-label="설정">
             <SettingsIcon size={19} />
