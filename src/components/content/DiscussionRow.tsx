@@ -45,7 +45,7 @@ export function DiscussionRow({ post, content, showContent, hot, onOpen }: {
   // .disc-row-meta 가 그 전환점이다: 넓은 화면에선 display:contents 라 아래 세 칸이
   // 그대로 표의 열이 되고(=지금까지와 똑같다), 좁은 화면에선 flex 상자가 되어 둘째 줄이 된다.
   return (
-    <div className={`disc-row ${showContent ? 'has-tag' : ''} ${read ? 'is-read' : ''}`} {...clickable(open)}>
+    <div className={`disc-row ${showContent ? 'has-tag' : ''} ${read ? 'is-read' : ''} ${hot ? 'is-hot' : ''}`} {...clickable(open)}>
       {showContent && content && (
         <span className="disc-row-work" title={`${content.title} 작품방으로 이동`} onClick={goWork}>
           {content.title}
