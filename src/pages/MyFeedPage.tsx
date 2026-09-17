@@ -11,6 +11,7 @@ import { ProfileShowcase } from '@/components/profile/ProfileShowcase'
 import { ProfileGenres } from '@/components/profile/ProfileGenres'
 import { WatchedShelf, type WatchedEntry } from '@/components/profile/WatchedShelf'
 import { BookmarkShelf } from '@/components/profile/BookmarkShelf'
+import { WatchDiary } from '@/components/profile/WatchDiary'
 import { boardDate, scoreColor } from '@/utils/helpers'
 import { TYPE_LABELS } from '@/utils/constants'
 import { Seo } from '@/components/seo/Seo'
@@ -252,6 +253,11 @@ export function MyFeedPage() {
       ) : (
         <BookmarkShelf items={bookmarks} onOpen={c => navigate(`/content/${c.id}`)} />
       )}
+
+      {/* ── 나만의 캘린더 ─────────────────────────────────────
+          '볼 것'(찜) 다음 '본 날'. 언제·어디서·누구랑·어디까지 + 메모를 일기처럼 남긴다.
+          기록마다 공개를 따로 정한다(기본 비공개). 기록하면 본 작품에도 걸린다. */}
+      {isAccount && <WatchDiary userId={user.id} editable title="나만의 캘린더" />}
 
       {/* ── 많이 본 장르 ──────────────────────────────────────
           본 작품·찜한 작품을 다 훑고 난 자리다. 무엇을 봤는지 보고 나서 "그래서 뭘 많이

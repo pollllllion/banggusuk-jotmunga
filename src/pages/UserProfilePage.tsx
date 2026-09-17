@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { WatchDiary } from '@/components/profile/WatchDiary'
 import { useAuthStore } from '@/stores/authStore'
 import * as DS from '@/api/dataService'
 import { ProfileShowcase } from '@/components/profile/ProfileShowcase'
@@ -188,6 +189,10 @@ export function UserProfilePage() {
           ))}
         </div>
       )}
+
+      {/* 캘린더 — 공개로 둔 기록만 온다(RLS). 하나도 없으면 칸을 안 그린다.
+          본인이 볼 때도 여기서는 보기만 한다 — 쓰고 고치는 건 내 피드에서. */}
+      <WatchDiary key={u.id} userId={u.id} editable={false} title={`${u.nickname} 님의 캘린더`} />
 
       {/* 많이 본 장르 — 본 작품·찜한 작품을 다 훑고 난 자리.
           내 피드(/feed)와 칸 차례가 똑같아야 한다: 프로필 → 본 작품 → 찜한 작품 → 여기 → 토론 */}

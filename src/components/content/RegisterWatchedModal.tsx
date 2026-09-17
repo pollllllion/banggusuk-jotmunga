@@ -37,9 +37,11 @@ const normLoose = (s: string) => (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowe
  * 작품을 찾아 내 목록에 건다. 다른 건 어느 목록에 거느냐뿐이라 mode 로 가른다.
  * (검색·수기 등록·중복 연결 로직을 두 벌로 두면 한쪽만 고쳐지는 날이 온다)
  */
-export type RegisterMode = 'watched' | 'bookmark' | 'catalog'
+export type RegisterMode = 'watched' | 'bookmark' | 'catalog' | 'pick'
 
-const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품', catalog: '작품' }
+/* 'pick' — 나만의 캘린더에서 기록할 작품을 고른다. 목록에 걸지 않고 작품만 돌려준다
+   (사이트에 없으면 만들어서). 본 작품에 거는 건 기록을 저장할 때 한다. */
+const MODE_LABEL: Record<RegisterMode, string> = { watched: '본 작품', bookmark: '찜한 작품', catalog: '작품', pick: '기록할 작품' }
 
 export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }: {
   onClose: () => void
@@ -106,7 +108,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     if (!input.contentId.startsWith('tmdb-') && !isAccount) {
       toast('직접 등록은 로그인(고정닉) 후 이용할 수 있어요.'); return
     }
-    if (mode !== 'catalog' && user) {
+    if (mode !== 'catalog' && mode !== 'pick' && user) {
       const already = mode === 'watched'
         ? DS.isWatched(user.id, input.contentId)
         : DS.isBookmarked(user.id, input.contentId)
@@ -114,8 +116,11 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     }
     // 이미 사이트에 있는 작품이면 새로 만들 것 없이 그리로 보낸다 —
     // 없어서 등록하러 온 사람에게 "이미 있어요"는 혼내는 말이지 안내가 아니다.
-    const existing = mode === 'catalog' ? DS.getContentById(input.contentId) : undefined
-    if (existing) { toast(`'${existing.title}' 는 이미 있어요.`); onRegistered(existing); onClose(); return }
+    const existing = mode === 'catalog' || mode === 'pick' ? DS.getContentById(input.contentId) : undefined
+    if (existing) {
+      if (mode === 'catalog') toast(`'${existing.title}' 는 이미 있어요.`)
+      onRegistered(existing); onClose(); return
+    }
     setSaving(true)
     try {
       /**
@@ -141,7 +146,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
             platform: input.platform, posterUrl: input.posterUrl,
           })
       if (mode === 'bookmark' && user) DS.toggleBookmark(user.id, content.id)
-      toast(`'${content.title}' ${mode === 'watched' ? '등록' : mode === 'bookmark' ? '찜' : '등록'} 완료!`)
+      if (mode !== 'pick') toast(`'${content.title}' ${mode === 'watched' ? '등록' : mode === 'bookmark' ? '찜' : '등록'} 완료!`)
       onRegistered(content)
       onClose()
     } catch (e: any) {
@@ -234,7 +239,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     <div className="modal-overlay show" onClick={overlayClick}>
       <div className="modal" style={{ maxWidth: 460, width: '92vw' }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h3>{label} 등록</h3>
+        <h3>{mode === 'pick' ? '기록할 작품 찾기' : `${label} 등록`}</h3>
 
         {/* 검색으로 등록 (기본) */}
         {!manual && (

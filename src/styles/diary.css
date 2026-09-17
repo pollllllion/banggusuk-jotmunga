@@ -1,0 +1,154 @@
+/* ══════════════════════════════════════════════════════════════
+   나만의 캘린더 (2026-09-17) — components/profile/WatchDiary.tsx
+   ──────────────────────────────────────────────────────────────
+   본 날 칸에 포스터가 채워지는 달력 + 고른 날의 기록.
+   찜 달력(calendar.css 의 .cal-favposters)과 같은 포스터 칸 규칙을 쓰지만
+   calendar.css 는 캘린더 화면에서만 불러오므로 여기 따로 둔다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* 테두리는 토큰(--card-border)이 아니라 직접 준다 — 카드 테두리를 걷어 낸 뒤라
+   토큰을 쓰면 흰 바탕에서 달력 가장자리가 사라진다 */
+.diary-cal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--card-shadow); overflow: hidden;
+}
+.diary-monthbar {
+  display: flex; align-items: center; gap: 6px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+.diary-navbtn {
+  width: 28px; height: 28px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--card); color: var(--text-secondary);
+  font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.diary-navbtn:hover { background: var(--primary-50); }
+.diary-month { font-size: 15px; font-weight: 700; color: var(--text); min-width: 96px; text-align: center; }
+.diary-count { margin-left: auto; font-size: 12px; color: var(--subtext); font-variant-numeric: tabular-nums; }
+
+.diary-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.diary-dow {
+  padding: 6px 0; text-align: center; font-size: 11px; font-weight: 700;
+  color: var(--subtext); background: var(--bg); border-bottom: 1px solid var(--border-light);
+}
+.diary-dow.sun { color: var(--danger); }
+.diary-dow.sat { color: var(--link); }
+
+.diary-cell {
+  position: relative; height: 104px; padding: 4px;
+  display: flex; flex-direction: column; gap: 3px;
+  border-right: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+  cursor: pointer; transition: background var(--duration) var(--ease);
+}
+.diary-cell:nth-child(7n) { border-right: none; }
+.diary-cell.blank { cursor: default; }
+.diary-cell:not(.blank):hover { background: var(--bg); }
+.diary-cell:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.diary-day { font-size: 11px; font-weight: 600; color: var(--subtext); line-height: 1; font-variant-numeric: tabular-nums; }
+.diary-cell.today .diary-day {
+  align-self: flex-start; padding: 2px 4px; border-radius: var(--radius-full);
+  background: var(--primary); color: #fff;
+}
+/* 고른 날 — 아래 패널이 이 날을 말한다는 걸 칸에서도 짚는다 */
+.diary-cell.sel { box-shadow: inset 0 0 0 2px var(--primary); }
+
+.diary-posters {
+  flex: 1; min-height: 0; display: grid; gap: 2px;
+  border-radius: var(--radius-sm); overflow: hidden;
+}
+.diary-posters.n1 { grid-template-columns: 1fr; }
+.diary-posters.n1 > .diary-poster { background-size: contain; }
+.diary-posters.n2 { grid-template-columns: 1fr 1fr; }
+.diary-posters.n3, .diary-posters.n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.diary-posters.n3 > :first-child { grid-row: span 2; }
+.diary-poster {
+  min-width: 0; min-height: 0;
+  background: transparent center top / cover no-repeat;
+}
+.diary-poster.none {
+  display: flex; align-items: center; justify-content: center; padding: 2px;
+  background: var(--bg); color: var(--subtext); font-size: 10px; font-weight: 700;
+  text-align: center; overflow: hidden; word-break: keep-all;
+}
+.diary-more {
+  position: absolute; right: 4px; bottom: 4px; padding: 0 4px;
+  font-size: 10px; font-weight: 800; color: #fff; background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
+}
+
+/* ── 고른 날의 기록 ───────────────────────────────────── */
+.diary-day-panel { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.diary-day-head { display: flex; align-items: baseline; gap: 6px; }
+.diary-day-head strong { font-size: 15px; color: var(--text); }
+.diary-day-head span { font-size: 12px; color: var(--subtext); }
+.diary-day-head .btn-text { margin-left: auto; color: var(--link); font-weight: 700; }
+.diary-empty { font-size: 13px; color: var(--subtext); padding: 8px 0; }
+
+.diary-entry {
+  display: flex; gap: 12px; padding: 12px;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+}
+.diary-entry-poster {
+  flex: 0 0 auto; width: 56px; aspect-ratio: 2 / 3; max-width: 100%;
+  object-fit: cover; border-radius: var(--radius-sm); background: var(--bg); cursor: pointer;
+}
+.diary-entry-poster.none { cursor: default; }
+.diary-entry-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.diary-entry-top { display: flex; align-items: center; gap: 8px; }
+.diary-entry-title {
+  flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.diary-entry-title:hover { text-decoration: underline; }
+.diary-entry-meta { font-size: 12px; color: var(--subtext); }
+/* 메모는 쓴 그대로 — 줄바꿈을 살린다 */
+.diary-entry-memo {
+  font-size: 13.5px; line-height: 1.7; color: var(--text-secondary);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.diary-entry-actions { display: flex; gap: 4px; margin-top: 2px; }
+.diary-entry-actions .btn-text { color: var(--subtext); padding-left: 0; }
+
+/* ── 기록 창 ─────────────────────────────────────────── */
+.diary-modal { position: relative; max-height: 90dvh; overflow-y: auto; }
+.diary-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.diary-chip {
+  padding: 4px 10px; border-radius: var(--radius-full); cursor: pointer;
+  border: 1px solid var(--border); background: var(--card); color: var(--text-secondary);
+  font-size: 12px; font-weight: 600;
+}
+.diary-chip:hover { border-color: var(--text-secondary); }
+.diary-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.diary-picked { display: flex; align-items: center; gap: 10px; }
+.diary-picked img, .diary-picked-noimg {
+  width: 36px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--radius-sm); background: var(--bg);
+  flex: 0 0 auto;
+}
+.diary-picked strong { flex: 1; min-width: 0; font-size: 14px; color: var(--text); }
+
+.diary-suggest {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;
+}
+.diary-suggest-item {
+  display: flex; flex-direction: column; gap: 4px; padding: 0; cursor: pointer;
+  background: none; border: none; text-align: left; min-width: 0;
+}
+.diary-suggest-item img, .diary-suggest-item .diary-picked-noimg {
+  width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--radius-sm);
+}
+.diary-suggest-item:hover img { filter: brightness(1.08); }
+.diary-suggest-item span:last-child {
+  font-size: 11px; color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.diary-public-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 12px; color: var(--subtext); }
+
+@media (max-width: 640px) {
+  .diary-cell { height: 76px; padding: 3px; }
+  .diary-day { font-size: 10px; }
+  .diary-entry-poster { width: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diary-cell { transition: none; }
+}

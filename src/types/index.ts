@@ -287,6 +287,23 @@ export interface Watched {
   rating?: number | null
 }
 
+/** 나만의 캘린더 한 줄 — 언제·어디서·누구랑·어디까지 봤나 + 메모 (migration_watch_logs) */
+export interface WatchLog {
+  id: string
+  userId: string
+  contentId: string
+  /** 'YYYY-MM-DD' — 본 날 */
+  watchedOn: string
+  place: string
+  companions: string
+  progress: string
+  memo: string
+  /** 남의 프로필에 보일지. 기본 비공개 */
+  isPublic: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 // ── Announcement ────────────────────────────────────────────
 export interface Announcement {
   id: string
