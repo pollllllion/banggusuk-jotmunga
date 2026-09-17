@@ -34,6 +34,8 @@ const WEBSITE_JSONLD = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: SITE_NAME,
+  // index.html 에 같은 내용이 정적으로도 박혀 있다(JS 를 안 돌리는 네이버 크롤러용) — 고치면 거기도 맞출 것
+  alternateName: ['OTTCAL', 'ottcal', '오티티칼 OTT 캘린더'],
   url: SITE_URL,
   inLanguage: 'ko-KR',
   potentialAction: {

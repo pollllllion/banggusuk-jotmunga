@@ -75,7 +75,22 @@ export function buildContentDescription(c, today = todayKey()) {
     parts.push(`${head}.`)
   }
 
-  // 2) 줄거리가 있으면 그대로, 없으면 장르·출연·편성으로 대체
+  // 2) 평점 — **줄거리보다 앞에** 둔다 (2026-09-17).
+  //    맨 끝에 있을 땐 네이버가 설명을 110자쯤에서 자르면서 'TMDB 평점 7.8…' 로 끊기거나 아예 안 보였다.
+  //    '○○ 평점'을 찾아온 사람 눈에 숫자가 먼저 들어와야 누른다 (경쟁 사이트는 설명 첫 줄에 평점이 있다).
+  //    네이버 유입 검색어의 5분의 1이 "○○ 평점 / 관람평"이다(2026-09-12 실측 — 클릭 186 중 36).
+  //    그런데 우리 별점이 달린 작품은 2,300개 중 11개뿐이라, 그 사람들이 검색결과에서 보는 건
+  //    평점 얘기가 한 줄도 없는 설명이었다. 우리 별점이 없으면 TMDB 평점이라도 밝혀 준다
+  //    — 남의 수치를 우리 것처럼 쓰지 않도록 출처를 붙여서.
+  if (!upcoming) {
+    if (c.reviewCount > 0) {
+      parts.push(`평점 ${Number(c.avgRating).toFixed(1)}/10 · 리뷰 ${c.reviewCount}개.`)
+    } else if (hasTmdbRating(c)) {
+      parts.push(`TMDB 평점 ${Number(c.voteAverage).toFixed(1)}/10 (${c.voteCount.toLocaleString('ko-KR')}명).`)
+    }
+  }
+
+  // 3) 줄거리가 있으면 그대로, 없으면 장르·출연·편성으로 대체
   if (c.synopsis && c.synopsis.trim()) {
     parts.push(c.synopsis.trim())
   } else {
@@ -87,19 +102,6 @@ export function buildContentDescription(c, today = todayKey()) {
     if (c.numberOfSeasons) facts.push(`시즌 ${c.numberOfSeasons}`)
     else if (c.numberOfEpisodes) facts.push(`총 ${c.numberOfEpisodes}회`)
     if (facts.length) parts.push(`${facts.join(', ')}.`)
-  }
-
-  // 3) 평점.
-  //    네이버 유입 검색어의 5분의 1이 "○○ 평점 / 관람평"이다(2026-09-12 실측 — 클릭 186 중 36).
-  //    그런데 우리 별점이 달린 작품은 2,300개 중 11개뿐이라, 그 사람들이 검색결과에서 보는 건
-  //    평점 얘기가 한 줄도 없는 설명이었다. 우리 별점이 없으면 TMDB 평점이라도 밝혀 준다
-  //    — 남의 수치를 우리 것처럼 쓰지 않도록 출처를 붙여서.
-  if (!upcoming) {
-    if (c.reviewCount > 0) {
-      parts.push(`평점 ${Number(c.avgRating).toFixed(1)}/10 · 리뷰 ${c.reviewCount}개.`)
-    } else if (hasTmdbRating(c)) {
-      parts.push(`TMDB 평점 ${Number(c.voteAverage).toFixed(1)}/10 (${c.voteCount.toLocaleString('ko-KR')}명).`)
-    }
   }
 
   return parts.join(' ')
