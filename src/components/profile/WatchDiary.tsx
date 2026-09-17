@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { useToastStore } from '@/components/ui/Toast'
-import { WatchLogModal } from './WatchLogModal'
+import { WatchLogModal, LockIcon, GlobeIcon } from './WatchLogModal'
 import { clickable } from '@/utils/a11y'
 import { holidayOf } from '@/shared/holidays.mjs'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
@@ -198,7 +198,11 @@ function DayLogsModal({ day, logs, editable, onClose, onAdd, onEdit, onChanged, 
   }
 
   const togglePublic = async (log: WatchLog) => {
-    try { await DS.saveWatchLog({ ...log, isPublic: !log.isPublic }); onChanged() }
+    try {
+      await DS.saveWatchLog({ ...log, isPublic: !log.isPublic })
+      toast(log.isPublic ? '나만 보기로 바꿨어요.' : '전체 공개로 바꿨어요.')
+      onChanged()
+    }
     catch (e: any) { toast(e?.message || '바꾸지 못했어요.') }
   }
 
@@ -226,11 +230,12 @@ function DayLogsModal({ day, logs, editable, onClose, onAdd, onEdit, onChanged, 
                 <div className="diary-entry-body">
                   <div className="diary-entry-top">
                     <span className="diary-entry-title" {...clickable(go)}>{c?.title ?? '지워진 작품'}</span>
+                    {/* 지금 상태는 누를 수 없는 표시로만, 바꾸기는 아래 글자 버튼으로 — 한 버튼이
+                        상태와 동작을 같이 말하면 '공개'가 지금인지 누르면인지 헷갈린다 */}
                     {editable && (
-                      <button className={`feed-public ${l.isPublic ? 'on' : ''}`} onClick={() => togglePublic(l)}
-                        title={l.isPublic ? '남에게 보입니다. 누르면 비공개로 바꿔요' : '나만 봅니다. 누르면 공개로 바꿔요'}>
-                        {l.isPublic ? '공개' : '비공개'}
-                      </button>
+                      <span className={`diary-vis ${l.isPublic ? 'public' : ''}`}>
+                        {l.isPublic ? <><GlobeIcon /> 전체 공개</> : <><LockIcon /> 나만 보기</>}
+                      </span>
                     )}
                   </div>
                   {meta.length > 0 && <div className="diary-entry-meta">{meta.join(' · ')}</div>}
@@ -238,6 +243,9 @@ function DayLogsModal({ day, logs, editable, onClose, onAdd, onEdit, onChanged, 
                   {editable && (
                     <div className="diary-entry-actions">
                       <button className="btn-text btn-small" onClick={() => onEdit(l)}>고치기</button>
+                      <button className="btn-text btn-small" onClick={() => togglePublic(l)}>
+                        {l.isPublic ? '나만 보기로 바꾸기' : '전체 공개로 바꾸기'}
+                      </button>
                       <button className="btn-text btn-small" onClick={() => remove(l)}>지우기</button>
                     </div>
                   )}

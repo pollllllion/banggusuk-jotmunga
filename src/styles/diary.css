@@ -147,7 +147,29 @@
   font-size: 11px; color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.diary-public-row { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 12px; color: var(--subtext); }
+/* 공개 여부 — 두 칸 중 고른 쪽을 칠한다 */
+.diary-visibility {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden;
+}
+.diary-visibility button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 8px; border: none; background: var(--card); color: var(--subtext);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.diary-visibility button + button { border-left: 1px solid var(--border); }
+.diary-visibility button:hover:not(.on) { background: var(--bg); }
+.diary-visibility button.on { background: var(--primary); color: #fff; }
+.diary-visibility button:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
+.diary-visibility-hint { margin-top: 6px; font-size: 12px; color: var(--subtext); }
+
+/* 기록 목록의 공개 상태 표시 — 누르는 곳이 아니다(바꾸기는 아래 글자 버튼) */
+.diary-vis {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 700; background: var(--bg); color: var(--subtext);
+}
+.diary-vis.public { background: var(--primary-50); color: var(--primary); }
 
 @media (max-width: 640px) {
   .diary-cell { height: 76px; padding: 3px; }

@@ -30,6 +30,22 @@ const hasProgress = (c?: Content) => !!c && c.type !== 'movie'
  * 그건 이미 내 목록에 있다. 없으면 '작품 찾기'로 본 작품 등록과 같은 검색 창을 연다.
  * 저장할 때 본 작품에 없던 작품이면 본 작품에도 걸어 준다(본 연도는 기록한 날로).
  */
+export function LockIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  )
+}
+
+export function GlobeIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+    </svg>
+  )
+}
+
 export function WatchLogModal({ userId, day, initial, onClose, onSaved }: {
   userId: string
   /** 새 기록의 기본 날짜 'YYYY-MM-DD' */
@@ -176,11 +192,21 @@ export function WatchLogModal({ userId, day, initial, onClose, onSaved }: {
               style={{ minHeight: 120, resize: 'vertical' }} />
           </div>
 
-          <div className="diary-public-row">
-            <button type="button" className={`feed-public ${isPublic ? 'on' : ''}`} onClick={() => setIsPublic(v => !v)}>
-              {isPublic ? '공개' : '비공개'}
-            </button>
-            <span>{isPublic ? '내 프로필에서 다른 사람도 볼 수 있어요' : '나만 봐요'}</span>
+          {/* 공개 여부 — 버튼 하나에 '공개'라고만 쓰면 그게 지금 상태인지 누르면 될 상태인지
+              헷갈렸다. 둘을 나란히 두고 고른 쪽을 칠한다(라디오와 같은 뜻) */}
+          <div className="form-group">
+            <label id="diary-vis-label">누가 볼 수 있나요</label>
+            <div className="diary-visibility" role="radiogroup" aria-labelledby="diary-vis-label">
+              <button type="button" role="radio" aria-checked={!isPublic} className={!isPublic ? 'on' : ''} onClick={() => setIsPublic(false)}>
+                <LockIcon /> 나만 보기
+              </button>
+              <button type="button" role="radio" aria-checked={isPublic} className={isPublic ? 'on' : ''} onClick={() => setIsPublic(true)}>
+                <GlobeIcon /> 전체 공개
+              </button>
+            </div>
+            <p className="diary-visibility-hint">
+              {isPublic ? '내 프로필의 작품일지에서 다른 사람도 이 기록을 볼 수 있어요.' : '이 기록은 나만 볼 수 있어요.'}
+            </p>
           </div>
 
           <div className="modal-actions">
