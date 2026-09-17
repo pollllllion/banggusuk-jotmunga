@@ -611,7 +611,7 @@ function LatestCuration() {
 
   return (
     <div className="cal-curation" {...clickable(() => navigate(`/curation/${latest.id}`))}>
-      <span className="cal-curation-tag">공개작 정리</span>
+      <span className="cal-curation-tag">큐레이션</span>
       <div className="cal-curation-body">
         <strong>{latest.title}</strong>
         {latest.summary && <p>{latest.summary}</p>}

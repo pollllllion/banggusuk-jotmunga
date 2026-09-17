@@ -20,7 +20,7 @@ export interface NavRow {
 /** 게시판 — 남들과 함께 보는 곳 */
 export const BOARD_ROWS: NavRow[] = [
   { path: '/', label: '개봉·공개 캘린더' },
-  { path: '/curation', label: '공개작 정리' },
+  { path: '/curation', label: '큐레이션' },
   { path: '/talk', label: TALK_LABEL },
   { path: '/board/relay', label: '자유방' },
   { path: '/browse', label: '작품 둘러보기' },

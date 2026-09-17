@@ -22,12 +22,12 @@ export function CurationListPage() {
   return (
     <>
       <Seo
-        title="공개작 정리"
+        title="큐레이션"
         description={`${SITE_NAME}가 직접 고르고 정리한 월간·주간 공개작 모음. 넷플릭스·디즈니+·티빙·웨이브 신작과 극장 개봉작을 공개일 순으로 묶었습니다.`}
         path="/curation"
       />
       <div className="feed-header">
-        <h2 className="feed-title">공개작 정리</h2>
+        <h2 className="feed-title">큐레이션</h2>
       </div>
 
       {!list.length ? (

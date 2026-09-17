@@ -417,13 +417,30 @@
 
 /* ── ② [찜] 토글 ───────────────────────────────────────── */
 .cal-favbtn { display: inline-flex; align-items: center; gap: 4px; }
-/* 북마크 아이콘은 앰버 — 달력에서 찜한 날을 칠하는 색(.cal-cell.has-fav)과 같다.
-   버튼과 그 결과가 같은 색을 쓰면 "이 버튼이 저 노란 날들을 남긴다"가 읽힌다. */
-.cal-favbtn svg { color: var(--accent); }
-.cal-favbtn.on {
-  background: var(--primary); border-color: var(--primary); color: #fff;
+/* 앰버 연한 채움 (2026-09-17) — '오늘' 과 같은 흰 버튼에 아이콘만 앰버였더니 눈에 안 띄었다.
+   바탕을 찜한 날 칠(.cal-cell.has-fav 의 연노랑)과 같게 해 "이 버튼이 저 노란 날들을 남긴다"가 읽힌다.
+   켜면 앰버로 꽉 채운다. 다크는 연노랑 대신 반투명 앰버(--accent-light 다크값은 탁한 갈색이라). */
+.cal-favbtn {
+  --fav-bg: #FEF3C7; --fav-border: #FCD34D; --fav-text: #92400E; --fav-icon: #D97706; --fav-on-text: #1F1F23;
+  background: var(--fav-bg); border-color: var(--fav-border); color: var(--fav-text);
 }
-.cal-favbtn.on:hover { background: var(--primary-dark); }
+.cal-favbtn svg { color: var(--fav-icon); }
+.cal-favbtn:hover { background: var(--fav-bg); filter: brightness(0.97); }
+.cal-favbtn.on {
+  background: var(--accent); border-color: var(--accent); color: var(--fav-on-text);
+}
+.cal-favbtn.on svg { color: var(--fav-on-text); }
+.cal-favbtn.on:hover { background: var(--accent); filter: brightness(0.95); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .cal-favbtn {
+    --fav-bg: rgba(245, 158, 11, 0.14); --fav-border: rgba(245, 158, 11, 0.5);
+    --fav-text: #FCD34D; --fav-icon: #FBBF24; --fav-on-text: #1A1A1E;
+  }
+}
+:root[data-theme="dark"] .cal-favbtn {
+  --fav-bg: rgba(245, 158, 11, 0.14); --fav-border: rgba(245, 158, 11, 0.5);
+  --fav-text: #FCD34D; --fav-icon: #FBBF24; --fav-on-text: #1A1A1E;
+}
 
 /* ── ② 찜 달력의 포스터 칸 ─────────────────────────────
    한 장이면 칸을 꽉 채우고, 둘 이상이면 칸을 쪼개 나눠 담는다.

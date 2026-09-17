@@ -16,7 +16,7 @@ export function Footer() {
         영화·드라마 정보 및 OTT 제공 여부: <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a> · OTT 제공 정보 <a href="https://www.justwatch.com/" target="_blank" rel="noreferrer">JustWatch</a> 제공 · 웹툰/웹소설은 직접 큐레이션<br />
         This product uses the TMDB API but is not endorsed or certified by TMDB.
       </p>
-      {/* 공개작 정리는 사이드바·홈 배너·작품 역링크로 들어가므로 푸터에서는 뺐다 */}
+      {/* 큐레이션은 사이드바·홈 배너·작품 역링크로 들어가므로 푸터에서는 뺐다 */}
       <nav className="site-footer-links">
         {links.map(d => (
           <a key={d.slug} onClick={() => navigate(d.path)}>{d.label}</a>

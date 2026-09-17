@@ -93,7 +93,7 @@ function headBlock({ title, description, canonicalPath, ogType = 'website', imag
 }
 
 /** 크롤러가 사이트 구조를 따라갈 수 있게 하는 최소 내부 링크 (푸터 문서 포함) */
-const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">${esc(TALK_LABEL)}</a> | <a href="/board/relay">자유방</a> | <a href="/curation">공개작 정리</a>`
+const NAV = `<nav><a href="/">개봉·공개 캘린더</a> | <a href="/browse">작품 둘러보기</a> | <a href="/talk">${esc(TALK_LABEL)}</a> | <a href="/board/relay">자유방</a> | <a href="/curation">큐레이션</a>`
   + STATIC_PAGES.map(p => ` | <a href="${p.path}">${p.label}</a>`).join('')
   + `</nav>`
 
@@ -436,11 +436,11 @@ async function main() {
   }
 
   writePage('curation', render(template, headBlock({
-    title: '공개작 정리',
+    title: '큐레이션',
     description: `${SITE_NAME}가 직접 고르고 정리한 월간·주간 공개작 모음. 넷플릭스·디즈니+·티빙·웨이브 신작과 극장 개봉작을 공개일 순으로 묶었습니다.`,
     canonicalPath: '/curation',
   }), [
-    `<h1>공개작 정리</h1>`,
+    `<h1>큐레이션</h1>`,
     `<ul>`,
     pubCurations.map(c => `<li><a href="/curation/${esc(c.id)}">${esc(c.title)}</a> — ${esc(c.summary)}</li>`).join('\n        '),
     `</ul>`, NAV,
