@@ -313,6 +313,8 @@ export interface Curation {
   /** 도입·마무리 본문. 빈 줄로 문단을 나눈다 */
   body: string
   items: CurationItem[]
+  /** 맺음말 — 작품 카드 **아래**에 그린다. 빈 줄로 문단을 나눈다. 비어도 된다(발행 조건 아님) */
+  outro?: string
   coverUrl?: string | null
   status: 'draft' | 'published'
   publishedAt?: string | null

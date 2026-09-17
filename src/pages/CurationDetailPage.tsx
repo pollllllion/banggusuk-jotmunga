@@ -4,7 +4,7 @@ import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
 import { SITE_URL, SITE_NAME } from '@/utils/seo'
 import {
-  buildCurationDescription, buildCurationJsonLd, bodyParagraphs, isPublished,
+  buildCurationDescription, buildCurationJsonLd, bodyParagraphs, outroParagraphs, paragraphs as splitParagraphs, isPublished,
 } from '@/shared/curationSeo.mjs'
 import { clickable } from '@/utils/a11y'
 
@@ -13,7 +13,7 @@ import { clickable } from '@/utils/a11y'
  *
  * 본문(body·items)은 시작 로드에 없어서 여기서 지연 로드한다(curationColumns.ts).
  * 프리렌더가 찍는 정적 HTML 과 같은 내용을 그려야 클로킹이 아니다 —
- * 문단 → 작품 카드 순서를 프리렌더(curationBodyLines)와 맞춰 둘 것.
+ * 문단 → 작품 카드 → 맺음말 순서를 프리렌더(curationBodyLines)와 맞춰 둘 것.
  */
 export function CurationDetailPage() {
   const { id = '' } = useParams()
@@ -39,6 +39,7 @@ export function CurationDetailPage() {
 
   const published = isPublished(cur)
   const paragraphs = bodyParagraphs(cur)
+  const outro = outroParagraphs(cur)
   const items = cur.items || []
 
   return (
@@ -80,12 +81,18 @@ export function CurationDetailPage() {
                 )}
                 <div className="cur-item-body">
                   <h2 onClick={() => navigate(`/content/${it.contentId}`)}>{c ? c.title : it.contentId}</h2>
-                  <p>{it.note}</p>
+                  {(splitParagraphs(it.note) as string[]).map((p, i) => <p key={i}>{p}</p>)}
                 </div>
               </section>
             )
           })}
         </div>
+
+        {outro.length > 0 && (
+          <div className="cur-outro">
+            {(outro as string[]).map((p, i) => <p key={i} className="cur-para">{p}</p>)}
+          </div>
+        )}
       </article>
     </>
   )

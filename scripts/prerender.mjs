@@ -421,12 +421,12 @@ async function main() {
       `<article>`,
       `<h1>${esc(c.title)}</h1>`,
       `<p>${esc(String(c.publishedAt).slice(0, 10))}</p>`,
-      ...curationBodyLines(c, byId).map(l => l.kind === 'p'
+      ...curationBodyLines(c, byId).map(l => l.kind !== 'item'
         ? `<p>${esc(l.text)}</p>`
         : [
             `<section>`,
             `<h2><a href="${esc(l.href)}">${esc(l.title)}</a></h2>`,
-            `<p>${esc(l.note)}</p>`,
+            ...l.noteParagraphs.map(p => `<p>${esc(p)}</p>`),
             `</section>`,
           ].join('')),
       `</article>`, NAV,

@@ -34,9 +34,19 @@ export function isPublished(c) {
   return c.status === 'published' && !!c.publishedAt
 }
 
-/** 본문을 문단 배열로 — 빈 줄이 문단 구분 */
+/** 글을 문단 배열로 — 빈 줄이 문단 구분 */
+export function paragraphs(text) {
+  return (text || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
+}
+
+/** 본문(도입) 문단 — 작품 카드 위 */
 export function bodyParagraphs(c) {
-  return (c.body || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)
+  return paragraphs(c.body)
+}
+
+/** 맺음말 문단 — 작품 카드 아래 */
+export function outroParagraphs(c) {
+  return paragraphs(c.outro)
 }
 
 export function buildCurationTitle(c) {
@@ -91,9 +101,12 @@ export function curationBodyLines(c, byId) {
       title: content ? content.title : it.contentId,
       href: `/content/${it.contentId}`,
       note: (it.note || '').trim(),
+      // 코멘트도 빈 줄로 문단을 나눈다 — 한 <p> 에 넣으면 줄바꿈이 사라져 한 덩어리가 된다
+      noteParagraphs: paragraphs(it.note),
       posterUrl: content ? content.posterUrl : null,
       exists: !!content,
     })
   }
+  for (const p of outroParagraphs(c)) lines.push({ kind: 'outro', text: p })
   return lines
 }

@@ -254,6 +254,7 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
   const [title, setTitle] = useState(cur?.title || '')
   const [summary, setSummary] = useState(cur?.summary || '')
   const [body, setBody] = useState(cur?.body || '')
+  const [outro, setOutro] = useState(cur?.outro || '')
   const [coverUrl, setCoverUrl] = useState(cur?.coverUrl || '')
   const [items, setItems] = useState<CurationItem[]>(cur?.items || [])
   const [loaded, setLoaded] = useState(false)
@@ -262,24 +263,24 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
   useEffect(() => {
     void DS.loadCurationDetail(id).then(() => {
       const fresh = DS.getCurationById(id)
-      if (fresh) { setBody(fresh.body || ''); setItems(fresh.items || []) }
+      if (fresh) { setBody(fresh.body || ''); setItems(fresh.items || []); setOutro(fresh.outro || '') }
       setLoaded(true); setTick(t => t + 1)
     })
   }, [id])
 
   if (!cur) return <p style={{ color: 'var(--subtext)' }}>글을 찾을 수 없습니다.</p>
 
-  const draft: Curation = { ...cur, title, summary, body, items, coverUrl: coverUrl || null }
+  const draft: Curation = { ...cur, title, summary, body, items, outro, coverUrl: coverUrl || null }
   const blockers = publishBlockers(draft)
 
   const save = () => {
-    DS.updateCuration(id, { title, summary, body, items, coverUrl: coverUrl || null })
+    DS.updateCuration(id, { title, summary, body, items, outro, coverUrl: coverUrl || null })
     toast('저장되었습니다.')
   }
 
   const publish = () => {
     if (blockers.length) { toast('발행 조건을 먼저 채워주세요.'); return }
-    DS.updateCuration(id, { title, summary, body, items, coverUrl: coverUrl || null })
+    DS.updateCuration(id, { title, summary, body, items, outro, coverUrl: coverUrl || null })
     DS.publishCuration(id)
     toast('발행되었습니다. 다음 배포 때 정적 페이지·sitemap 에 반영됩니다.')
     onDone()
@@ -363,6 +364,15 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
           </div>
         )
       })}
+
+      <div className="form-group" style={{ marginTop: 16 }}>
+        <label>맺음말 (선택) — 작품 목록 아래에 나옵니다</label>
+        <textarea
+          className="form-input" value={outro} onChange={e => setOutro(e.target.value)}
+          placeholder="하나만 고른다면? 같은 정리나 독자에게 던지는 질문. 빈 줄로 문단을 나눕니다."
+          style={{ minHeight: 100, resize: 'vertical' }}
+        />
+      </div>
 
       {blockers.length > 0 && (
         <div className="cur-blockers">

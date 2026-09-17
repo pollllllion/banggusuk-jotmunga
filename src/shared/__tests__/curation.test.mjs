@@ -70,6 +70,15 @@ describe('curationBodyLines', () => {
     expect(lines[1].href).toBe('/content/a')
   })
 
+  it('맺음말은 작품 뒤에 오고, 코멘트는 빈 줄로 문단이 나뉜다', () => {
+    const lines = curationBodyLines({
+      body: '도입.', outro: '하나만 고른다면?\n\n출근한다 vs 퇴사한다',
+      items: [{ contentId: 'a', note: '첫 문단.\n\n둘째 문단.' }],
+    }, byId)
+    expect(lines.map(l => l.kind)).toEqual(['p', 'item', 'outro', 'outro'])
+    expect(lines[1].noteParagraphs).toEqual(['첫 문단.', '둘째 문단.'])
+  })
+
   it('캐시에 없는 작품도 죽지 않는다', () => {
     const lines = curationBodyLines({ body: '', items: [{ contentId: 'zzz', note: 'n' }] }, byId)
     expect(lines[0].exists).toBe(false)

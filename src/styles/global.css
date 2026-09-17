@@ -1613,6 +1613,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .cur-para { font-size: 15px; color: var(--text-secondary); line-height: 1.85; margin-top: 16px; }
 
 .cur-items { margin-top: 28px; display: flex; flex-direction: column; gap: 20px; }
+/* 맺음말 — 작품 카드 뒤. 마지막 카드와 같은 구분선으로 끊어 "목록 밖의 글"임을 보인다 */
+.cur-outro { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--border-light); }
 .cur-item { display: flex; gap: 16px; padding-top: 20px; border-top: 1px solid var(--border-light); }
 .cur-item-poster { width: 90px; border-radius: var(--radius-md); flex-shrink: 0; cursor: pointer; }
 .cur-item-body { min-width: 0; }

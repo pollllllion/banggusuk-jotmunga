@@ -29,6 +29,8 @@ const LANG = process.env.TMDB_LANGUAGE || 'ko-KR'
 const REGION = process.env.TMDB_REGION || 'KR'
 const LIMIT = parseInt(process.env.LIMIT || '0', 10)          // 0 = 전부
 const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '4', 10))
+// ONLY=tmdb-dr-275592 — 한 작품만 보강 (큐레이션에 넣으려고 막 추가한 행 등). 비우면 전체
+const ONLY = (process.env.ONLY || '').trim()
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
@@ -74,7 +76,7 @@ async function loadTargets() {
   }
   const isStub = c =>
     !c.releaseDate || !(c.castMembers?.length) || !(c.providers?.length) || !(c.genres?.length)
-  return rows.filter(c => /^tmdb-(mv|dr)-\d+$/.test(c.id) && isStub(c))
+  return rows.filter(c => /^tmdb-(mv|dr)-\d+$/.test(c.id) && isStub(c) && (!ONLY || c.id === ONLY))
 }
 
 /** 행 id 에서 TMDB 종류·번호 (tmdbId 컬럼이 비어 있는 옛 행도 여기서 복구된다) */
