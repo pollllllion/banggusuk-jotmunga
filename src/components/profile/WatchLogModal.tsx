@@ -5,6 +5,7 @@ import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 import { uuid } from '@/utils/helpers'
 import type { Content, ContentType, WatchLog } from '@/types'
+import '@/styles/diary.css'
 
 /* 자주 쓰는 값은 눌러서 넣고, 나머지는 직접 쓴다 — 칩을 누르면 입력칸이 그 글자로 바뀐다 */
 const PLACES = ['집', '극장', '이동 중', '친구 집']
@@ -46,16 +47,18 @@ export function GlobeIcon() {
   )
 }
 
-export function WatchLogModal({ userId, day, initial, onClose, onSaved }: {
+export function WatchLogModal({ userId, day, initial, content: presetContent, onClose, onSaved }: {
   userId: string
   /** 새 기록의 기본 날짜 'YYYY-MM-DD' */
   day: string
   initial?: WatchLog
+  /** 새 기록의 작품을 미리 골라 둔다 — 작품방에서 '봤음' 다음에 열 때 */
+  content?: Content
   onClose: () => void
   onSaved: (log: WatchLog) => void
 }) {
   const toast = useToastStore(s => s.show)
-  const [content, setContent] = useState<Content | undefined>(initial ? DS.getContentById(initial.contentId) : undefined)
+  const [content, setContent] = useState<Content | undefined>(initial ? DS.getContentById(initial.contentId) : presetContent)
   const [watchedOn, setWatchedOn] = useState(initial?.watchedOn ?? day)
   const [place, setPlace] = useState(initial?.place ?? '')
   const [companions, setCompanions] = useState(initial?.companions ?? '')

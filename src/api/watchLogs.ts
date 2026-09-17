@@ -39,13 +39,17 @@ export async function saveWatchLog(log: WatchLog): Promise<WatchLog> {
   const row = { ...log, updatedAt: new Date().toISOString() }
   const { error } = await supabase.from('watch_logs').upsert(row, { onConflict: 'id' })
   if (error) { console.error('[saveWatchLog]', error.message); throw new SaveFailedError(error.message) }
-  const list = (byUser.get(log.userId) ?? []).filter(l => l.id !== log.id)
-  byUser.set(log.userId, sortLogs([...list, row]))
+  // 아직 그 사람 목록을 안 받았으면 캐시를 만들지 않는다 — 새 줄 하나만 든 목록이 생기면
+  // loadWatchLogs 가 '이미 받았다'고 보고 나머지 기록을 영영 안 받는다(작품방에서 바로 기록할 때)
+  if (byUser.has(log.userId)) {
+    const list = byUser.get(log.userId)!.filter(l => l.id !== log.id)
+    byUser.set(log.userId, sortLogs([...list, row]))
+  }
   return row
 }
 
 export async function deleteWatchLog(log: WatchLog): Promise<void> {
   const { error } = await supabase.from('watch_logs').delete().eq('id', log.id)
   if (error) { console.error('[deleteWatchLog]', error.message); throw new SaveFailedError(error.message) }
-  byUser.set(log.userId, (byUser.get(log.userId) ?? []).filter(l => l.id !== log.id))
+  if (byUser.has(log.userId)) byUser.set(log.userId, byUser.get(log.userId)!.filter(l => l.id !== log.id))
 }

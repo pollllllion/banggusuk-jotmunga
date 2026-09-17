@@ -30,6 +30,8 @@ import { getPushState, enablePush } from '@/utils/push'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
 import { clickable } from '@/utils/a11y'
+import { WatchLogModal } from '@/components/profile/WatchLogModal'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 export function ContentDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -42,6 +44,9 @@ export function ContentDetailPage() {
   const rerender = () => setTick(t => t + 1)
   // 본 작품 등록은 서버 왕복이 있다 — 오가는 동안 두 번 눌리지 않게 잠근다
   const [watchBusy, setWatchBusy] = useState(false)
+  /** '봤음' 직후 — 작품일지에도 남길지 묻는 창 / 그다음 기록 창 */
+  const [diaryAsk, setDiaryAsk] = useState(false)
+  const [diaryOpen, setDiaryOpen] = useState(false)
   /** 별점 시트가 열려 있나 */
   const [rateOpen, setRateOpen] = useState(false)
 
@@ -177,6 +182,8 @@ export function ContentDetailPage() {
           genres: content.genres, creators: content.creators,
         })
         toast('본 작품으로 담았어요.')
+        // 본 작품은 '봤다'는 한 줄뿐이다. 언제·어디서·누구랑은 작품일지에 남긴다 — 방금 본 참이니 지금 묻는다
+        setDiaryAsk(true)
       }
     } catch {
       toast('처리하지 못했어요. 잠시 후 다시 시도해주세요.')
@@ -416,6 +423,23 @@ export function ContentDetailPage() {
           전에는 펼쳐야 보이는 상세정보 안에 있어서 거의 아무도 못 봤다. 실린 글이 없으면 안 그린다 */}
       <CurationBacklinks contentId={content.id} />
 
+      {diaryAsk && user && (
+        <DiaryAsk
+          title={content.title}
+          onNo={() => setDiaryAsk(false)}
+          onYes={() => { setDiaryAsk(false); setDiaryOpen(true) }}
+        />
+      )}
+      {diaryOpen && user && (
+        <WatchLogModal
+          userId={user.id}
+          day={(() => { const t = new Date(); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}` })()}
+          content={content}
+          onClose={() => setDiaryOpen(false)}
+          onSaved={() => rerender()}
+        />
+      )}
+
       {rateOpen && (
         <RatingSheet
           title={content.title}
@@ -439,5 +463,24 @@ export function ContentDetailPage() {
         </p>
       )}
     </>
+  )
+}
+
+/** '봤음' 다음에 뜨는 작은 확인 창 — 작품일지에도 남길까요? */
+function DiaryAsk({ title, onYes, onNo }: { title: string; onYes: () => void; onNo: () => void }) {
+  useEscapeKey(true, onNo)
+  return (
+    <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onNo() }}>
+      <div className="modal" style={{ maxWidth: 360, width: '88vw', position: 'relative' }} role="dialog" aria-labelledby="diary-ask-title">
+        <h3 id="diary-ask-title">작품일지에도 기록할까요?</h3>
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+          '{title}'을(를) 본 작품에 담았어요. 언제·어디서·누구랑 봤는지 작품일지에 남겨 둘 수 있어요.
+        </p>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onNo}>괜찮아요</button>
+          <button className="btn btn-primary" onClick={onYes} autoFocus>기록하기</button>
+        </div>
+      </div>
+    </div>
   )
 }
