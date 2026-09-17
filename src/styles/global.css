@@ -1697,7 +1697,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .cur-backlinks ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .cur-backlinks li { cursor: pointer; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .cur-backlinks .cur-backlink-title {
-  font-size: 13.5px; font-weight: 700; color: var(--text);
+  font-size: 13.5px; font-weight: 700; color: var(--link);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cur-backlinks li:hover .cur-backlink-title { text-decoration: underline; }

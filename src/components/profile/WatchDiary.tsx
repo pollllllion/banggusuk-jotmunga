@@ -5,6 +5,7 @@ import { useToastStore } from '@/components/ui/Toast'
 import { WatchLogModal } from './WatchLogModal'
 import { clickable } from '@/utils/a11y'
 import { holidayOf } from '@/shared/holidays.mjs'
+import { useEscapeKey } from '@/hooks/useEscapeKey'
 import type { WatchLog } from '@/types'
 import '@/styles/diary.css'
 
@@ -16,25 +17,23 @@ const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const MAX_IN_CELL = 4
 
 /**
- * 작품일지 — 본 날 칸에 포스터가 채워지는 달력 + 고른 날의 기록.
+ * 작품일지 — 본 날 칸에 포스터가 채워지는 달력.
  *
- * 날짜를 누르면: 기록이 없는 날은 바로 기록 창이 열린다(내 일지일 때). 기록이 있는 날은
- * 그날 기록이 아래에 펼쳐지고, 거기 '+ 이날 기록'으로 더 쓴다 — 있는 기록을 못 보고
- * 창부터 뜨면 이미 쓴 걸 또 쓰게 된다.
- *
- * 내 피드(editable)에서는 쓰고 고치고, 남의 프로필에서는 공개로 둔 기록만 본다
- * (RLS 가 비공개 줄을 아예 안 준다). 찜 달력(CalendarPage)과 같은 포스터 칸 방식이다.
+ * 달력 아래에 그날 기록을 펼치던 칸은 없앴다(2026-09-17). 날짜를 누르면 창으로 연다:
+ *   - 기록이 있는 날 → 그날 기록 창(보기 · 내 일지면 고치기·지우기·공개 전환·더 쓰기)
+ *   - 기록이 없는 날 → 내 일지면 바로 쓰기 창, 남의 일지면 아무 일도 없다
+ * 찜 달력(CalendarPage)과 같은 포스터 칸 방식이다. 남의 일지는 공개 기록만 온다(RLS).
  */
 export function WatchDiary({ userId, editable, title }: {
   userId: string
   editable: boolean
   title: string
 }) {
-  const navigate = useNavigate()
   const toast = useToastStore(s => s.show)
   const [logs, setLogs] = useState<WatchLog[] | undefined>(() => DS.getWatchLogs(userId))
   const [cursor, setCursor] = useState(() => { const t = new Date(); return { y: t.getFullYear(), m: t.getMonth() } })
-  const [selected, setSelected] = useState(todayStr)
+  /** 기록 보기 창이 열린 날 */
+  const [viewDay, setViewDay] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ log?: WatchLog; day: string } | null>(null)
 
   useEffect(() => {
@@ -47,7 +46,6 @@ export function WatchDiary({ userId, editable, title }: {
       const last = list[list.length - 1]
       if (!editable && last && !list.some(l => l.watchedOn.startsWith(thisMonth))) {
         setCursor({ y: Number(last.watchedOn.slice(0, 4)), m: Number(last.watchedOn.slice(5, 7)) - 1 })
-        setSelected(last.watchedOn)
       }
     })
     return () => { alive = false }
@@ -74,21 +72,9 @@ export function WatchDiary({ userId, editable, title }: {
     return { y: t.getFullYear(), m: t.getMonth() }
   })
   const today = todayStr()
-  const dayLogs = byDay.get(selected) ?? []
 
-  const remove = async (log: WatchLog) => {
-    const t = DS.getContentById(log.contentId)?.title || '이 기록'
-    if (!window.confirm(`'${t}' 기록을 지울까요?`)) return
-    try { await DS.deleteWatchLog(log); toast('기록을 지웠어요.'); refresh() }
-    catch (e: any) { toast(e?.message || '지우지 못했어요.') }
-  }
-
-  const togglePublic = async (log: WatchLog) => {
-    try { await DS.saveWatchLog({ ...log, isPublic: !log.isPublic }); refresh() }
-    catch (e: any) { toast(e?.message || '바꾸지 못했어요.') }
-  }
-
-  const [sy, sm, sd] = selected.split('-').map(Number)
+  /** 보기 창에서 쓰기 창으로 넘어간다 — 두 창을 겹쳐 두지 않는다 */
+  const openEditor = (day: string, log?: WatchLog) => { setViewDay(null); setEditing({ day, log }) }
 
   return (
     <section className="diary">
@@ -96,7 +82,7 @@ export function WatchDiary({ userId, editable, title }: {
         <h2 className="feed-title">{title}</h2>
         {editable && (
           <span className="feed-sec-right">
-            <button className="btn-text btn-small" onClick={() => setEditing({ day: selected })}>+ 기록하기</button>
+            <button className="btn-text btn-small" onClick={() => openEditor(today)}>+ 기록하기</button>
           </span>
         )}
       </div>
@@ -120,18 +106,19 @@ export function WatchDiary({ userId, editable, title }: {
             // 일요일·공휴일은 빨강, 토요일은 파랑 — 공개 캘린더(CalendarPage)와 같은 규칙
             const dow = (firstDow + d - 1) % 7
             const red = dow === 0 || !!holiday
+            const clickableDay = here.length > 0 || editable
             const open = () => {
-              setSelected(k)
-              if (editable && !here.length) setEditing({ day: k })
+              if (here.length) setViewDay(k)
+              else if (editable) openEditor(k)
             }
-            const label = [`${cursor.m + 1}월 ${d}일`, holiday, here.length ? `기록 ${here.length}개` : editable ? '기록하기' : null]
+            const label = [`${cursor.m + 1}월 ${d}일`, holiday, here.length ? `기록 ${here.length}개 보기` : editable ? '기록하기' : null]
               .filter(Boolean).join(' · ')
             return (
               <div
                 key={k}
-                className={`diary-cell ${here.length ? 'has' : ''} ${k === today ? 'today' : ''} ${k === selected ? 'sel' : ''} ${red ? 'sun' : dow === 6 ? 'sat' : ''}`}
+                className={`diary-cell ${here.length ? 'has' : ''} ${k === today ? 'today' : ''} ${red ? 'sun' : dow === 6 ? 'sat' : ''} ${clickableDay ? '' : 'idle'}`}
                 title={label}
-                {...clickable(open, label)}
+                {...(clickableDay ? clickable(open, label) : {})}
               >
                 <span className="diary-day">{d}</span>
                 {holiday && <span className="diary-holiday">{holiday}</span>}
@@ -152,50 +139,22 @@ export function WatchDiary({ userId, editable, title }: {
         </div>
       </div>
 
-      {/* 고른 날의 기록 — 일기장 한 쪽 */}
-      <div className="diary-day-panel">
-        <div className="diary-day-head">
-          <strong>{sm}월 {sd}일</strong>
-          <span>{WEEK[new Date(sy, sm - 1, sd).getDay()]}요일{holidayOf(selected) ? ` · ${holidayOf(selected)}` : ''}</span>
-          {editable && (
-            <button className="btn-text btn-small" onClick={() => setEditing({ day: selected })}>+ 이날 기록</button>
-          )}
-        </div>
-        {!logs ? (
-          <p className="diary-empty">불러오는 중…</p>
-        ) : !dayLogs.length ? (
-          <p className="diary-empty">{editable ? '이날 남긴 기록이 없어요.' : '이날은 공개한 기록이 없어요.'}</p>
-        ) : dayLogs.map(l => {
-          const c = DS.getContentById(l.contentId)
-          const meta = [l.place, l.companions, l.progress].filter(Boolean)
-          return (
-            <article key={l.id} className="diary-entry">
-              {c?.posterUrl
-                ? <img className="diary-entry-poster" src={c.posterUrl} alt="" loading="lazy" {...clickable(() => navigate(`/content/${c.id}`), c.title)} />
-                : <div className="diary-entry-poster none" />}
-              <div className="diary-entry-body">
-                <div className="diary-entry-top">
-                  <span className="diary-entry-title" {...clickable(() => c && navigate(`/content/${c.id}`))}>{c?.title ?? '지워진 작품'}</span>
-                  {editable && (
-                    <button className={`feed-public ${l.isPublic ? 'on' : ''}`} onClick={() => togglePublic(l)}
-                      title={l.isPublic ? '남에게 보입니다. 누르면 비공개로 바꿔요' : '나만 봅니다. 누르면 공개로 바꿔요'}>
-                      {l.isPublic ? '공개' : '비공개'}
-                    </button>
-                  )}
-                </div>
-                {meta.length > 0 && <div className="diary-entry-meta">{meta.join(' · ')}</div>}
-                {l.memo && <p className="diary-entry-memo">{l.memo}</p>}
-                {editable && (
-                  <div className="diary-entry-actions">
-                    <button className="btn-text btn-small" onClick={() => setEditing({ log: l, day: l.watchedOn })}>고치기</button>
-                    <button className="btn-text btn-small" onClick={() => remove(l)}>지우기</button>
-                  </div>
-                )}
-              </div>
-            </article>
-          )
-        })}
-      </div>
+      {viewDay && (
+        <DayLogsModal
+          day={viewDay}
+          logs={byDay.get(viewDay) ?? []}
+          editable={editable}
+          onClose={() => setViewDay(null)}
+          onAdd={() => openEditor(viewDay)}
+          onEdit={log => openEditor(log.watchedOn, log)}
+          onChanged={() => {
+            refresh()
+            // 마지막 기록을 지웠으면 빈 창을 남기지 않는다
+            if (!(DS.getWatchLogs(userId) ?? []).some(l => l.watchedOn === viewDay)) setViewDay(null)
+          }}
+          toast={toast}
+        />
+      )}
 
       {editing && (
         <WatchLogModal
@@ -205,12 +164,94 @@ export function WatchDiary({ userId, editable, title }: {
           onClose={() => setEditing(null)}
           onSaved={log => {
             refresh()
-            // 다른 날로 저장했으면 그날로 옮겨 가서 방금 쓴 기록이 보이게
-            setSelected(log.watchedOn)
+            // 저장한 날로 달력을 옮기고 그날 기록 창을 열어 방금 쓴 것을 보여준다
             setCursor({ y: Number(log.watchedOn.slice(0, 4)), m: Number(log.watchedOn.slice(5, 7)) - 1 })
+            setViewDay(log.watchedOn)
           }}
         />
       )}
     </section>
+  )
+}
+
+/** 그날 기록 창 — 보기 · 내 일지면 고치기·지우기·공개 전환·더 쓰기 */
+function DayLogsModal({ day, logs, editable, onClose, onAdd, onEdit, onChanged, toast }: {
+  day: string
+  logs: WatchLog[]
+  editable: boolean
+  onClose: () => void
+  onAdd: () => void
+  onEdit: (log: WatchLog) => void
+  onChanged: () => void
+  toast: (msg: string) => void
+}) {
+  const navigate = useNavigate()
+  useEscapeKey(true, onClose)
+  const [y, m, d] = day.split('-').map(Number)
+  const holiday = holidayOf(day) as string | null
+
+  const remove = async (log: WatchLog) => {
+    const t = DS.getContentById(log.contentId)?.title || '이 기록'
+    if (!window.confirm(`'${t}' 기록을 지울까요?`)) return
+    try { await DS.deleteWatchLog(log); toast('기록을 지웠어요.'); onChanged() }
+    catch (e: any) { toast(e?.message || '지우지 못했어요.') }
+  }
+
+  const togglePublic = async (log: WatchLog) => {
+    try { await DS.saveWatchLog({ ...log, isPublic: !log.isPublic }); onChanged() }
+    catch (e: any) { toast(e?.message || '바꾸지 못했어요.') }
+  }
+
+  return (
+    <div className="modal-overlay show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal diary-modal" style={{ maxWidth: 480, width: '92vw' }} role="dialog" aria-label={`${m}월 ${d}일 기록`}>
+        <button className="modal-close" onClick={onClose} aria-label="닫기">✕</button>
+        <h3 className="diary-day-title">
+          {y}년 {m}월 {d}일
+          <span className={holiday || new Date(y, m - 1, d).getDay() === 0 ? 'red' : ''}>
+            {WEEK[new Date(y, m - 1, d).getDay()]}요일{holiday ? ` · ${holiday}` : ''}
+          </span>
+        </h3>
+
+        <div className="diary-day-list">
+          {logs.map(l => {
+            const c = DS.getContentById(l.contentId)
+            const meta = [l.place, l.companions, l.progress].filter(Boolean)
+            const go = () => { if (c) { onClose(); navigate(`/content/${c.id}`) } }
+            return (
+              <article key={l.id} className="diary-entry">
+                {c?.posterUrl
+                  ? <img className="diary-entry-poster" src={c.posterUrl} alt="" loading="lazy" {...clickable(go, c.title)} />
+                  : <div className="diary-entry-poster none" />}
+                <div className="diary-entry-body">
+                  <div className="diary-entry-top">
+                    <span className="diary-entry-title" {...clickable(go)}>{c?.title ?? '지워진 작품'}</span>
+                    {editable && (
+                      <button className={`feed-public ${l.isPublic ? 'on' : ''}`} onClick={() => togglePublic(l)}
+                        title={l.isPublic ? '남에게 보입니다. 누르면 비공개로 바꿔요' : '나만 봅니다. 누르면 공개로 바꿔요'}>
+                        {l.isPublic ? '공개' : '비공개'}
+                      </button>
+                    )}
+                  </div>
+                  {meta.length > 0 && <div className="diary-entry-meta">{meta.join(' · ')}</div>}
+                  {l.memo && <p className="diary-entry-memo">{l.memo}</p>}
+                  {editable && (
+                    <div className="diary-entry-actions">
+                      <button className="btn-text btn-small" onClick={() => onEdit(l)}>고치기</button>
+                      <button className="btn-text btn-small" onClick={() => remove(l)}>지우기</button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>닫기</button>
+          {editable && <button className="btn btn-primary" onClick={onAdd}>+ 이날 기록 더하기</button>}
+        </div>
+      </div>
+    </div>
   )
 }
