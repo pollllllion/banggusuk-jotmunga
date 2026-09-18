@@ -15,6 +15,7 @@ import { UsersTab } from '@/components/admin/UsersTab'
 import type { Content, ContentType } from '@/types'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { clickable } from '@/utils/a11y'
+import { useListKeyNav } from '@/hooks/useListKeyNav'
 
 const REASON_LABELS: Record<string, string> = {
   spam: '스팸/광고', abuse: '욕설/인신공격', spoiler: '스포일러', false_info: '허위정보', inappropriate: '부적절', copyright: '저작권 침해', other: '기타',
@@ -386,6 +387,9 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
     onRegistered(created, false)
   }
 
+  // ↑↓ 로 고른 줄이 있으면 Enter 가 그 작품을 등록하고, 없으면 검색을 돌린다
+  const nav = useListKeyNav(results.length, `${type}|${query}`, i => pick(results[i]))
+
   return (
     <div className="settings-section" style={{ marginBottom: 16 }}>
       <h3>TMDB 검색 등록</h3>
@@ -408,7 +412,7 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
             className="form-input" autoFocus placeholder="작품 제목" value={query}
             style={{ flex: 1, marginBottom: 0 }}
             onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') doSearch() }}
+            onKeyDown={e => { if (!nav.onKeyDown(e) && e.key === 'Enter') doSearch() }}
           />
           <button className="btn btn-primary" onClick={doSearch} disabled={loading || !query.trim()}>
             {loading ? '검색중' : '검색'}
@@ -421,9 +425,9 @@ function TmdbRegisterPanel({ onRegistered, onCancel }: { onRegistered: (c: Conte
           검색 결과가 없어요. 제목을 바꿔보세요. (웹툰/웹소설은 ‘+ 새 작품 등록’으로 수기 입력)
         </p>
       )}
-      <div className="tmdb-results">
-        {results.map(r => (
-          <div key={r.tmdbId} className="tmdb-result" {...clickable(() => pick(r))}>
+      <div className="tmdb-results" ref={nav.listRef}>
+        {results.map((r, i) => (
+          <div key={r.tmdbId} className={`tmdb-result${i === nav.activeIdx ? ' active' : ''}`} {...clickable(() => pick(r))}>
             {r.posterUrl
               ? <img src={r.posterUrl} alt={r.title} />
               : <div className="noimg">No Image</div>}

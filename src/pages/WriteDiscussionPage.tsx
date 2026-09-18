@@ -16,6 +16,7 @@ import { searchTmdbAll, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbResul
 import type { Content, ContentType, DiscussionBoard } from '@/types'
 import '@/styles/discussion.css'
 import { clickable } from '@/utils/a11y'
+import { useListKeyNav } from '@/hooks/useListKeyNav'
 
 /** 토론방 글쓰기(통합) — 한 화면에서 작품 선택 + 본문 + 별점 + 스포일러.
  *  작품·본문은 필수, 나머지는 선택. 한 작품엔 별점을 한 번만 매길 수 있다.
@@ -167,6 +168,16 @@ export function WriteDiscussionPage() {
     }
   }
 
+  // 키보드 선택 — 두 목록(DB → TMDB)을 화면 차례대로 한 줄로 센다
+  const nav = useListKeyNav(matches.length + tmdbHits.length, q, i => {
+    if (i < matches.length) setPicked(matches[i])
+    else pickTmdb(tmdbHits[i - matches.length])
+  })
+  // 직접 등록의 '이미 등록된 같은 작품' 목록도 같은 키로 고른다
+  const manualNav = useListKeyNav(manualSuggestions.length, `${mType}|${mTitle}`, i => {
+    setPicked(manualSuggestions[i]); setManual(false)
+  })
+
   // 관리자는 누구 글이든 고칠 수 있다 — 유동닉 글도 비번 없이 (RLS discussions_update: 본인 or 관리자)
   const isAdmin = isAccount && user?.role === 'admin'
 
@@ -288,14 +299,14 @@ export function WriteDiscussionPage() {
                     ))}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <input className="form-input" autoFocus placeholder="제목 *" maxLength={200} value={mTitle} onChange={e => setMTitle(e.target.value)} />
+                    <input className="form-input" autoFocus placeholder="제목 *" maxLength={200} value={mTitle} onChange={e => setMTitle(e.target.value)} onKeyDown={manualNav.onKeyDown} />
 
                     {manualSuggestions.length > 0 && (
                       <div className="manual-suggest">
                         <div className="manual-suggest-head">이미 등록된 같은 작품이 있어요 — 고르면 그 작품에 글을 써요</div>
-                        <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
-                          {manualSuggestions.map(c => (
-                            <div key={c.id} className="tmdb-result" {...clickable(() => { setPicked(c); setManual(false) })}>
+                        <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }} ref={manualNav.listRef}>
+                          {manualSuggestions.map((c, i) => (
+                            <div key={c.id} className={`tmdb-result${i === manualNav.activeIdx ? ' active' : ''}`} {...clickable(() => { setPicked(c); setManual(false) })}>
                               {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                               <div>
                                 <div className="t">{c.title}</div>
@@ -319,11 +330,11 @@ export function WriteDiscussionPage() {
             </>
           ) : (
             <>
-              <input className="form-input" autoComplete="off" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} />
+              <input className="form-input" autoComplete="off" placeholder="작품 제목 검색" value={q} onChange={e => setQ(e.target.value)} onKeyDown={nav.onKeyDown} />
               {(matches.length > 0 || tmdbHits.length > 0) && (
-                <div className="tmdb-results">
-                  {matches.map(c => (
-                    <div key={c.id} className="tmdb-result" {...clickable(() => setPicked(c))}>
+                <div className="tmdb-results" ref={nav.listRef}>
+                  {matches.map((c, i) => (
+                    <div key={c.id} className={`tmdb-result${i === nav.activeIdx ? ' active' : ''}`} {...clickable(() => setPicked(c))}>
                       {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                       <div>
                         <div className="t">{c.title}</div>
@@ -332,8 +343,8 @@ export function WriteDiscussionPage() {
                     </div>
                   ))}
                   {/* DB에 없는 작품 — 고르면 그 자리에서 등록된다(ensureContent) */}
-                  {tmdbHits.map(r => (
-                    <div key={`${r.kind}-${r.tmdbId}`} className="tmdb-result" {...clickable(() => pickTmdb(r))}>
+                  {tmdbHits.map((r, i) => (
+                    <div key={`${r.kind}-${r.tmdbId}`} className={`tmdb-result${matches.length + i === nav.activeIdx ? ' active' : ''}`} {...clickable(() => pickTmdb(r))}>
                       {r.posterUrl ? <img src={r.posterUrl} alt={r.title} /> : <div className="noimg">No Image</div>}
                       <div>
                         <div className="t">{r.title}</div>

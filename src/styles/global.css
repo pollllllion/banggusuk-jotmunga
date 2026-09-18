@@ -1823,7 +1823,7 @@ html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: 
   display: flex; gap: 8px; align-items: center; cursor: pointer;
   padding: 6px 8px; border-radius: var(--radius-sm); font-size: 13px;
 }
-.cur-adder-list li:hover { background: var(--bg); }
+.cur-adder-list li:hover, .cur-adder-list li.active { background: var(--bg); }
 .cur-adder-list img { width: 28px; border-radius: 3px; }
 .cur-pick-counts { font-size: 12px; color: var(--subtext); margin-bottom: 8px; }
 .cur-pick-hint {

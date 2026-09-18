@@ -11,6 +11,7 @@ import { PeoplePicker } from './PeoplePicker'
 import { peopleOf } from '@/utils/people'
 import { clickable } from '@/utils/a11y'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useListKeyNav } from '@/hooks/useListKeyNav'
 
 /** 취향 편집 창. 보여주는 쪽은 components/profile/ProfileShowcase.tsx 가 맡는다 —
  *  내 피드와 공개 프로필이 같은 화면을 쓰기 때문에 이 파일은 고치는 일만 한다. */
@@ -95,6 +96,12 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
     }
   }
   const removeWork = (id: string) => setWorks(works.filter(w => w !== id))
+
+  // 키보드 선택 — 두 목록(DB → TMDB)을 화면 차례대로 한 줄로 센다
+  const nav = useListKeyNav(matches.length + tmdbCands.length, q, i => {
+    if (i < matches.length) addWork(matches[i].id)
+    else addTmdb(tmdbCands[i - matches.length])
+  })
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
 
   /** 지금 고치고 있는 칸만 저장한다 — 다른 칸까지 같이 덮어쓰면
@@ -162,17 +169,17 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
           )}
           {works.length < MAX_WORKS && (
             <>
-              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} autoComplete="off" placeholder="작품 제목 검색해서 추가 (영화·드라마·예능은 전체 검색)" />
+              <input className="form-input" value={q} onChange={e => setQ(e.target.value)} onKeyDown={nav.onKeyDown} autoComplete="off" placeholder="작품 제목 검색해서 추가 (영화·드라마·예능은 전체 검색)" />
               {(matches.length > 0 || tmdbCands.length > 0) && (
-                <div className="tmdb-results">
-                  {matches.map(c => (
-                    <div key={c.id} className="tmdb-result" {...clickable(() => addWork(c.id))}>
+                <div className="tmdb-results" ref={nav.listRef}>
+                  {matches.map((c, i) => (
+                    <div key={c.id} className={`tmdb-result${i === nav.activeIdx ? ' active' : ''}`} {...clickable(() => addWork(c.id))}>
                       {c.posterUrl ? <img src={c.posterUrl} alt={c.title} /> : <div className="noimg">No Image</div>}
                       <div><div className="t">{c.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.releaseYear ? ` · ${c.releaseYear}` : ''}</div></div>
                     </div>
                   ))}
-                  {tmdbCands.map(c => (
-                    <div key={c.contentId} className="tmdb-result" {...clickable(() => addTmdb(c))}>
+                  {tmdbCands.map((c, i) => (
+                    <div key={c.contentId} className={`tmdb-result${matches.length + i === nav.activeIdx ? ' active' : ''}`} {...clickable(() => addTmdb(c))}>
                       {c.r.posterUrl ? <img src={c.r.posterUrl} alt={c.r.title} /> : <div className="noimg">No Image</div>}
                       <div><div className="t">{c.r.title}</div><div className="m">{TYPE_LABELS[c.type]}{c.r.year ? ` · ${c.r.year}` : ''}</div></div>
                     </div>

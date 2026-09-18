@@ -9,6 +9,7 @@ import { uuid } from '@/utils/helpers'
 import type { Content, ContentType } from '@/types'
 import { clickable } from '@/utils/a11y'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
+import { useListKeyNav } from '@/hooks/useListKeyNav'
 
 /**
  * 본 작품 · 찜한 작품 등록 모달 (mode 로 가른다).
@@ -241,6 +242,11 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     }
   }
 
+  // 직접 등록의 '이미 등록된 같은 작품' 목록도 같은 키로 고른다
+  const manualNav = useListKeyNav(manualSuggestions.length, `${manualType}|${title}`, i => {
+    if (!saving) linkExisting(manualSuggestions[i])
+  })
+
   /** 영화/드라마/예능 배지. tv 결과는 눌러서 드라마↔예능을 바로 고칠 수 있다. */
   const typeBadge = (r: TmdbResult) => {
     const t = resultType(r)
@@ -344,14 +350,14 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
               ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input className="form-input" autoFocus placeholder="제목 *" value={title} onChange={e => setTitle(e.target.value)} />
+              <input className="form-input" autoFocus placeholder="제목 *" value={title} onChange={e => setTitle(e.target.value)} onKeyDown={manualNav.onKeyDown} />
 
               {manualSuggestions.length > 0 && (
                 <div className="manual-suggest">
                   <div className="manual-suggest-head">이미 등록된 같은 작품이 있어요 — 고르면 그 작품에 연결돼요</div>
-                  <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
-                    {manualSuggestions.map(c => (
-                      <div key={c.id} className="tmdb-result" {...clickable(() => { if (!saving) linkExisting(c) })}>
+                  <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }} ref={manualNav.listRef}>
+                    {manualSuggestions.map((c, i) => (
+                      <div key={c.id} className={`tmdb-result${i === manualNav.activeIdx ? ' active' : ''}`} {...clickable(() => { if (!saving) linkExisting(c) })}>
                         {c.posterUrl
                           ? <img src={c.posterUrl} alt={c.title} />
                           : <div className="noimg">No Image</div>}

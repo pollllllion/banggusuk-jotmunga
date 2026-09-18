@@ -9,6 +9,7 @@ import { publishBlockers, MIN_BODY, MIN_NOTE, MIN_ITEMS } from '@/shared/curatio
 import { textBlocks, textLength } from '@/shared/curationMarkup.mjs'
 import { CurationBlocks } from '@/components/curation/CurationBlocks'
 import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
+import { useListKeyNav } from '@/hooks/useListKeyNav'
 import type { Curation, CurationItem, ContentType } from '@/types'
 
 /**
@@ -528,12 +529,13 @@ function ItemAdder({ existing, onAdd }: { existing: string[]; onAdd: (id: string
   const hits = q.trim().length >= 2
     ? DS.searchContents(q.trim(), 8).filter(c => !existing.includes(c.id))
     : []
+  const nav = useListKeyNav<HTMLUListElement>(hits.length, q, i => { onAdd(hits[i].id); setQ('') })
 
   return (
     <div className="cur-adder">
       <div style={{ display: 'flex', gap: 8 }}>
         <input
-          type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)}
+          type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)} onKeyDown={nav.onKeyDown}
           autoComplete="off" placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
         />
         {/* 사이트에 없는 작품(탑건·아바타 같은 옛 영화)은 TMDB 에서 찾아 그 자리에서 등록한다 — 통합검색과 같은 길 */}
@@ -557,9 +559,9 @@ function ItemAdder({ existing, onAdd }: { existing: string[]; onAdd: (id: string
         />
       )}
       {hits.length > 0 && (
-        <ul className="cur-adder-list">
-          {hits.map(c => (
-            <li key={c.id} onClick={() => { onAdd(c.id); setQ('') }}>
+        <ul className="cur-adder-list" ref={nav.listRef}>
+          {hits.map((c, i) => (
+            <li key={c.id} className={i === nav.activeIdx ? 'active' : undefined} onClick={() => { onAdd(c.id); setQ('') }}>
               {c.posterUrl && <img src={c.posterUrl} alt="" loading="lazy" />}
               <span>{c.title}</span>
               <span className="label">{c.releaseDate || c.releaseYear || ''}</span>
