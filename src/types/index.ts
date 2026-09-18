@@ -317,8 +317,13 @@ export interface Announcement {
 /** 큐레이션에 실린 작품 한 편 + 운영자가 붙인 코멘트 */
 export interface CurationItem {
   contentId: string
-  /** 이 작품을 왜 골랐는지 — 비어 있으면 발행할 수 없다(자동생성 글 방지) */
+  /** 이 작품을 왜 골랐는지 — 비어 있으면 발행할 수 없다(자동생성 글 방지).
+   *  묶음에 붙은 작품(joinPrev)은 안 쓴다 — 묶음 첫 작품의 note 가 묶음 설명이다 */
   note: string
+  /** 바로 앞 작품과 한 묶음 — 설명 하나로 여러 작품을 소개("듄·탑건·아바타는 돌비시네마로") */
+  joinPrev?: boolean
+  /** 묶음 제목(묶음 첫 작품에만). 비우면 작품 제목들을 잇는다 */
+  groupTitle?: string
 }
 
 export interface Curation {

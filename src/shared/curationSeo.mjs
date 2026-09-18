@@ -28,8 +28,10 @@ export function publishBlockers(c) {
   if (bodyLen < MIN_BODY) out.push(`본문이 ${bodyLen}자입니다. 최소 ${MIN_BODY}자 — 직접 쓴 글이 있어야 합니다.`)
   // 작품 없이 본문만 있는 정보글(예: 특별관 비교표)은 허용한다. 작품을 실을 거면 목록답게 3편 이상
   if (items.length > 0 && items.length < MIN_ITEMS) out.push(`작품이 ${items.length}편입니다. 작품을 실으려면 최소 ${MIN_ITEMS}편 — 정보글이면 전부 빼세요.`)
-  const thin = items.filter(i => (i.note || '').trim().length < MIN_NOTE)
-  if (thin.length) out.push(`코멘트가 ${MIN_NOTE}자 미만인 작품 ${thin.length}편이 있습니다. 자동 생성 문장만 남으면 복제 콘텐츠가 됩니다.`)
+  // 코멘트는 묶음 단위로 센다 — 묶인 작품은 묶음 첫 작품의 설명 하나를 같이 쓴다
+  const groups = curationGroups(items)
+  const thin = groups.filter(g => g.note.length < MIN_NOTE)
+  if (thin.length) out.push(`코멘트가 ${MIN_NOTE}자 미만인 ${groups.some(g => g.items.length > 1) ? '작품·묶음' : '작품'} ${thin.length}개가 있습니다. 자동 생성 문장만 남으면 복제 콘텐츠가 됩니다.`)
   return out
 }
 
@@ -89,6 +91,22 @@ export function buildCurationJsonLd(c, siteUrl, siteName) {
 }
 
 /**
+ * 작품 목록 → 묶음. `joinPrev` 인 작품은 바로 앞 묶음에 붙어 설명 하나를 같이 쓴다
+ * ("듄·탑건·아바타는 돌비시네마로" 같은 글). 묶음의 설명·제목은 첫 작품의 note·groupTitle 이다.
+ * 맨 앞 작품의 joinPrev 는 붙을 데가 없으니 무시한다. 아무도 안 묶었으면 작품마다 묶음 하나 — 예전과 같다.
+ * @returns {{ items: object[], title: string, note: string }[]}
+ */
+export function curationGroups(items = []) {
+  const out = []
+  for (const it of items) {
+    const last = out[out.length - 1]
+    if (it.joinPrev && last) last.items.push(it)
+    else out.push({ items: [it], title: (it.groupTitle || '').trim(), note: (it.note || '').trim() })
+  }
+  return out
+}
+
+/**
  * 크롤러가 읽는 본문 줄 — 프리렌더가 그대로 HTML 로 찍는다.
  * 앱 화면(CurationDetailPage)이 그리는 것과 같은 내용이어야 클로킹이 아니다.
  *
@@ -98,19 +116,26 @@ export function curationBodyLines(c, byId) {
   const lines = []
   // 본문·맺음말은 서식 블록(문단·소제목·목록·표)으로 — 앱은 CurationBlocks, 프리렌더는 blocksToHtml 로 그린다
   for (const block of textBlocks(c.body)) lines.push({ kind: 'p', block, text: block.text || '' })
-  for (const it of c.items || []) {
+  const work = it => {
     const content = byId && byId.get ? byId.get(it.contentId) : null
-    lines.push({
-      kind: 'item',
+    return {
       contentId: it.contentId,
       title: content ? content.title : it.contentId,
       href: `/content/${it.contentId}`,
-      note: (it.note || '').trim(),
-      // 코멘트도 빈 줄로 문단을 나눈다 — 한 <p> 에 넣으면 줄바꿈이 사라져 한 덩어리가 된다
-      noteParagraphs: paragraphs(it.note),
       posterUrl: content ? content.posterUrl : null,
       exists: !!content,
-    })
+    }
+  }
+  for (const g of curationGroups(c.items || [])) {
+    // 코멘트도 빈 줄로 문단을 나눈다 — 한 <p> 에 넣으면 줄바꿈이 사라져 한 덩어리가 된다
+    const note = { note: g.note, noteParagraphs: paragraphs(g.note) }
+    if (g.items.length === 1) {
+      lines.push({ kind: 'item', ...work(g.items[0]), ...note })
+    } else {
+      // 여러 작품을 설명 하나로 — 제목을 안 붙였으면 작품 제목들을 잇는다
+      const works = g.items.map(work)
+      lines.push({ kind: 'group', title: g.title || works.map(w => w.title).join(' · '), works, ...note })
+    }
   }
   for (const block of textBlocks(c.outro)) lines.push({ kind: 'outro', block, text: block.text || '' })
   return lines

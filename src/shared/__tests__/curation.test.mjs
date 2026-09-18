@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { publishBlockers, bodyParagraphs, curationBodyLines, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
+import { publishBlockers, bodyParagraphs, curationBodyLines, curationGroups, MIN_BODY, MIN_NOTE } from '../curationSeo.mjs'
 import { buildDraft, buildSlug, listCandidates, candidateCounts, monthRange, weekRange, slugify } from '../curationDraft.mjs'
 
 /** 발행 조건을 다 채운 글 */
@@ -239,5 +239,54 @@ describe('candidateCounts', () => {
 
   it('providers 가 undefined 든 [] 든 똑같이 센다', () => {
     expect(candidateCounts({ contents, from, to, type: 'movie' }).noProviders).toBe(2)
+  })
+})
+
+describe('여러 작품 한 묶음 (joinPrev)', () => {
+  const byId = new Map([
+    ['dune', { id: 'dune', title: '듄', posterUrl: 'd.jpg' }],
+    ['topgun', { id: 'topgun', title: '탑건', posterUrl: 't.jpg' }],
+    ['avatar', { id: 'avatar', title: '아바타', posterUrl: 'a.jpg' }],
+    ['x', { id: 'x', title: '엑스', posterUrl: null }],
+  ])
+  const note = '돌비시네마의 명암비와 사운드가 제일 잘 사는 세 편이다.'
+  const items = [
+    { contentId: 'dune', note, groupTitle: '돌비시네마로 봐야 할 작품' },
+    { contentId: 'topgun', note: '', joinPrev: true },
+    { contentId: 'avatar', note: '', joinPrev: true },
+  ]
+
+  it('묶인 작품은 앞 묶음에 붙고, 설명·제목은 첫 작품 것', () => {
+    const g = curationGroups(items)
+    expect(g).toHaveLength(1)
+    expect(g[0].items.map(i => i.contentId)).toEqual(['dune', 'topgun', 'avatar'])
+    expect(g[0].title).toBe('돌비시네마로 봐야 할 작품')
+    expect(g[0].note).toBe(note)
+  })
+
+  it('맨 앞 작품의 joinPrev 는 무시, 안 묶은 글은 작품마다 한 묶음(예전 그대로)', () => {
+    expect(curationGroups([{ contentId: 'a', note: '', joinPrev: true }])).toHaveLength(1)
+    expect(curationGroups(full().items)).toHaveLength(3)
+  })
+
+  it('한 묶음 3편이면 발행 가능 — 설명은 묶음에 하나만 있으면 된다', () => {
+    expect(publishBlockers(full({ items }))).toEqual([])
+  })
+
+  it('묶음 설명이 짧으면 막는다', () => {
+    const b = publishBlockers(full({ items: [{ ...items[0], note: '짧음' }, items[1], items[2]] }))
+    expect(b.join()).toMatch(/묶음/)
+  })
+
+  it('본문 줄: 묶음은 group 한 줄, 혼자인 작품은 예전처럼 item', () => {
+    const lines = curationBodyLines({ body: '', items: [...items, { contentId: 'x', note: '따로 소개하는 작품 코멘트입니다.' }] }, byId)
+    expect(lines.map(l => l.kind)).toEqual(['group', 'item'])
+    expect(lines[0].works.map(w => w.title)).toEqual(['듄', '탑건', '아바타'])
+    expect(lines[0].noteParagraphs).toEqual([note])
+  })
+
+  it('묶음 제목을 비우면 작품 제목들을 잇는다', () => {
+    const lines = curationBodyLines({ items: [{ ...items[0], groupTitle: '' }, items[1]] }, byId)
+    expect(lines[0].title).toBe('듄 · 탑건')
   })
 })

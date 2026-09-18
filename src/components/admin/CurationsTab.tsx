@@ -8,6 +8,7 @@ import { buildDraft, listCandidates, candidateCounts, monthRange, weekRange } fr
 import { publishBlockers, MIN_BODY, MIN_NOTE, MIN_ITEMS } from '@/shared/curationSeo.mjs'
 import { textBlocks, textLength } from '@/shared/curationMarkup.mjs'
 import { CurationBlocks } from '@/components/curation/CurationBlocks'
+import { RegisterWatchedModal } from '@/components/content/RegisterWatchedModal'
 import type { Curation, CurationItem, ContentType } from '@/types'
 
 /**
@@ -353,8 +354,19 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
   const setNote = (contentId: string, note: string) =>
     setItems(items.map(i => i.contentId === contentId ? { ...i, note } : i))
 
-  const removeItem = (contentId: string) =>
-    setItems(items.filter(i => i.contentId !== contentId))
+  const patchItem = (contentId: string, patch: Partial<CurationItem>) =>
+    setItems(items.map(i => i.contentId === contentId ? { ...i, ...patch } : i))
+
+  /** 묶음 첫 작품을 빼면 다음 작품이 설명·제목을 물려받아 새 첫 작품이 된다 — 묶음 설명이 사라지지 않게 */
+  const removeItem = (contentId: string) => {
+    const idx = items.findIndex(i => i.contentId === contentId)
+    const cur = items[idx], next = items[idx + 1]
+    const rest = items.filter(i => i.contentId !== contentId)
+    if (cur && !(cur.joinPrev && idx > 0) && next?.joinPrev) {
+      setItems(rest.map(i => i.contentId === next.contentId
+        ? { ...i, joinPrev: false, note: cur.note, groupTitle: cur.groupTitle } : i))
+    } else setItems(rest)
+  }
 
   const move = (idx: number, dir: -1 | 1) => {
     const next = [...items]
@@ -401,8 +413,13 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
       <label style={{ display: 'block', margin: '16px 0 8px', fontWeight: 700 }}>
         실린 작품 {items.length}편 {items.length === 0
           ? <span className="label" style={{ fontWeight: 400 }}>— 선택. 작품 없이 발행하면 정보글, 실으려면 {MIN_ITEMS}편 이상·각 {MIN_NOTE}자 코멘트</span>
-          : `— 각 ${MIN_NOTE}자 이상 코멘트`}
+          : `— 작품(묶음)마다 ${MIN_NOTE}자 이상 코멘트`}
       </label>
+      {items.length > 1 && (
+        <div className="label" style={{ marginBottom: 8 }}>
+          여러 작품을 설명 하나로 소개하려면 두 번째 작품부터 <b>위 작품과 묶기</b>를 누르세요 (예: 듄·탑건·아바타 → 돌비시네마 추천).
+        </div>
+      )}
       <ItemAdder
         existing={items.map(i => i.contentId)}
         onAdd={id => setItems([...items, { contentId: id, note: '' }])}
@@ -410,9 +427,12 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
       {!loaded && <p className="label">불러오는 중...</p>}
       {items.map((it, idx) => {
         const c = DS.getContentById(it.contentId)
+        // 묶음: joined = 위 작품에 붙은 작품(설명 칸 없음), leads = 아래에 붙은 작품이 있는 묶음 첫 작품
+        const joined = !!it.joinPrev && idx > 0
+        const leads = !joined && !!items[idx + 1]?.joinPrev
         const short = (it.note || '').trim().length < MIN_NOTE
         return (
-          <div key={it.contentId} className="cur-edit-item">
+          <div key={it.contentId} className={`cur-edit-item${joined ? ' joined' : ''}${leads ? ' leads' : ''}`}>
             {c?.posterUrl && <img src={c.posterUrl} alt="" className="cur-edit-poster" />}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="value" style={{ fontWeight: 700 }}>{c ? c.title : it.contentId}</div>
@@ -422,15 +442,41 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
                   [...new Set((c.providers || []).map(p => p.providerName))].slice(0, 3).join('·'),
                 ].filter(Boolean).join(' · ') : '캐시에 없는 작품'}
               </div>
-              <textarea
-                className="form-input" value={it.note}
-                onChange={e => setNote(it.contentId, e.target.value)}
-                placeholder="이 작품을 왜 골랐는지, 뭘 기대할 만한지 직접 쓰세요."
-                style={{ minHeight: 64, resize: 'vertical', marginTop: 6, borderColor: short ? 'var(--danger, #d33)' : undefined }}
-              />
-              <div className="label" style={{ color: short ? 'var(--danger, #d33)' : 'var(--subtext)' }}>
-                {(it.note || '').trim().length}/{MIN_NOTE}자
-              </div>
+              {joined ? (
+                <div className="label" style={{ marginTop: 8 }}>
+                  ↑ 위 작품과 한 묶음 — 설명은 묶음 첫 작품 칸에 한 번만 씁니다.{' '}
+                  <button className="btn btn-secondary btn-small" onClick={() => patchItem(it.contentId, { joinPrev: false })}>묶음에서 빼기</button>
+                </div>
+              ) : (
+                <>
+                  {leads && (
+                    <input
+                      type="text" className="form-input" style={{ marginTop: 6 }}
+                      value={it.groupTitle || ''} onChange={e => patchItem(it.contentId, { groupTitle: e.target.value })}
+                      placeholder="묶음 제목 (선택) — 예: 돌비시네마로 봐야 할 작품. 비우면 작품 제목들을 잇습니다"
+                    />
+                  )}
+                  <textarea
+                    className="form-input" value={it.note}
+                    onChange={e => setNote(it.contentId, e.target.value)}
+                    placeholder={leads
+                      ? '이 작품들을 왜 한데 묶었는지 — 묶음 전체의 설명 하나'
+                      : '이 작품을 왜 골랐는지, 뭘 기대할 만한지 직접 쓰세요.'}
+                    style={{ minHeight: 64, resize: 'vertical', marginTop: 6, borderColor: short ? 'var(--danger, #d33)' : undefined }}
+                  />
+                  <div className="label" style={{ color: short ? 'var(--danger, #d33)' : 'var(--subtext)' }}>
+                    {(it.note || '').trim().length}/{MIN_NOTE}자
+                    {idx > 0 && (
+                      <>
+                        {' · '}
+                        <button className="btn btn-secondary btn-small" onClick={() => patchItem(it.contentId, { joinPrev: true })}>
+                          위 작품과 묶기
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             <div className="cur-edit-actions">
               <button className="btn btn-secondary btn-small" onClick={() => move(idx, -1)} disabled={idx === 0}>↑</button>
@@ -476,17 +522,40 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
 // ── 작품 추가(검색) ─────────────────────────────────────────
 /** 초안에 빠진 작품을 직접 찾아 넣는다 — 기간 밖 작품도 넣을 수 있다 */
 function ItemAdder({ existing, onAdd }: { existing: string[]; onAdd: (id: string) => void }) {
+  const toast = useToastStore(s => s.show)
   const [q, setQ] = useState('')
+  const [tmdbOpen, setTmdbOpen] = useState(false)
   const hits = q.trim().length >= 2
     ? DS.searchContents(q.trim(), 8).filter(c => !existing.includes(c.id))
     : []
 
   return (
     <div className="cur-adder">
-      <input
-        type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)}
-        autoComplete="off" placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
-      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="text" className="form-input" value={q} onChange={e => setQ(e.target.value)}
+          autoComplete="off" placeholder="작품 제목으로 검색해 추가 (2글자 이상)"
+        />
+        {/* 사이트에 없는 작품(탑건·아바타 같은 옛 영화)은 TMDB 에서 찾아 그 자리에서 등록한다 — 통합검색과 같은 길 */}
+        <button className="btn btn-secondary btn-small" style={{ flexShrink: 0 }} onClick={() => setTmdbOpen(true)}>
+          사이트에 없는 작품
+        </button>
+      </div>
+      {q.trim().length >= 2 && !hits.length && (
+        <div className="label" style={{ marginTop: 6 }}>
+          사이트에 없는 작품입니다 — <b>사이트에 없는 작품</b> 버튼으로 TMDB 에서 찾아 넣으세요.
+        </div>
+      )}
+      {tmdbOpen && (
+        <RegisterWatchedModal
+          mode="pick"
+          onClose={() => setTmdbOpen(false)}
+          onRegistered={c => {
+            if (existing.includes(c.id)) { toast(`'${c.title}' 는 이미 실려 있어요.`); return }
+            onAdd(c.id); setQ('')
+          }}
+        />
+      )}
       {hits.length > 0 && (
         <ul className="cur-adder-list">
           {hits.map(c => (

@@ -440,8 +440,17 @@ async function main() {
       `<h1>${esc(c.title)}</h1>`,
       `<p>${esc(String(c.publishedAt).slice(0, 10))}</p>`,
       // 본문·맺음말은 서식 블록(문단·소제목·목록·표) — 앱의 CurationBlocks 와 같은 구조
-      ...curationBodyLines(c, byId).map(l => l.kind !== 'item'
+      ...curationBodyLines(c, byId).map(l => l.kind === 'p' || l.kind === 'outro'
         ? blocksToHtml([l.block], esc)
+        // 여러 작품 한 묶음 — 묶음 제목 + 작품 링크 목록 + 설명 하나
+        : l.kind === 'group'
+        ? [
+            `<section>`,
+            `<h2>${esc(l.title)}</h2>`,
+            `<ul>${l.works.map(w => `<li><a href="${esc(w.href)}">${esc(w.title)}</a></li>`).join('')}</ul>`,
+            ...l.noteParagraphs.map(p => `<p>${esc(p)}</p>`),
+            `</section>`,
+          ].join('')
         : [
             `<section>`,
             `<h2><a href="${esc(l.href)}">${esc(l.title)}</a></h2>`,

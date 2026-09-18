@@ -4,7 +4,7 @@ import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
 import { SITE_URL, SITE_NAME } from '@/utils/seo'
 import {
-  buildCurationDescription, buildCurationJsonLd, paragraphs as splitParagraphs, isPublished,
+  buildCurationDescription, buildCurationJsonLd, paragraphs as splitParagraphs, isPublished, curationGroups,
 } from '@/shared/curationSeo.mjs'
 import { textBlocks } from '@/shared/curationMarkup.mjs'
 import { CurationBlocks } from '@/components/curation/CurationBlocks'
@@ -44,6 +44,8 @@ export function CurationDetailPage() {
   const bodyBlocks = textBlocks(cur.body)
   const outroBlocks = textBlocks(cur.outro)
   const items = cur.items || []
+  /** 작품 → 묶음. 아무도 안 묶었으면 작품마다 하나(예전 화면 그대로) */
+  const groups = curationGroups(items) as { items: typeof items; title: string; note: string }[]
 
   return (
     <>
@@ -71,7 +73,30 @@ export function CurationDetailPage() {
         <CurationBlocks blocks={bodyBlocks} />
 
         {items.length > 0 && <div className="cur-items">
-          {items.map(it => {
+          {groups.map(g => {
+            const it = g.items[0]
+            // 여러 작품 한 묶음 — 묶음 제목, 포스터 줄, 설명 하나 (프리렌더 curationBodyLines 의 'group')
+            if (g.items.length > 1) {
+              const works = g.items.map(x => ({ id: x.contentId, c: DS.getContentById(x.contentId) }))
+              return (
+                <section key={it.contentId} className="cur-item cur-group">
+                  <div className="cur-item-body">
+                    <h2>{g.title || works.map(w => w.c ? w.c.title : w.id).join(' · ')}</h2>
+                    <div className="cur-group-works">
+                      {works.map(w => (
+                        <figure key={w.id} onClick={() => navigate(`/content/${w.id}`)}>
+                          {w.c?.posterUrl
+                            ? <img src={w.c.posterUrl} alt={w.c.title} loading="lazy" />
+                            : <span className="cur-group-noimg" />}
+                          <figcaption>{w.c ? w.c.title : w.id}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                    {(splitParagraphs(g.note) as string[]).map((p, i) => <p key={i}>{p}</p>)}
+                  </div>
+                </section>
+              )
+            }
             const c = DS.getContentById(it.contentId)
             return (
               <section key={it.contentId} className="cur-item">
