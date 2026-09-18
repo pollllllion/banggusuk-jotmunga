@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import * as DS from '@/api/dataService'
 import { ContentCard } from '@/components/content/ContentCard'
@@ -132,6 +132,39 @@ export function BrowsePage() {
     try { navigate(`/content/${(await ensureFromTmdb(hit)).id}`) }
     catch (e: any) { toast(e?.message || '작품을 불러오지 못했어요.') }
     finally { setAdding(false) }
+  }
+
+  /**
+   * 검색칸에서 ↓ 를 누르면 결과 카드로 내려가고, 카드 사이는 화살표로 다닌다(Enter 로 연다).
+   * 결과가 드롭다운이 아니라 격자라, 줄 수를 세지 않고 **화면 위치**로 위·아래 카드를 찾는다 —
+   * 우리 작품 격자와 TMDB 격자가 따로라 마지막 줄이 덜 찬 채로 이어지기 때문이다.
+   */
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const resultCards = () => Array.from(document.querySelectorAll<HTMLElement>('.content-grid .content-card, .content-grid .tmdb-card:not(:disabled)'))
+  const onSearchKey = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowDown') return
+    const first = resultCards()[0]
+    if (first) { e.preventDefault(); first.focus() }
+  }
+  const onGridKey = (e: React.KeyboardEvent) => {
+    if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return
+    const cards = resultCards()
+    const i = cards.indexOf(document.activeElement as HTMLElement)
+    if (i < 0) return
+    e.preventDefault()
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      cards[i + (e.key === 'ArrowRight' ? 1 : -1)]?.focus()
+      return
+    }
+    const cur = cards[i].getBoundingClientRect()
+    const down = e.key === 'ArrowDown'
+    // 같은 줄이 아닌 것 중 가장 가까운 줄 → 그 줄에서 가로로 가장 가까운 카드
+    const rows = cards.map(el => ({ el, r: el.getBoundingClientRect() }))
+      .filter(({ r }) => (down ? r.top > cur.top + 1 : r.top < cur.top - 1))
+    if (!rows.length) { if (!down) searchInputRef.current?.focus(); return }
+    const rowTop = down ? Math.min(...rows.map(x => x.r.top)) : Math.max(...rows.map(x => x.r.top))
+    rows.filter(x => Math.abs(x.r.top - rowTop) < 1)
+      .sort((a, b) => Math.abs(a.r.left - cur.left) - Math.abs(b.r.left - cur.left))[0]?.el.focus()
   }
 
   const runSearch = (value: string) => {
@@ -284,9 +317,11 @@ export function BrowsePage() {
         {/* 넓은 화면에서는 제목 줄 안, 정렬 왼쪽 — 게시판 검색칸과 같은 자리다 */}
         <div className={`browse-search ${searchOpen ? 'open' : ''}`}>
           <input
+            ref={searchInputRef}
             className="form-input"
             value={q}
             onChange={e => runSearch(e.target.value)}
+            onKeyDown={onSearchKey}
             autoComplete="off" placeholder="작품 검색"
             aria-label="작품 검색"
           />
@@ -389,7 +424,7 @@ export function BrowsePage() {
             총 {contents.length.toLocaleString()}편
             {totalPages > 1 && <> · {page}/{totalPages} 쪽</>}
           </p>
-          <div className="content-grid">
+          <div className="content-grid" onKeyDown={onGridKey}>
             {pageItems.map(c => <ContentCard key={c.id} content={c} />)}
           </div>
           <Pager page={page} total={totalPages} onGo={goPage} />
@@ -401,7 +436,7 @@ export function BrowsePage() {
       {!!search && (tmdbHits.length > 0 || tmdbLoading) && (
         <section className="browse-tmdb">
           <h3>{tmdbLoading && !tmdbHits.length ? '더 찾는 중…' : '아직 등록 안 된 작품'}</h3>
-          <div className="content-grid">
+          <div className="content-grid" onKeyDown={onGridKey}>
             {tmdbHits.map(h => (
               <button
                 key={`tmdb-${h.type}-${h.r.tmdbId}-${h.r.seasonNumber ?? 0}`}

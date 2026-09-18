@@ -57,6 +57,8 @@ function profileToUser(p: any, email: string): User {
     follows: p.follows ?? [],
     favoriteGenres: p.favoriteGenres ?? [],
     favoriteDirectors: p.favoriteDirectors ?? [],
+    favoriteActors: p.favoriteActors ?? [],
+    favoritePeople: p.favoritePeople ?? [],
   }
 }
 export function findUserByEmail(email: string) { return getUsers().find(u => u.email === email) }
@@ -150,6 +152,8 @@ export async function updateProfileRow(id: string, updates: Partial<User>) {
   if (updates.follows !== undefined) patch.follows = updates.follows
   if (updates.favoriteGenres !== undefined) patch.favoriteGenres = updates.favoriteGenres
   if (updates.favoriteDirectors !== undefined) patch.favoriteDirectors = updates.favoriteDirectors
+  if (updates.favoriteActors !== undefined) patch.favoriteActors = updates.favoriteActors
+  if (updates.favoritePeople !== undefined) patch.favoritePeople = updates.favoritePeople
   const idx = cache.profiles.findIndex((p: any) => p.id === id)
   const prev = idx >= 0 ? cache.profiles[idx] : null
   if (idx >= 0) cache.profiles[idx] = { ...cache.profiles[idx], ...patch }

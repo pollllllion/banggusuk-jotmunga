@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isTheatricalRelease, hasMinorProvider, MINOR_OTT_NAMES,
-  CALENDAR_OTT_FILTERS, OTT_FILTERS, hasProvider, providerLogoUrl,
+  CALENDAR_OTT_FILTERS, OTT_FILTERS, hasProvider, providerLogoUrl, channelNames, nextEpisodeOf,
 } from '@/utils/ott'
 import type { Content } from '@/types'
 
@@ -80,5 +80,46 @@ describe('애플TV 개명 흡수', () => {
     expect(providerLogoUrl(null, 'Apple TV')).toBe(providerLogoUrl(null, 'Apple TV Plus'))
     // 미등록 이름으로 떨어져 해시 배지가 되지 않았는지 (애플 배지의 tv 라벨이 있어야 한다)
     expect(decodeURIComponent(providerLogoUrl(null, 'Apple TV') || '')).toContain('>tv<')
+  })
+})
+
+describe('channelNames — 상세정보의 채널·편성 칸', () => {
+  const prov = (providerId: number, providerName: string) => ({ providerId, providerName, logoPath: null, monetizationType: 'flatrate' as const })
+
+  it('방영사가 있으면 방영사만 쓴다', () => {
+    const c = content({ networks: [{ name: 'SBS', logoPath: null }], providers: [prov(8, 'Netflix')] })
+    expect(channelNames(c)).toEqual(['SBS'])
+  })
+
+  it('방영사가 비면 OTT 를 우선순위대로, 한글 이름으로 대신 쓴다', () => {
+    const c = content({ networks: [], providers: [prov(97, 'Watcha'), prov(1883, 'TVING')] })
+    expect(channelNames(c)).toEqual(['티빙', '왓챠'])
+  })
+
+  it('개명 전후 이름이 같이 있어도 한 번만 나온다', () => {
+    const c = content({ providers: [prov(350, 'Apple TV+'), prov(2, 'Apple TV')] })
+    expect(channelNames(c)).toEqual(['애플TV'])
+  })
+
+  it('둘 다 없으면 빈 배열 — 칸 자체를 그리지 않는다', () => {
+    expect(channelNames(content())).toEqual([])
+  })
+})
+
+describe('nextEpisodeOf — 다음 회차', () => {
+  const today = '2026-09-18'
+
+  it('오늘·앞날의 회차를 돌려준다', () => {
+    expect(nextEpisodeOf(content({ nextEpisodeDate: '2026-09-18', nextEpisodeNumber: 7 }), today)).toEqual({ date: '2026-09-18', number: 7 })
+    expect(nextEpisodeOf(content({ nextEpisodeDate: '2026-09-24', nextEpisodeNumber: null }), today)).toEqual({ date: '2026-09-24', number: null })
+  })
+
+  it('지난 날짜는 없는 것으로 친다 — 동기화는 하루 한 번이라 어제 값이 남아 있을 수 있다', () => {
+    expect(nextEpisodeOf(content({ nextEpisodeDate: '2026-09-17', nextEpisodeNumber: 6 }), today)).toBeNull()
+  })
+
+  it('칸이 없으면(마이그레이션 전·방영 중 아님) null', () => {
+    expect(nextEpisodeOf(content(), today)).toBeNull()
+    expect(nextEpisodeOf(content({ nextEpisodeDate: null }), today)).toBeNull()
   })
 })

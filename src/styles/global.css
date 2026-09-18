@@ -25,10 +25,24 @@ a { color: inherit; text-decoration: none; cursor: pointer; }
 button { cursor: pointer; border: none; font-family: inherit; font-size: inherit; background: none; }
 input, textarea, select { font-family: inherit; font-size: inherit; }
 ::selection { background: var(--primary-light); color: var(--primary-dark); }
-::-webkit-scrollbar { width: 6px; }
+/* 스크롤바 — 두께를 자리에 따라 가른다 (2026-09-18).
+   예전엔 전부 6px·#D1D5DB 였다(첫 MVP 템플릿 값). 페이지 본 스크롤까지 그 두께라 마우스로 잡기
+   어렵고, 흰 바탕에서 거의 안 보여 긴 목록에서 어디쯤인지 알 수 없었다.
+     · 페이지(뷰포트)      12px — 잡고 끄는 물건이다. thumb 은 양옆 2px 를 띄워 8px 로 보인다
+     · 안쪽(모달·드롭다운)  8px
+     · 가로 줄(포스터 띠)   각자 4~6px 로 따로 정해 둔 것을 그대로 둔다 — 여기서 height 를 안 건드리는 이유
+   색은 토큰에서 섞는다 — 고정색은 다크 테마에서 혼자 밝게 떴다. */
+::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--subtext) 40%, transparent); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--subtext) 70%, transparent); }
+html::-webkit-scrollbar { width: 12px; }
+html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: padding-box; }
+/* 파이어폭스는 ::-webkit-scrollbar 를 모른다 — 두께는 기본(넉넉함)에 맡기고 색만 맞춘다.
+   크롬에 scrollbar-color 를 주면 위 규칙이 통째로 무시되므로 지원 안 하는 쪽에만 건다. */
+@supports not selector(::-webkit-scrollbar) {
+  html { scrollbar-color: color-mix(in srgb, var(--subtext) 45%, transparent) transparent; }
+}
 .hidden { display: none !important; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.2s var(--ease); }
@@ -670,7 +684,7 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 /* 등록 모달 — TMDB 검색 결과 */
 .tmdb-results { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; margin-top: 12px; }
 .tmdb-result { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: var(--radius-md); cursor: pointer; border: 1px solid transparent; }
-.tmdb-result:hover { background: var(--bg); border-color: var(--border); }
+.tmdb-result:hover, .tmdb-result.active { background: var(--bg); border-color: var(--border); }
 .tmdb-result img, .tmdb-result .noimg {
   width: 46px; height: 68px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0;
   background: linear-gradient(135deg, #3F3F46, #18181B); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 10px;
@@ -1513,6 +1527,35 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
 .taste-label { display: flex; align-items: center; }
 .taste-edit { margin-left: auto; }
 .taste-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 칩 줄 안의 작은 머리말 (감독·작가 / 배우) — 칩과 같은 높이로 앉히되 칩처럼 보이면 안 된다 */
+.taste-sub { align-self: center; font-size: 11px; font-weight: 700; color: var(--subtext); }
+/* 감독·작가 줄 / 배우 줄 — 머리말 폭을 맞춰 두 줄의 칩이 같은 세로선에서 시작하게 한다 */
+.taste-people-line + .taste-people-line { margin-top: 8px; }
+.taste-people-line .taste-sub { flex: 0 0 58px; }
+/* 사람 칩 — 앞에 동그란 사진(없으면 첫 글자). 칩 높이를 안 키우려고 사진을 왼쪽 여백 안에 넣는다 */
+.person-chip { display: inline-flex; align-items: center; gap: 6px; padding-left: 4px; }
+.person-chip img, .person-chip i {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+  background: var(--border); color: var(--subtext);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; font-style: normal;
+}
+.person-chip button {
+  border: 0; background: none; padding: 0 2px; cursor: pointer; color: inherit; opacity: .75;
+  font-size: 11px; font-weight: 800; line-height: 1;
+}
+.person-chip button:hover { opacity: 1; }
+.people-group { margin-bottom: 10px; }
+.people-group-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.people-msg { font-size: 12px; color: var(--subtext); margin: 6px 0 0; }
+.person-result img, .person-result .noimg { width: 40px !important; height: 40px !important; border-radius: 50% !important; font-size: 14px !important; font-weight: 800; }
+.person-result.busy { opacity: .5; cursor: default; }
+.people-manual {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  font-size: 12px; color: var(--subtext);
+}
+.people-manual span { margin-right: auto; }
+.people-manual .btn { flex-shrink: 0; white-space: nowrap; }
 .taste-chip {
   font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: var(--radius-full);
   background: var(--primary-50); color: var(--text-secondary);

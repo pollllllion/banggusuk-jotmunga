@@ -125,6 +125,16 @@ export function effectiveReleaseDate(c: Content): string | null {
   return c.releaseDate
 }
 
+/**
+ * 다음 공개 회차 — 오늘 이후 것만. 지난 날짜는 없는 것으로 친다
+ * (동기화는 하루 한 번이라, 회차가 나간 날 밤에는 어제 날짜가 남아 있을 수 있다).
+ */
+export function nextEpisodeOf(c: Content, todayKey: string): { date: string; number: number | null } | null {
+  const date = c.nextEpisodeDate ? String(c.nextEpisodeDate).slice(0, 10) : null
+  if (!date || date < todayKey) return null
+  return { date, number: c.nextEpisodeNumber ?? null }
+}
+
 /** 공개 예정 여부(오늘보다 미래) */
 export function isUpcoming(c: Content, todayKey: string): boolean {
   const d = effectiveReleaseDate(c)
@@ -134,6 +144,26 @@ export function isUpcoming(c: Content, todayKey: string): boolean {
 /** 이 작품의 OTT 목록(안전 접근) — 플랫폼 우선순위대로 정렬해서 반환 */
 export function providersOf(c: Content): ContentProvider[] {
   return sortProviders(Array.isArray(c.providers) ? c.providers : [])
+}
+
+/**
+ * 상세정보의 '채널·편성' 칸에 쓸 이름들.
+ * 방영사(networks)가 먼저고, TMDB 에 방영사가 안 적힌 작품은 OTT 목록으로 대신한다 —
+ * OTT 오리지널·웹예능은 방영사가 비어 있는 일이 흔한데(2026-09-18 기준 TV 114편),
+ * 그때 칸을 통째로 빼면 "어디서 하는 건지"가 화면 어디에도 없다.
+ */
+export function channelNames(c: Content): string[] {
+  const nets = (c.networks ?? []).map(n => n.name).filter(Boolean)
+  if (nets.length) return nets
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const p of providersOf(c)) {
+    const key = provKey(p.providerName)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(OTT_FILTERS.find(o => provKey(o.name) === key)?.label || p.providerName)
+  }
+  return out
 }
 
 /** 캘린더 OTT 필터 칩 (자동 수집 대상 OTT) */

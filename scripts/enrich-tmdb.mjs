@@ -3,10 +3,14 @@
  *
  *   npm run enrich            # 미리보기(DB 미반영) — 대상 행과 채울 내용만 출력
  *   npm run enrich -- --apply # 실제 반영
+ *   npm run enrich -- --all   # 오래된 행까지 전부 다시 본다 (평소엔 새 행·최근 공개작만 — needsEnrich)
+ *
+ * 매일 ingest 워크플로가 수집 직후에 돌린다(.github/workflows/ingest.yml). 일요일엔 --all.
  *
  * 왜 필요한가: 통합검색의 TMDB 폴백(ensure_content RPC)으로 만들어지는 행은
  * 제목·포스터·연도·줄거리만 있다. 공개일·출연진·OTT·채널·회차가 비어 있어
  * 상세 페이지와 캘린더가 허전하다. 이 스크립트가 tmdbId 기준으로 그 빈 칸을 채운다.
+ * 매일 도는 ingest-tmdb.mjs 도 목록 API 만 읽어서 똑같은 빈 행을 만든다 ('각성' 에 SBS 가 안 뜨던 이유).
  * sync-tmdb-ott.mjs 는 "2026년에 공개되는 작품을 새로 수집"하는 도구라 옛 작품은 안 건드린다 —
  * 그래서 수집이 아니라 보강만 하는 이 스크립트가 따로 있다.
  *
@@ -19,10 +23,11 @@
 import {
   IMG_POSTER, IMG_BACKDROP, extractKrFlatrate, networksToProviders, pickKrMovieDate,
   pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
-  imgUrl, tmdbUrl, fetchWithRetry, pMap,
+  imgUrl, tmdbUrl, fetchWithRetry, pMap, parseContentId, needsEnrich,
 } from './tmdb-lib.mjs'
 
 const APPLY = process.argv.includes('--apply')
+const ALL = process.argv.includes('--all')
 const ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN || ''
 const API_KEY = process.env.TMDB_API_KEY || process.env.VITE_TMDB_API_KEY || ''
 const LANG = process.env.TMDB_LANGUAGE || 'ko-KR'
@@ -74,20 +79,20 @@ async function loadTargets() {
     rows.push(...batch)
     if (batch.length < 1000) break
   }
-  const isStub = c =>
-    !c.releaseDate || !(c.castMembers?.length) || !(c.providers?.length) || !(c.genres?.length)
-  return rows.filter(c => /^tmdb-(mv|dr)-\d+$/.test(c.id) && isStub(c) && (!ONLY || c.id === ONLY))
+  const today = new Date().toISOString().slice(0, 10)
+  // ONLY 로 콕 집은 행은 기간을 따지지 않는다
+  return rows.filter(c => (ONLY ? c.id === ONLY : true) && needsEnrich(c, { today, all: ALL || !!ONLY }))
 }
 
 /** 행 id 에서 TMDB 종류·번호 (tmdbId 컬럼이 비어 있는 옛 행도 여기서 복구된다) */
 function tmdbRef(c) {
-  const m = c.id.match(/^tmdb-(mv|dr)-(\d+)$/)
-  return { kind: m[1] === 'mv' ? 'movie' : 'tv', id: c.tmdbId || Number(m[2]) }
+  const ref = parseContentId(c.id)
+  return { kind: ref.kind, id: c.tmdbId || ref.tmdbId, season: ref.seasonNumber }
 }
 
 // ── 2) 상세 조회 → 채울 값만 계산 ───────────────────────────
 async function buildPatch(c) {
-  const { kind, id } = tmdbRef(c)
+  const { kind, id, season } = tmdbRef(c)
   const detail = kind === 'movie'
     ? await tmdb(`/movie/${id}`, { append_to_response: 'watch/providers,release_dates,credits' })
     : await tmdb(`/tv/${id}`, { append_to_response: 'watch/providers,credits' })
@@ -97,9 +102,14 @@ async function buildPatch(c) {
 
   const genreIds = detail.genres?.map(g => g.id) || []
   // pickKrMovieDate 는 문자열이 아니라 { date, source } 를 준다 (한국 개봉일 우선순위 판정 결과)
+  // 시즌 행(-sN)은 채널·출연진은 시리즈 것을 쓰되, 날짜·줄거리·포스터는 그 시즌 것이 먼저다
+  // (sync-tmdb-ott 의 시즌 행과 같은 규칙). 예전엔 id 정규식이 시즌 행을 아예 걸러 냈다.
+  const seasonInfo = season ? (detail.seasons || []).find(s => s.season_number === season) : null
   const rel = kind === 'movie'
     ? pickKrMovieDate(detail.release_dates?.results, detail.release_date)
-    : { date: detail.first_air_date || null, source: 'tmdb_first_air_date' }
+    : season
+      ? { date: seasonInfo?.air_date || null, source: 'tmdb_season_air_date' }
+      : { date: detail.first_air_date || null, source: 'tmdb_first_air_date' }
   const releaseDate = rel.date
 
   // 빈 칸만 채운다. manualOverride 면 관리자가 고친 title·releaseDate 는 보존.
@@ -116,8 +126,8 @@ async function buildPatch(c) {
   if (!locked) put('releaseDate', releaseDate ? String(releaseDate).slice(0, 10) : null)
   put('releaseYear', (fill.releaseDate || c.releaseDate)?.slice(0, 4) ? Number((fill.releaseDate || c.releaseDate).slice(0, 4)) : null)
   put('releaseDateSource', rel.source)
-  put('synopsis', detail.overview || '')
-  put('posterUrl', imgUrl(IMG_POSTER, detail.poster_path))
+  put('synopsis', seasonInfo?.overview || detail.overview || '')
+  put('posterUrl', imgUrl(IMG_POSTER, seasonInfo?.poster_path || detail.poster_path))
   put('backdropUrl', imgUrl(IMG_BACKDROP, detail.backdrop_path))
   put('originalTitle', detail.original_title || detail.original_name || null)
   // 제작국·원어 — '한국 / 외국' 필터의 근거 (utils/origin.ts). 옛 행은 backfill:origin 이 채운다
@@ -145,7 +155,8 @@ async function buildPatch(c) {
     put('runtime', detail.episode_run_time?.[0] || null)
     put('numberOfSeasons', detail.number_of_seasons ?? null)
     put('numberOfEpisodes', detail.number_of_episodes ?? null)
-    put('eventType', 'series_release')
+    put('eventType', season ? 'season_release' : 'series_release')
+    if (season) put('seasonNumber', season)
     // 검색 폴백으로 만들어진 행은 장르 id 만 보고 타입을 정했으니 상세 기준으로 바로잡는다
     if (!c.castMembers?.length) {
       const t = tvContentType(genreIds)

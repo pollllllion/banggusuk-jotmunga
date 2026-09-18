@@ -132,6 +132,14 @@
 }
 .cal-more { font-size: 11px; color: var(--subtext); font-weight: 600; padding: 2px 6px; cursor: pointer; }
 .cal-more:hover { color: var(--text-secondary); }
+/* 새 회차 — 작품 줄(.cal-item)보다 한 단계 낮은 목소리. 그날 '새로 나오는 작품'이 먼저 읽혀야 한다 */
+/* 칸 높이가 고정(132px)이라 줄로 쌓으면 작품이 꽉 찬 날엔 잘려 나간다 — 오른쪽 아래 모서리에 띄운다.
+   ('+N개 더' 는 왼쪽 아래라 서로 안 겹친다) */
+.cal-eps {
+  position: absolute; right: 6px; bottom: 5px;
+  font-size: 10.5px; font-weight: 700; line-height: 16px; color: var(--primary); padding: 0 6px;
+  border-radius: var(--radius-full); background: var(--primary-50); border: 1px solid var(--primary-light);
+}
 
 /* OTT 로고 묶음 */
 .ott-logos { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
@@ -191,6 +199,44 @@
 .cal-detail-grid dt { font-size: 12.5px; font-weight: 700; color: var(--subtext); white-space: nowrap; }
 .cal-detail-grid dd { font-size: 13px; color: var(--text); margin: 0; line-height: 1.5; }
 .cal-detail-sub { color: var(--subtext); font-weight: 500; font-size: 11.5px; }
+/* 전체 회차 — 접힌 버튼 + 펼치면 안에서만 스크롤되는 표. 상세정보 표를 밀어내지 않게 높이를 묶는다 */
+/* 버튼은 글자 링크가 아니라 **가로로 꽉 찬 상자**다 — 처음엔 회색 글자 한 줄이었는데 바로 아래
+   '출연' 제목과 붙어 보여서, 눌러 본 사람조차 버튼인 줄 몰랐다(2026-09-18). */
+.ep-list { margin: 12px 0 16px; }
+.ep-list-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+  padding: 9px 12px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg);
+  font-size: 13px; font-weight: 700; color: var(--text-secondary);
+  transition: background var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+.ep-list-toggle:hover { background: var(--primary-50); border-color: var(--primary-light); color: var(--text); }
+.ep-list-toggle[aria-expanded="true"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.ep-list-toggle[aria-expanded="true"] + .ep-list-body { margin-top: 0; border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.ep-list-body {
+  margin-top: 6px; max-height: 280px; overflow-y: auto;
+  border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg);
+}
+.ep-list-msg, .ep-list-src, .ep-list-season { margin: 0; padding: 10px 12px; font-size: 12px; color: var(--subtext); }
+.ep-list-season { padding-bottom: 2px; font-weight: 700; color: var(--text-secondary); }
+.ep-list-src { font-size: 11px; border-top: 1px solid var(--border-light); }
+.ep-list-rows { list-style: none; margin: 0; padding: 4px 0; }
+.ep-list-rows li {
+  display: flex; align-items: baseline; gap: 8px; padding: 5px 12px;
+  font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums;
+}
+.ep-list-rows li.aired { color: var(--subtext); }
+.ep-list-rows li.next { background: var(--primary-50); font-weight: 700; }
+.ep-n { flex: 0 0 38px; font-weight: 700; }
+.ep-d { flex: 0 0 auto; }
+.ep-tag {
+  flex: 0 0 auto; font-size: 10.5px; font-weight: 800; color: var(--primary);
+  border: 1px solid var(--primary-light); border-radius: var(--radius-full); padding: 0 6px; line-height: 16px;
+}
+.ep-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--subtext); font-weight: 500; }
+
+/* 다음 회차 — 이 표에서 유일하게 '앞으로 일어날 일'이라 색으로 구분한다 */
+.cal-detail-grid dd.cal-detail-nextep { color: var(--primary); font-weight: 700; }
 .cal-detail-networks { display: flex; flex-wrap: wrap; gap: 6px 12px; }
 .cal-net { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .cal-net img { width: 18px; height: 18px; border-radius: 4px; object-fit: cover; background: var(--card); }
@@ -264,6 +310,8 @@
   flex: 1; min-width: 0; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.cal-daylist-sub { font-size: 11.5px; font-weight: 700; color: var(--subtext); padding: 8px 4px 2px; }
+.cal-daylist-item.is-episode .cal-daylist-type { color: var(--primary); }
 .cal-daylist-type {
   flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--subtext);
   background: var(--card); border: 1px solid var(--border-light);
@@ -330,6 +378,8 @@
   .cal-thumb.none { display: flex; align-items: center; justify-content: center; font-size: 18px; }
   .cal-thumb-ott { position: absolute; left: 2px; bottom: 2px; line-height: 0; }
   .cal-thumb-ott .ott-logo { border-radius: 3px; box-shadow: 0 0 0 1px rgba(255,255,255,.7); }
+  /* 새 회차는 칸 아래 왼쪽 모서리에 작은 배지로 — 포스터를 가리지 않는 쪽 */
+  .cal-eps { left: 2px; right: auto; bottom: 2px; padding: 0 4px; font-size: 9.5px; line-height: 14px; }
   /* "+2" 는 포스터 위 코너 배지로 */
   .cal-more {
     position: absolute; top: 2px; right: 2px; padding: 0 4px; border-radius: 999px;

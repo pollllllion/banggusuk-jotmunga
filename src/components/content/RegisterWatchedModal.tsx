@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/ui/Toast'
 import * as DS from '@/api/dataService'
@@ -61,6 +61,10 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
 
   // 드라마/예능 자동 분류를 사람이 고친 것 (tmdbId → 타입). 장르 id 만으로는 애매한 작품이 있다.
   const [typeOverride, setTypeOverride] = useState<Record<number, ContentType>>({})
+
+  // 화살표로 고른 줄 (-1 = 없음)
+  const [activeIdx, setActiveIdx] = useState(-1)
+  const listRef = useRef<HTMLDivElement>(null)
 
   // 직접 등록(웹툰/웹소설)
   const [manual, setManual] = useState(false)
@@ -217,6 +221,26 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
     })
   }
 
+  // 키보드 선택 — 두 목록(이미 등록된 작품 → TMDB)을 화면 차례대로 한 줄로 센다 (헤더 통합검색과 같은 방식)
+  const total = dbMatches.length + tmdbResults.length
+  useEffect(() => { setActiveIdx(-1) }, [query])
+  useEffect(() => {
+    if (activeIdx >= 0) listRef.current?.querySelector('.tmdb-result.active')?.scrollIntoView({ block: 'nearest' })
+  }, [activeIdx])
+
+  const handleSearchKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown' && total) {
+      e.preventDefault(); setActiveIdx(i => (i + 1) % total)
+    } else if (e.key === 'ArrowUp' && total) {
+      e.preventDefault(); setActiveIdx(i => (i <= 0 ? total : i) - 1)
+    } else if (e.key === 'Enter' && !e.nativeEvent.isComposing && activeIdx >= 0 && activeIdx < total && !saving) {
+      // 한글 조합 중의 Enter 는 글자 확정이지 선택이 아니다
+      e.preventDefault()
+      if (activeIdx < dbMatches.length) linkExisting(dbMatches[activeIdx])
+      else pickTmdb(tmdbResults[activeIdx - dbMatches.length])
+    }
+  }
+
   /** 영화/드라마/예능 배지. tv 결과는 눌러서 드라마↔예능을 바로 고칠 수 있다. */
   const typeBadge = (r: TmdbResult) => {
     const t = resultType(r)
@@ -248,6 +272,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
               className="form-input" autoFocus autoComplete="off" placeholder="제목으로 검색 (영화·드라마·예능·웹툰·웹소설)"
               value={query}
               onChange={e => setQuery(e.target.value)}
+              onKeyDown={handleSearchKey}
             />
             {!tmdbEnabled && (
               <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 8 }}>
@@ -255,12 +280,13 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
               </p>
             )}
 
+            <div ref={listRef}>
             {dbMatches.length > 0 && (
               <div className="manual-suggest" style={{ marginTop: 10 }}>
                 <div className="manual-suggest-head">이미 등록된 작품 — 고르면 그 작품에 연결돼요</div>
                 <div className="tmdb-results" style={{ marginTop: 0, maxHeight: '30vh' }}>
-                  {dbMatches.map(c => (
-                    <div key={c.id} className="tmdb-result" {...clickable(() => { if (!saving) linkExisting(c) })}>
+                  {dbMatches.map((c, i) => (
+                    <div key={c.id} className={`tmdb-result${i === activeIdx ? ' active' : ''}`} {...clickable(() => { if (!saving) linkExisting(c) })}>
                       {c.posterUrl
                         ? <img src={c.posterUrl} alt={c.title} />
                         : <div className="noimg">No Image</div>}
@@ -275,8 +301,8 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
             )}
 
             <div className="tmdb-results">
-              {tmdbResults.map(r => (
-                <div key={`${r.kind}-${r.tmdbId}-${r.seasonNumber ?? ''}`} className="tmdb-result" {...clickable(() => { if (!saving) pickTmdb(r) })}>
+              {tmdbResults.map((r, i) => (
+                <div key={`${r.kind}-${r.tmdbId}-${r.seasonNumber ?? ''}`} className={`tmdb-result${dbMatches.length + i === activeIdx ? ' active' : ''}`} {...clickable(() => { if (!saving) pickTmdb(r) })}>
                   {r.posterUrl
                     ? <img src={r.posterUrl} alt={r.title} />
                     : <div className="noimg">No Image</div>}
@@ -286,6 +312,7 @@ export function RegisterWatchedModal({ onClose, onRegistered, mode = 'watched' }
                   </div>
                 </div>
               ))}
+            </div>
             </div>
 
             {loading && <p style={{ color: 'var(--subtext)', fontSize: 13, marginTop: 10 }}>검색중…</p>}

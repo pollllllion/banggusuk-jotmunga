@@ -54,6 +54,9 @@ export interface User {
   follows?: string[]
   favoriteGenres?: string[]       // 선호 장르
   favoriteDirectors?: string[]    // 좋아하는 감독/작가
+  favoriteActors?: string[]       // 좋아하는 배우 (2026-09-19 감독·작가와 갈랐다)
+  /** 좋아하는 사람들 — **이게 기준이다**. 위 두 칸은 이름만 비춰 둔 것 (utils/people.ts 의 peopleOf 로 읽을 것) */
+  favoritePeople?: FavoritePerson[]
 }
 
 // ── Content (평가 대상 작품) ─────────────────────────────────
@@ -123,6 +126,10 @@ export interface Content {
   hidden?: boolean                    // 캘린더에서 숨김
   syncedAt?: string | null
   releasePattern?: string | null      // 공개 패턴 수동 입력(예: "매주 수·목 공개"). 있으면 자동유추보다 우선
+  /** 다음 공개 회차 (방영 중인 시리즈만). 시작 로드 컬럼이 아니라 cache.ts 가 따로 받아 붙인다 —
+   *  지난 날짜가 남아 있을 수 있으니 읽을 땐 utils/ott 의 nextEpisodeOf 를 거칠 것 */
+  nextEpisodeDate?: string | null
+  nextEpisodeNumber?: number | null
 
   // ── 상세정보 확장 (감독/연출은 creators, 장르는 genres 재사용) ──
   castMembers?: CastMember[]          // 출연진 (상위 N명)
@@ -343,4 +350,15 @@ export interface Curation {
   authorId?: string | null
   createdAt: string
   updatedAt: string
+}
+
+/** 취향 칸에 담는 사람의 갈래 — 만드는 쪽(감독·작가) / 나오는 쪽(배우) */
+export type PersonRole = 'maker' | 'actor'
+
+/** 좋아하는 감독·작가·배우 한 명. tmdbId 가 null 이면 검색에 없어 이름만 적어 넣은 사람이다 */
+export interface FavoritePerson {
+  name: string
+  role: PersonRole
+  tmdbId: number | null
+  profilePath: string | null
 }

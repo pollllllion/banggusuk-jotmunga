@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickTrending, promoteTrending, trendingScore } from '@/utils/trending'
+import { pickTrending, promoteTrending, trendingScore, TRENDING_MIN_ENGAGEMENT } from '@/utils/trending'
 import type { Discussion } from '@/types'
 
 const NOW = new Date('2026-08-07T00:00:00Z').getTime()
@@ -14,8 +14,8 @@ function post(id: string, o: Partial<Discussion> = {}): Discussion {
 
 describe('trendingScore', () => {
   it('참여가 같으면 최신 글이 높다', () => {
-    const fresh = trendingScore(post('a', { createdAt: hoursAgo(1) }), 0, NOW)
-    const old = trendingScore(post('b', { createdAt: hoursAgo(48) }), 0, NOW)
+    const fresh = trendingScore(post('a', { createdAt: hoursAgo(1), views: 10 }), 0, NOW)
+    const old = trendingScore(post('b', { createdAt: hoursAgo(48), views: 10 }), 0, NOW)
     expect(fresh).toBeGreaterThan(old)
   })
 
@@ -27,8 +27,8 @@ describe('trendingScore', () => {
     expect(byLike).toBeGreaterThan(byView)
   })
 
-  it('참여가 0이어도 점수가 0은 아니다 (갓 올라온 글 노출)', () => {
-    expect(trendingScore(post('n'), 0, NOW)).toBeGreaterThan(0)
+  it('참여가 0이면 점수도 0이다 — 새 글이라는 이유만으로 점수를 주지 않는다', () => {
+    expect(trendingScore(post('n'), 0, NOW)).toBe(0)
   })
 
   it('참여가 충분하면 더 오래된 글도 최신 글을 이긴다', () => {
@@ -43,9 +43,9 @@ describe('pickTrending', () => {
 
   it('점수 내림차순으로 limit 개만 돌려준다', () => {
     const items = [
-      wrap(post('a', { createdAt: hoursAgo(2) })),
+      wrap(post('a', { createdAt: hoursAgo(2), views: 15 })),
       wrap(post('b', { createdAt: hoursAgo(2), views: 50 })),
-      wrap(post('c', { createdAt: hoursAgo(2), likes: ['u1', 'u2'] })),
+      wrap(post('c', { createdAt: hoursAgo(2), views: 15, likes: ['u1', 'u2'] })),
     ]
     const top = pickTrending(items, () => 0, 2, NOW)
     expect(top.map(t => t.post.id)).toEqual(['b', 'c'])
@@ -53,9 +53,9 @@ describe('pickTrending', () => {
 
   it('최근 글로 limit 을 못 채우면 오래된 글로 뒤를 채운다', () => {
     const items = [
-      wrap(post('old1', { createdAt: hoursAgo(24 * 30) })),
-      wrap(post('old2', { createdAt: hoursAgo(24 * 40) })),
-      wrap(post('new1', { createdAt: hoursAgo(3) })),
+      wrap(post('old1', { createdAt: hoursAgo(24 * 30), views: 20 })),
+      wrap(post('old2', { createdAt: hoursAgo(24 * 40), views: 20 })),
+      wrap(post('new1', { createdAt: hoursAgo(3), views: 20 })),
     ]
     const top = pickTrending(items, () => 0, 5, NOW)
     expect(top).toHaveLength(3)
@@ -64,7 +64,7 @@ describe('pickTrending', () => {
 
   it('최근 글만으로 limit 이 차면 오래된 글은 참여가 많아도 빠진다', () => {
     const recent = Array.from({ length: 5 }, (_, i) =>
-      wrap(post(`r${i}`, { createdAt: hoursAgo(i + 1) })))
+      wrap(post(`r${i}`, { createdAt: hoursAgo(i + 1), views: 20 })))
     const items = [...recent, wrap(post('ancient', { createdAt: hoursAgo(24 * 60), views: 9999 }))]
     const top = pickTrending(items, () => 0, 5, NOW)
     expect(top.some(t => t.post.id === 'ancient')).toBe(false)
@@ -81,10 +81,27 @@ describe('pickTrending', () => {
 
   it('동점이면 최신 글이 앞선다', () => {
     const items = [
-      wrap(post('older', { createdAt: hoursAgo(5) })),
-      wrap(post('newer', { createdAt: hoursAgo(4) })),
+      wrap(post('older', { createdAt: hoursAgo(24 * 30), views: 9999 })),
+      wrap(post('newer', { createdAt: hoursAgo(24 * 20), views: 9999 })),
     ]
     expect(pickTrending(items, () => 0, 2, NOW)[0].post.id).toBe('newer')
+  })
+
+  it('갓 올라온 글은 참여가 없으면 인기글이 아니다', () => {
+    const items = [
+      wrap(post('justNow', { createdAt: hoursAgo(0), views: 1 })),
+      wrap(post('dayOld', { createdAt: hoursAgo(30), views: 10, })),
+    ]
+    const top = pickTrending(items, p => (p.id === 'dayOld' ? 4 : 0), 10, NOW)
+    expect(top.map(t => t.post.id)).toEqual(['dayOld'])
+  })
+
+  it('참여가 기준에 딱 닿으면 후보가 된다', () => {
+    const items = [
+      wrap(post('under', { views: TRENDING_MIN_ENGAGEMENT - 1 })),
+      wrap(post('at', { views: TRENDING_MIN_ENGAGEMENT })),
+    ]
+    expect(pickTrending(items, () => 0, 10, NOW).map(t => t.post.id)).toEqual(['at'])
   })
 })
 
@@ -93,9 +110,9 @@ describe('promoteTrending — 인기글을 한 목록 위로', () => {
     // 시간감쇠(GRAVITY 1.7)가 세서, 나흘 전 글이 한 시간 전 글을 이기려면
     // 참여가 수천 단위여야 한다. 그 지점을 넘긴 글을 일부러 넣었다.
     { post: post('old-hot', { createdAt: hoursAgo(100), views: 5000, likes: ['a', 'b'] }) },
-    { post: post('new1', { createdAt: hoursAgo(1) }) },
-    { post: post('new2', { createdAt: hoursAgo(2) }) },
-    { post: post('new3', { createdAt: hoursAgo(3) }) },
+    { post: post('new1', { createdAt: hoursAgo(1), views: 20 }) },
+    { post: post('new2', { createdAt: hoursAgo(2), views: 20 }) },
+    { post: post('new3', { createdAt: hoursAgo(3), views: 20 }) },
   ]
   const noComments = () => 0
 
@@ -122,6 +139,14 @@ describe('promoteTrending — 인기글을 한 목록 위로', () => {
     const out = promoteTrending(rows, noComments, 99, NOW)
     expect(out).toHaveLength(rows.length)
     expect(out.every(x => x.hot)).toBe(true)
+  })
+
+  it('기준에 못 미치는 글은 hot 이 아니고 제자리(최신순)에 남는다', () => {
+    const mixed = [{ post: post('quiet', { createdAt: hoursAgo(0) }) }, ...rows]
+    const out = promoteTrending(mixed, noComments, 99, NOW)
+    expect(out).toHaveLength(mixed.length)
+    expect(out.find(x => x.post.id === 'quiet')?.hot).toBe(false)
+    expect(out[out.length - 1].post.id).toBe('quiet')
   })
 
   it('빈 목록도 빈 목록으로 돌아온다', () => {

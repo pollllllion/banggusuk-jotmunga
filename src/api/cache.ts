@@ -231,12 +231,34 @@ async function fetchContentsByIds(ids: string[]): Promise<any[]> {
  *      때문에(DiscussionRoomPage), 이게 없으면 목록이 텅 빈 것처럼 보인다
  *   ③ 주소가 /content/:id 면 그 작품
  */
+/**
+ * 다음 회차가 잡힌 작품들 (id → 날짜·회차). 방영 중인 시리즈 수십 편뿐이다.
+ *
+ * CONTENT_LIST_COLS 에 넣지 않고 **따로 받는 이유**:
+ *   ① 그 목록은 통째로 select 에 들어간다 — 칸이 DB 에 없으면(migration_next_episode.sql 적용 전)
+ *      작품 로드 전체가 400 으로 죽는다. 여기서는 이 조회 하나만 실패하고 표시가 안 나올 뿐이다
+ *   ② 2천여 행 전부에 null 두 칸을 실어 나를 이유가 없다 (시작 로드 용량 · 불변식 ②)
+ */
+async function loadNextEpisodes(): Promise<Map<string, { date: string; number: number | null }>> {
+  const out = new Map<string, { date: string; number: number | null }>()
+  try {
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const { data, error } = await supabase.from('contents')
+      .select('id,nextEpisodeDate,nextEpisodeNumber').gte('nextEpisodeDate', today)
+    if (error) return out
+    for (const r of (data ?? []) as unknown as any[]) out.set(r.id, { date: String(r.nextEpisodeDate).slice(0, 10), number: r.nextEpisodeNumber ?? null })
+  } catch { /* 표시만 안 나온다 */ }
+  return out
+}
+
 /** 마지막 1단계가 받은 공개일 범위 — 부팅 스냅샷에 같이 적는다 */
 let lastWindow: { from: string; to: string } | null = null
 
 async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   const { from, to } = windowRange(baseMonthFromUrl())
   lastWindow = { from, to }
+  const nextEpisodesP = loadNextEpisodes()   // 작품 창과 나란히 받는다
   const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS)
     .gte('releaseDate', from).lte('releaseDate', to)
   if (error) { console.error('[supabase load] contents window', error.message) }
@@ -264,8 +286,15 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   for (const b of src.bookmarks) want(b.contentId)
   for (const p of src.profiles) for (const id of (p.favoriteWorks || [])) want(id)
   want(contentIdFromUrl())
+  // 방영 중인 작품은 첫 공개가 몇 달 전이라 창 밖일 수 있다 — 달력이 회차를 그리려면 작품 행이 있어야 한다
+  const nextEpisodes = await nextEpisodesP
+  for (const id of nextEpisodes.keys()) want(id)
 
   if (need.size) rows.push(...await fetchContentsByIds([...need]))
+  for (const r of rows as any[]) {
+    const ne = nextEpisodes.get(r.id)
+    if (ne) { r.nextEpisodeDate = ne.date; r.nextEpisodeNumber = ne.number }
+  }
   return dedupeRows('contents', rows)
 }
 

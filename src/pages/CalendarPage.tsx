@@ -12,7 +12,7 @@ import { BellIcon, BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS } from '@/utils/constants'
 import { getAirPattern } from '@/utils/airPattern'
 import {
-  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl,
+  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl, nextEpisodeOf,
   hasProvider, releaseSourceLabel, platformSortRank, posterThumb,
   THEATER_FILTER, isTheatricalRelease,
   CALENDAR_OTT_FILTERS, OTHER_FILTER, hasMinorProvider,
@@ -134,7 +134,7 @@ export function CalendarPage() {
   const [selected, setSelected] = useState<Content | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [alerted, setAlerted] = useState(false)
-  const [dayList, setDayList] = useState<{ key: string; items: Content[] } | null>(null)
+  const [dayList, setDayList] = useState<{ key: string; items: Content[]; episodes: Content[] } | null>(null)
   const [airPattern, setAirPattern] = useState<string | null>(null)
 
   // 배경을 눌러 닫는 건 마우스만의 방법이다. 날짜 목록이 위에 있으면 그것부터 닫는다.
@@ -176,8 +176,13 @@ export function CalendarPage() {
   )
 
   // 최종 공개일(수동 우선) 기준으로 날짜별 그룹핑 + 필터. 같은 날짜는 화제도 내림차순.
-  const byDate = useMemo(() => {
+  //
+  // epByDate — 방영 중인 시리즈의 **다음 회차** 날짜. 공개일과 같은 필터를 타지만 칸에는 작품 줄로
+  // 넣지 않는다: 매주 돌아오는 회차가 그날 새로 나오는 작품을 밀어내면 달력의 본뜻이 흐려진다.
+  // 칸에는 "새 회차 N" 한 줄만 두고, 어느 작품 몇 화인지는 날짜를 눌렀을 때 보여준다.
+  const { byDate, epByDate } = useMemo(() => {
     const map: Record<string, Content[]> = {}
+    const epMap: Record<string, Content[]> = {}
     for (const c of DS.getContents()) {
       if (c.hidden) continue
       // 찜 달력 — 내가 찜한 것만. 종류·OTT 필터도 그대로 겹쳐서 걸린다
@@ -199,7 +204,11 @@ export function CalendarPage() {
         if (!hasMinorProvider(c)) continue
       } else if (ott !== 'all' && !hasProvider(c, ott)) continue
       ;(map[date] ||= []).push(c)
+      const ne = nextEpisodeOf(c, todayKey)
+      // 공개일과 같은 날이면 이미 그 칸에 있다
+      if (ne && ne.date !== date) (epMap[ne.date] ||= []).push(c)
     }
+    for (const k of Object.keys(epMap)) epMap[k].sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
     // 플랫폼 순서(넷플릭스→티빙→디즈니→극장→웨이브) 우선, 동일 플랫폼은 화제도 내림차순
     for (const k of Object.keys(map)) {
       map[k].sort((a, b) => {
@@ -208,7 +217,7 @@ export function CalendarPage() {
         return (b.popularity || 0) - (a.popularity || 0)
       })
     }
-    return map
+    return { byDate: map, epByDate: epMap }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, ott, todayKey, dataVersion, favOnly, favIds])
 
@@ -384,20 +393,25 @@ export function CalendarPage() {
                 if (!date) return <div className="cal-cell empty" key={di} />
                 const k = keyOf(date)
                 const items = byDate[k] || []
+                const eps = epByDate[k] || []
                 // 공휴일은 일요일과 같은 빨강 — 달력에서 쉬는 날은 색이 먼저 말한다.
                 // 이름은 좁은 화면에서 접힌다(CSS). 거기서는 숫자 색만으로도 읽힌다.
                 const holiday = holidayOf(k)
                 const cls = di === 0 || holiday ? 'sun' : di === 6 ? 'sat' : ''
-                const dayTitle = [holiday, items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : null]
+                const dayTitle = [
+                  holiday,
+                  items.length ? `${date.getMonth() + 1}.${date.getDate()} 공개 ${items.length}편 보기` : null,
+                  eps.length ? `새 회차 ${eps.length}편` : null,
+                ]
                   .filter(Boolean).join(' · ')
                 // 찜한 작품이 있는 날 — 전체 달력에서 눈에 띄게(테두리 + 모서리 북마크).
                 // 찜 달력에서는 모든 날이 그러하므로 표시가 뜻이 없다 → 안 붙인다.
                 const favHere = !favOnly && items.some(c => favIds.has(c.id))
                 return (
                   <div
-                    className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''} ${items.length ? 'has-items' : ''} ${favHere ? 'has-fav' : ''}`}
+                    className={`cal-cell ${cls} ${k === todayKey ? 'today' : ''} ${items.length || eps.length ? 'has-items' : ''} ${favHere ? 'has-fav' : ''}`}
                     key={di}
-                    onClick={() => items.length && setDayList({ key: k, items })}
+                    onClick={() => (items.length || eps.length) && setDayList({ key: k, items, episodes: eps })}
                     title={dayTitle || undefined}>
                     <span className="cal-daynum">{date.getDate()}</span>
                     {holiday && <span className="cal-holiday">{holiday}</span>}
@@ -446,8 +460,14 @@ export function CalendarPage() {
                     })}
                     {/* 찜 달력에서는 넘치는 수를 마지막 포스터 위에 얹으므로 이 줄이 필요 없다 */}
                     {!favOnly && items.length > perCell && (
-                      <span className="cal-more" onClick={e => { e.stopPropagation(); setDayList({ key: k, items }) }}>
+                      <span className="cal-more" onClick={e => { e.stopPropagation(); setDayList({ key: k, items, episodes: eps }) }}>
                         +{items.length - perCell}{isMobile ? '' : '개 더'}
+                      </span>
+                    )}
+                    {/* 방영 중인 작품의 새 회차 — 칸을 먹지 않게 한 줄로만. 누르면 날짜 목록에서 펼쳐진다 */}
+                    {eps.length > 0 && (
+                      <span className="cal-eps" aria-label={`새 회차 ${eps.length}편`}>
+                        {isMobile ? `▸${eps.length}` : `새 회차 ${eps.length}`}
                       </span>
                     )}
                   </div>
@@ -498,7 +518,10 @@ export function CalendarPage() {
             <button className="cal-modal-close" onClick={() => setDayList(null)}>×</button>
             <h3 className="cal-daylist-title">
               {dayList.key.replace(/-/g, '. ')}
-              <span className="cal-daylist-count">공개 {dayList.items.length}개</span>
+              <span className="cal-daylist-count">
+                {[dayList.items.length ? `공개 ${dayList.items.length}개` : null, dayList.episodes.length ? `새 회차 ${dayList.episodes.length}개` : null]
+                  .filter(Boolean).join(' · ')}
+              </span>
             </h3>
             <div className="cal-daylist-items">
               {dayList.items.map(c => {
@@ -514,6 +537,24 @@ export function CalendarPage() {
                   </button>
                 )
               })}
+              {dayList.episodes.length > 0 && (
+                <>
+                  {dayList.items.length > 0 && <div className="cal-daylist-sub">새 회차</div>}
+                  {dayList.episodes.map(c => {
+                    const provs = providersOf(c)
+                    return (
+                      <button
+                        key={`ep-${c.id}`}
+                        className={`cal-daylist-item is-episode type-${c.type}`}
+                        onClick={() => { setDayList(null); openItem(c) }}>
+                        {provs.length > 0 && <ProviderLogos providers={provs.slice(0, 3)} size={18} />}
+                        <span className="cal-daylist-t">{c.title}</span>
+                        <span className="cal-daylist-type">{c.nextEpisodeNumber ? `${c.nextEpisodeNumber}화` : '새 회차'}</span>
+                      </button>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </div>
         </div>

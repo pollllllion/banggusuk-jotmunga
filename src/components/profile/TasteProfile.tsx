@@ -6,23 +6,25 @@ import * as DS from '@/api/dataService'
 import { Poster } from '@/components/content/Poster'
 import { smartSearchTmdb, isSearchableQuery, tmdbEnabled, tmdbContentId, tmdbTvType, type TmdbResult } from '@/utils/tmdb'
 import { GENRES, TYPE_LABELS } from '@/utils/constants'
-import type { Content, ContentType, User } from '@/types'
+import type { Content, ContentType, FavoritePerson, User } from '@/types'
+import { PeoplePicker } from './PeoplePicker'
+import { peopleOf } from '@/utils/people'
 import { clickable } from '@/utils/a11y'
 import { useEscapeKey } from '@/hooks/useEscapeKey'
 
 /** 취향 편집 창. 보여주는 쪽은 components/profile/ProfileShowcase.tsx 가 맡는다 —
  *  내 피드와 공개 프로필이 같은 화면을 쓰기 때문에 이 파일은 고치는 일만 한다. */
 const MAX_WORKS = 10
-const MAX_DIRECTORS = 20
 
 /** 편집 창은 칸마다 따로 뜬다. 화면에서 세 곳에 흩어져 있는 것을 한 창에 몰아 넣으면
  *  취향 한 줄만 고치려 해도 인생작품 검색·장르 목록이 통째로 딸려 나온다. */
-export type TasteSection = 'works' | 'bio' | 'taste'
+export type TasteSection = 'works' | 'bio' | 'genres' | 'people'
 
 const SECTION_META: Record<TasteSection, { title: string; sub: string }> = {
   works: { title: '인생작품', sub: '내 피드 맨 위에 포스터로 걸립니다. 본 작품 전체가 아니라 인생작품만 골라주세요.' },
   bio: { title: '취향 한 줄', sub: '프로필 아래 한 줄로 뜹니다. 장르·감독은 여기 적지 말고 취향 칸에 넣어주세요.' },
-  taste: { title: '취향', sub: '선호 장르와 좋아하는 감독·작가·배우. 고른 것만 내 피드에 뜹니다.' },
+  genres: { title: '선호 장르', sub: "내 피드의 '이런 걸 봅니다' 줄에 뜹니다. 고른 것만 보여요." },
+  people: { title: '감독·작가·배우', sub: "내 피드의 '이 사람들 걸 봅니다' 줄에 뜹니다. 이름을 검색해 고르면 감독·작가와 배우로 알아서 나뉩니다." },
 }
 
 /** 취향 편집 창 — 한 번에 한 칸만 고친다(section). 내 피드·공개 프로필이 같이 쓴다. */
@@ -33,9 +35,8 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
   const [bio, setBio] = useState(user.tasteBio ?? '')
   const [works, setWorks] = useState<string[]>(user.favoriteWorks ?? [])
   const [genres, setGenres] = useState<string[]>(user.favoriteGenres ?? [])
-  const [directors, setDirectors] = useState<string[]>(user.favoriteDirectors ?? [])
+  const [people, setPeople] = useState<FavoritePerson[]>(() => peopleOf(user))
   const [q, setQ] = useState('')
-  const [dirInput, setDirInput] = useState('')
   const [saving, setSaving] = useState(false)
 
   // 로컬 DB 매칭 (이미 등록된 작품) — 통합검색과 같은 소스
@@ -95,11 +96,6 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
   }
   const removeWork = (id: string) => setWorks(works.filter(w => w !== id))
   const toggleGenre = (g: string) => setGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
-  const addDirector = () => {
-    const d = dirInput.trim()
-    if (d && !directors.includes(d) && directors.length < MAX_DIRECTORS) setDirectors([...directors, d])
-    setDirInput('')
-  }
 
   /** 지금 고치고 있는 칸만 저장한다 — 다른 칸까지 같이 덮어쓰면
    *  두 창을 나란히 열어 둔 경우 나중에 닫는 쪽이 앞의 저장을 되돌린다. */
@@ -109,7 +105,13 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
       await updateProfile(
         section === 'works' ? { favoriteWorks: works }
           : section === 'bio' ? { tasteBio: bio.trim() || null }
-            : { favoriteGenres: genres, favoriteDirectors: directors },
+            : section === 'genres' ? { favoriteGenres: genres }
+              // favoritePeople 이 기준. 이름만 담던 두 칸에도 비춰 적는다(옛 자산을 캐시한 PWA 가 읽는다)
+              : {
+                favoritePeople: people,
+                favoriteDirectors: people.filter(x => x.role === 'maker').map(x => x.name),
+                favoriteActors: people.filter(x => x.role === 'actor').map(x => x.name),
+              },
       )
       toast(`${SECTION_META[section].title}을(를) 저장했어요.`)
       onClose()
@@ -186,10 +188,10 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
         </div>
         )}
 
-        {/* '취향' 창은 장르와 감독·작가·배우 둘을 함께 다룬다 — 둘 다 칩으로 고르는 같은 성격이고,
-            화면에서도 취향 한 칸에 나란히 뜬다. */}
-        {section === 'taste' && (
-        <>
+        {/* 장르와 사람은 창이 따로다 (2026-09-19). 처음엔 '취향' 한 창에 같이 뒀는데, 화면에서는
+            두 줄이 저마다 ＋ 를 갖고 있어서 어느 쪽을 눌러도 똑같은 창이 떴다 — 사람을 넣으려고
+            눌렀는데 장르 목록부터 나오는 식. 누른 줄의 것만 나와야 한다. */}
+        {section === 'genres' && (
         <div className="form-group">
           <label>선호 장르</label>
           <div className="taste-chips">
@@ -198,25 +200,9 @@ export function TasteEditModal({ user, section, onClose }: { user: User; section
             ))}
           </div>
         </div>
-
-        <div className="form-group">
-          <label>좋아하는 감독·작가·배우 <span className="opt">최대 {MAX_DIRECTORS}</span></label>
-          {directors.length > 0 && (
-            <div className="taste-chips" style={{ marginBottom: 8 }}>
-              {directors.map(d => (
-                <span key={d} className="taste-chip on" onClick={() => setDirectors(directors.filter(x => x !== d))}>{d} ✕</span>
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" value={dirInput} onChange={e => setDirInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addDirector() } }}
-              placeholder="이름 입력 후 Enter (예: 봉준호 · 송강호)" />
-            <button className="btn btn-secondary btn-small" onClick={addDirector}>추가</button>
-          </div>
-        </div>
-        </>
         )}
+
+        {section === 'people' && <PeoplePicker people={people} onChange={setPeople} />}
 
         <div className="write-actions">
           <button className="btn btn-secondary" onClick={onClose}>취소</button>

@@ -3,6 +3,7 @@ import {
   normName, matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate,
   withinRange, buildContentId, mergeProviders, fetchWithRetry,
   pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks, tmdbAlive,
+  parseContentId, needsEnrich, pickNextEpisode,
 } from '../tmdb-lib.mjs'
 
 describe('normName / provider 이름 매칭', () => {
@@ -273,5 +274,106 @@ describe('tmdbAlive (작품이 TMDB 에 아직 있나)', () => {
     await tmdbAlive(spy, 'tv', 22)
     await tmdbAlive(spy, 'drama', 33)
     expect(seen).toEqual(['/movie/11', '/tv/22', '/tv/33'])
+  })
+})
+
+describe('parseContentId — buildContentId 의 역', () => {
+  it('영화·시리즈·시즌 행을 가른다', () => {
+    expect(parseContentId('tmdb-mv-12')).toEqual({ kind: 'movie', tmdbId: 12, seasonNumber: null })
+    expect(parseContentId('tmdb-dr-293611')).toEqual({ kind: 'tv', tmdbId: 293611, seasonNumber: null })
+    expect(parseContentId('tmdb-dr-54553-s2')).toEqual({ kind: 'tv', tmdbId: 54553, seasonNumber: 2 })
+  })
+
+  it('buildContentId 로 만든 id 를 그대로 되돌린다', () => {
+    const id = buildContentId({ mediaType: 'tv', tmdbId: 7, eventType: 'season_release', seasonNumber: 3 })
+    expect(parseContentId(id)).toEqual({ kind: 'tv', tmdbId: 7, seasonNumber: 3 })
+  })
+
+  it('수기 등록(uuid) 등 TMDB 행이 아니면 null', () => {
+    expect(parseContentId('8b1f0c1e-aaaa-bbbb-cccc-000000000000')).toBeNull()
+    expect(parseContentId('tmdb-dr-12-extra')).toBeNull()
+    expect(parseContentId(null)).toBeNull()
+  })
+})
+
+describe('needsEnrich — 보강 대상 판정', () => {
+  const today = '2026-09-18'
+  const full = {
+    id: 'tmdb-dr-1', releaseDate: '2026-09-01', castMembers: [{ name: 'a' }], providers: [{ providerId: 8 }],
+    genres: ['드라마'], networks: [{ name: 'SBS' }], tmdbUrl: 'https://www.themoviedb.org/tv/1',
+  }
+
+  it('다 채워진 행은 대상이 아니다', () => {
+    expect(needsEnrich(full, { today })).toBe(false)
+    expect(needsEnrich(full, { today, all: true })).toBe(false)
+  })
+
+  it('TV 행은 채널(networks)만 비어도 대상이다 — 영화는 채널이 없는 게 정상', () => {
+    expect(needsEnrich({ ...full, networks: [] }, { today })).toBe(true)
+    expect(needsEnrich({ ...full, id: 'tmdb-mv-1', networks: [] }, { today })).toBe(false)
+  })
+
+  it('시즌 행도 대상이다', () => {
+    expect(needsEnrich({ ...full, id: 'tmdb-dr-1-s2', networks: [] }, { today })).toBe(true)
+  })
+
+  it('한 번도 상세를 받은 적 없는 행(tmdbUrl 없음)은 오래됐어도 본다', () => {
+    const stub = { id: 'tmdb-dr-54553-s2', releaseDate: '2013-12-07', tmdbUrl: null }
+    expect(needsEnrich(stub, { today })).toBe(true)
+  })
+
+  it('이미 물어본 옛 행은 평소엔 건너뛰고 all 일 때만 본다', () => {
+    const old = { ...full, releaseDate: '2024-01-01', providers: [] }
+    expect(needsEnrich(old, { today })).toBe(false)
+    expect(needsEnrich(old, { today, all: true })).toBe(true)
+  })
+
+  it('공개 전·최근 공개작·날짜 미정은 매일 본다', () => {
+    expect(needsEnrich({ ...full, releaseDate: '2027-01-15', networks: [] }, { today })).toBe(true)
+    expect(needsEnrich({ ...full, releaseDate: '2026-06-20', providers: [] }, { today })).toBe(true)  // 딱 90일 전
+    expect(needsEnrich({ ...full, releaseDate: '2026-06-19', providers: [] }, { today })).toBe(false) // 91일 전
+    expect(needsEnrich({ ...full, releaseDate: null }, { today })).toBe(true)
+  })
+
+  it('TMDB 행이 아니면 대상이 아니다', () => {
+    expect(needsEnrich({ id: 'some-uuid', networks: [] }, { today, all: true })).toBe(false)
+  })
+})
+
+describe('pickNextEpisode — 어느 행에 다음 회차를 적나', () => {
+  const detail = (season_number, episode_number, air_date = '2026-09-24') =>
+    ({ next_episode_to_air: { season_number, episode_number, air_date } })
+
+  it('시리즈 행은 시즌1 회차를 받는다', () => {
+    expect(pickNextEpisode(detail(1, 7))).toEqual({ date: '2026-09-24', number: 7 })
+  })
+
+  it('다음 회차가 없으면 null', () => {
+    expect(pickNextEpisode({ next_episode_to_air: null })).toBeNull()
+    expect(pickNextEpisode({})).toBeNull()
+    expect(pickNextEpisode(null)).toBeNull()
+  })
+
+  it('1화는 적지 않는다 — 그날은 공개일로 이미 달력에 있다', () => {
+    expect(pickNextEpisode(detail(1, 1))).toBeNull()
+    expect(pickNextEpisode(detail(2, 1), 2)).toBeNull()
+  })
+
+  it('시즌 행은 제 시즌의 회차만 받는다', () => {
+    expect(pickNextEpisode(detail(2, 3), 2)).toEqual({ date: '2026-09-24', number: 3 })
+    expect(pickNextEpisode(detail(3, 3), 2)).toBeNull()
+  })
+
+  it('시즌 행이 따로 있으면 시리즈 행에는 적지 않는다 (달력에 두 번 뜨지 않게)', () => {
+    expect(pickNextEpisode(detail(2, 3), null, s => s === 2)).toBeNull()
+  })
+
+  it('시즌 행이 없으면 시리즈 행이 뒤 시즌 회차도 받는다 (장수 예능)', () => {
+    expect(pickNextEpisode(detail(12, 40), null, () => false)).toEqual({ date: '2026-09-24', number: 40 })
+  })
+
+  it('스페셜(0 시즌)·날짜 없는 회차는 뺀다', () => {
+    expect(pickNextEpisode(detail(0, 5))).toBeNull()
+    expect(pickNextEpisode(detail(1, 5, null))).toBeNull()
   })
 })

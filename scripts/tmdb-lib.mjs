@@ -246,6 +246,58 @@ export function buildContentId({ mediaType, tmdbId, eventType, seasonNumber }) {
   return mediaType === 'movie' ? `tmdb-mv-${tmdbId}` : `tmdb-dr-${tmdbId}`
 }
 
+/** contents.id → { kind, tmdbId, seasonNumber }. TMDB 행이 아니면 null (buildContentId 의 역) */
+export function parseContentId(id) {
+  const m = /^tmdb-(mv|dr)-(\d+)(?:-s(\d+))?$/.exec(String(id ?? ''))
+  if (!m) return null
+  return { kind: m[1] === 'mv' ? 'movie' : 'tv', tmdbId: Number(m[2]), seasonNumber: m[3] ? Number(m[3]) : null }
+}
+
+/** 최근 공개작으로 치는 기간(일) — 이 안쪽은 TMDB 정보가 아직 채워지는 중이라 매일 다시 본다 */
+export const ENRICH_FRESH_DAYS = 90
+
+/**
+ * 이 행을 이번 보강(enrich-tmdb)에서 TMDB 에 다시 물어볼 것인가.
+ *
+ * 작품 행을 만드는 길이 셋인데(ingest-tmdb · ensure_content RPC · sync-tmdb-ott) 상세를 채우는 건
+ * sync 하나뿐이다. 나머지 둘이 만든 행은 채널·출연진이 빈 채로 남는다 — 보강이 그 뒤를 받친다.
+ *
+ * 빈 칸이 있다고 매일 다 물으면 900건 중 850건이 "TMDB 에도 없음" 으로 헛돈다. 그래서 평소엔
+ *   · 한 번도 상세를 받은 적 없는 행 (tmdbUrl 이 비어 있다 — sync·enrich 만 이 칸을 쓴다)
+ *   · 공개 전이거나 공개한 지 ENRICH_FRESH_DAYS 일이 안 된 행 (TMDB 쪽이 아직 채워지는 중)
+ * 만 보고, 나머지 옛 행은 all(주 1회) 때 본다.
+ */
+export function needsEnrich(c, { today, all = false } = {}) {
+  const ref = parseContentId(c?.id)
+  if (!ref) return false
+  const empty = v => !(Array.isArray(v) ? v.length : v)
+  const stub = empty(c.releaseDate) || empty(c.castMembers) || empty(c.providers) || empty(c.genres) ||
+    (ref.kind === 'tv' && empty(c.networks))
+  if (!stub) return false
+  if (all || empty(c.tmdbUrl) || empty(c.releaseDate)) return true
+  const cutoff = new Date(new Date(`${today}T00:00:00Z`).getTime() - ENRICH_FRESH_DAYS * 86_400_000).toISOString().slice(0, 10)
+  return String(c.releaseDate).slice(0, 10) >= cutoff
+}
+
+/**
+ * 이 행에 적을 "다음 회차" — TMDB tv 상세의 next_episode_to_air 에서 고른다. 없으면 null.
+ *
+ * 한 시리즈가 시리즈 행(tmdb-dr-N)과 시즌 행(tmdb-dr-N-sK)으로 나뉘어 있을 수 있어서,
+ * 회차가 속한 시즌의 행 **하나에만** 적는다 — 안 그러면 같은 회차가 달력에 두 번 뜬다.
+ *   · 시즌 행   : 그 시즌의 회차일 때만
+ *   · 시리즈 행 : 시즌1 회차이거나, 그 시즌의 행이 우리 표에 따로 없을 때(hasSeasonRow 가 false)
+ * 1화는 적지 않는다 — 그날은 작품 공개일 그 자체로 이미 달력에 있다. 0 시즌(스페셜)도 뺀다.
+ */
+export function pickNextEpisode(detail, seasonNumber = null, hasSeasonRow = () => false) {
+  const n = detail?.next_episode_to_air
+  if (!n?.air_date || !(n.episode_number > 1)) return null
+  const s = n.season_number
+  if (!s) return null
+  if (seasonNumber) { if (s !== seasonNumber) return null }
+  else if (s >= 2 && hasSeasonRow(s)) return null
+  return { date: String(n.air_date).slice(0, 10), number: n.episode_number }
+}
+
 /** providers 두 배열을 providerId 기준으로 합치기(중복 제거) */
 export function mergeProviders(a = [], b = []) {
   const map = new Map()

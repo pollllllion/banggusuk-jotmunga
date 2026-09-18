@@ -282,6 +282,115 @@ function tmdbGet(path: string, params: Record<string, string> = {}): Promise<any
   return p
 }
 
+/* ── 인물 검색 (취향 칸의 감독·작가·배우 고르기) ───────────────────── */
+
+export interface TmdbPerson {
+  tmdbId: number
+  name: string
+  profilePath: string | null
+  /** TMDB 의 known_for_department (Acting · Directing · Writing …) */
+  department: string | null
+  /** 대표작 제목 — 동명이인을 가르는 단서 ("김은숙" 이 작가인지 배우인지) */
+  knownFor: string[]
+}
+
+export function mapPeople(raw: any[] | null | undefined, max = 8): TmdbPerson[] {
+  return (raw || [])
+    .filter(p => p && typeof p.id === 'number' && p.name)
+    .slice(0, max)
+    .map(p => ({
+      tmdbId: p.id,
+      name: String(p.name).trim(),
+      profilePath: p.profile_path ?? null,
+      department: p.known_for_department ?? null,
+      knownFor: (p.known_for || []).map((k: any) => k?.title || k?.name).filter(Boolean).slice(0, 3),
+    }))
+}
+
+/**
+ * 붙여 쓴 검색어가 가리키는 사람만 남긴다 — 이름에서 공백·문장부호를 뺀 것에 검색어가 들어 있어야 한다.
+ * 인기순으로 세운다(여러 요청의 결과를 합친 것이라 TMDB 가 준 순서가 없다).
+ */
+export function pickSpacedPeople(raw: any[], query: string): any[] {
+  const qn = normLoose(query)
+  const seen = new Set<number>()
+  return raw
+    .filter(p => p && typeof p.id === 'number' && normLoose(p.name).includes(qn))
+    .filter(p => !seen.has(p.id) && seen.add(p.id))
+    .sort((x, y) => (y.popularity ?? 0) - (x.popularity ?? 0))
+}
+
+/**
+ * 이름(일부)으로 인물 검색. TMDB 가 인기순으로 준다 — "봉준" 만 쳐도 봉준호가 먼저 온다.
+ *
+ * **띄어쓰기를 몰라도 찾는다.** TMDB 는 단어 단위 앞부분 일치라 "마틴스콜세지" 는 0건이고
+ * "마틴 스콜" 이어야 나온다. 작품 검색(searchWord)과 같은 수를 쓴다: 앞 4글자를 가능한
+ * 띄어쓰기로 전부 쳐 보고(8가지) 이름에 검색어가 공백 무시로 들어 있는 사람만 남긴다.
+ *  예) "마틴스콜세지"→"마틴 스콜" · "티모시샬라메"→"티모시 샬" · "크리스토퍼놀란"→"크리스토"(첫 단어가 4글자보다 길다)
+ * 외국인 이름을 한글로 붙여 쓰는 경우가 대상이다. 한국 이름은 원래 붙여 써서 그대로 걸린다.
+ */
+export async function searchPeople(query: string): Promise<TmdbPerson[]> {
+  const q = query.trim()
+  if (q.length < 2) return []
+  const params = { include_adult: 'false' }
+  const chars = [...q]
+  const glued = !/\s/.test(q) && HANGUL.test(q) && chars.length >= 3
+  const variants = glued ? allSpacings(chars.slice(0, SPACING_HEAD).join('')).filter(v => v !== q) : []
+  const [direct, ...vs] = await Promise.all([
+    tmdbGet('/search/person', { ...params, query: q }),
+    ...variants.map(v => tmdbGet('/search/person', { ...params, query: v }).catch(() => ({ results: [] }))),
+  ])
+  const directIds = new Set((direct.results || []).map((p: any) => p?.id))
+  const spaced = pickSpacedPeople(vs.flatMap(v => v.results || []), q).filter(p => !directIds.has(p.id))
+  return mapPeople([...(direct.results || []), ...spaced])
+}
+
+/* ── 회차표 (작품 상세의 "전체 회차 보기") ─────────────────────────────
+   DB 에 담지 않고 누를 때 TMDB 에서 바로 받는다. 100부작 일일드라마 한 편이 100줄인데
+   그걸 2천여 작품에 대해 매일 동기화해 둘 이유가 없다 — 펼쳐 보는 사람만 그때 받으면 된다.
+   (DB 에는 달력이 쓰는 '다음 회차' 한 칸만 있다 — scripts/sync-next-episodes.mjs) */
+
+export interface TmdbEpisode { number: number; name: string | null; airDate: string | null }
+export interface TmdbSeasonEpisodes { seasonNumber: number; episodes: TmdbEpisode[] }
+
+/** TMDB 가 제목 없는 회차에 넣어 두는 자리말("에피소드 7"·"Episode 7"·"7화")은 제목이 아니다 */
+const PLACEHOLDER_EP = /^\s*(?:(?:에피소드|episode|ep\.?|제)\s*\d+\s*(?:화|회)?|\d+\s*(?:화|회))\s*$/i
+
+export function mapEpisodes(raw: any[] | null | undefined): TmdbEpisode[] {
+  return (raw || [])
+    .filter(e => typeof e?.episode_number === 'number' && e.episode_number > 0)
+    .map(e => ({
+      number: e.episode_number,
+      name: e.name && !PLACEHOLDER_EP.test(e.name) ? String(e.name).trim() : null,
+      airDate: e.air_date ? String(e.air_date).slice(0, 10) : null,
+    }))
+    .sort((a, b) => a.number - b.number)
+}
+
+/**
+ * 이 작품 행이 보여줄 시즌의 회차표.
+ *   · 시즌 행(-sN)  : 그 시즌
+ *   · 시리즈 행     : 시즌1. 단 지금 방영 중인 시즌이 뒤 시즌인데 그 시즌의 행이 우리 표에 따로 없으면
+ *                     (장수 예능) 그 시즌 — '다음 회차'를 어느 행에 적는지와 같은 규칙이다(pickNextEpisode)
+ */
+export async function fetchSeasonEpisodes(
+  tmdbId: number,
+  seasonNumber: number | null,
+  hasSeasonRow: (season: number) => boolean = () => false,
+): Promise<TmdbSeasonEpisodes> {
+  if (seasonNumber) {
+    const s = await tmdbGet(`/tv/${tmdbId}/season/${seasonNumber}`)
+    return { seasonNumber, episodes: mapEpisodes(s.episodes) }
+  }
+  const detail = await tmdbGet(`/tv/${tmdbId}`, { append_to_response: 'season/1' })
+  const current = detail.next_episode_to_air?.season_number ?? detail.last_episode_to_air?.season_number ?? 1
+  if (current >= 2 && !hasSeasonRow(current)) {
+    const s = await tmdbGet(`/tv/${tmdbId}/season/${current}`)
+    return { seasonNumber: current, episodes: mapEpisodes(s.episodes) }
+  }
+  return { seasonNumber: 1, episodes: mapEpisodes(detail['season/1']?.episodes) }
+}
+
 /** 제목 안에서 정규화 문자열 qn 에 해당하는 원문 구간(띄어쓰기·문장부호 포함). 없으면 null */
 function spacedLike(title: string, qn: string): string | null {
   const chars = [...title]

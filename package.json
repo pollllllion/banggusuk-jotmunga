@@ -24,6 +24,7 @@
     "migrate:status": "node --env-file-if-exists=.env scripts/migrate-status.mjs",
     "migrate:mark": "node --env-file-if-exists=.env scripts/migrate-status.mjs mark",
     "enrich": "node --env-file-if-exists=.env scripts/enrich-tmdb.mjs",
+    "episodes": "node --env-file-if-exists=.env scripts/sync-next-episodes.mjs",
     "tmdb:gone": "node --env-file-if-exists=.env scripts/tmdb-gone.mjs",
     "backfill:origin": "node --env-file-if-exists=.env scripts/backfill-origin.mjs",
     "holidays": "node scripts/fetch-holidays.mjs",

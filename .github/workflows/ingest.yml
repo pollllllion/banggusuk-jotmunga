@@ -14,7 +14,7 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: 체크아웃
         uses: actions/checkout@v4
@@ -31,6 +31,30 @@ jobs:
           # 필요시 더 많이 긁으려면 PAGES 조정 (기본 3)
           PAGES: '3'
         run: node scripts/ingest-tmdb.mjs
+
+      # 위 수집은 목록 API 만 읽어서 채널·출연진·OTT 가 빈 행을 만든다. 이용자가 검색으로
+      # 등록한 작품(ensure_content)도 마찬가지다. 상세는 여기서 채운다 — 이 단계가 없던 동안
+      # 'SBS 드라마인데 채널이 안 뜨는' 작품이 쌓였다('각성', 2026-09-18).
+      # 평소엔 새 행·최근 공개작만, 일요일엔 옛 행까지 전부 다시 본다(scripts/tmdb-lib.mjs needsEnrich).
+      - name: 상세정보 보강 (채널·출연진·OTT)
+        if: always()
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then ALL="--all"; else ALL=""; fi
+          node scripts/enrich-tmdb.mjs --apply $ALL
+
+      # 방영 중인 시리즈의 다음 회차(날짜·번호). 매주 바뀌는 값이라 빈 칸만 채우는 보강과 따로 돈다.
+      # 칸이 아직 없으면(migration_next_episode.sql 적용 전) 안내만 찍고 넘어간다.
+      - name: 다음 회차 동기화
+        if: always()
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then ALL="--all"; else ALL=""; fi
+          node scripts/sync-next-episodes.mjs --apply $ALL
 
       # 공개 예정작은 수집 때 포스터가 없다가 나중에 올라오는 일이 많다 — 빈 칸만 다시 본다.
       # 포스터가 없으면 모바일 캘린더 칸이 회색 박스로 남는다. 03:30 재배포(daily-rebuild)가 반영한다.

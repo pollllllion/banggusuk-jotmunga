@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
-import { castProfileUrl } from '@/utils/ott'
+import { castProfileUrl, channelNames, nextEpisodeOf } from '@/utils/ott'
+import { EpisodeList, episodeRef } from './EpisodeList'
 import type { Content } from '@/types'
 import type { DetailState } from '@/hooks/useContentDetail'
 import '@/styles/calendar.css'
@@ -13,6 +14,20 @@ function scheduleSummary(c: Content): string | null {
   return parts.length ? parts.join(' · ') : null
 }
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+/** 다음 회차 한 줄: "9. 24(목) · 7화" (+ 오늘/내일이면 그 말을 앞에) */
+function nextEpisodeLabel(c: Content): string | null {
+  const now = new Date()
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const ne = nextEpisodeOf(c, key(now))
+  if (!ne) return null
+  const d = new Date(ne.date + 'T00:00:00')
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1)
+  const when = ne.date === key(now) ? '오늘 · ' : ne.date === key(tomorrow) ? '내일 · ' : ''
+  return `${when}${d.getMonth() + 1}. ${d.getDate()}(${WEEKDAYS[d.getDay()]})${ne.number ? ` · ${ne.number}화` : ''}`
+}
+
 /**
  * 작품 상세 정보 (감독/연출·채널·편성·구성·장르·평점 + 출연진).
  * 캘린더 모달과 작품 상세 페이지가 동일한 정보를 쓰도록 공용화.
@@ -23,12 +38,15 @@ function scheduleSummary(c: Content): string | null {
 export function ContentInfo({ content, detail = 'ready' }: { content: Content; detail?: DetailState }) {
   if (detail === 'loading') return <ContentInfoSkeleton />
   const cast = content.castMembers ?? []
-  const networks = content.networks ?? []
+  // 방영사가 없으면 OTT 로 대신한다 (utils/ott 의 channelNames)
+  const networks = channelNames(content)
   const sched = scheduleSummary(content)
+  const nextEp = nextEpisodeLabel(content)
   const hasRating = typeof content.voteAverage === 'number' && content.voteAverage > 0
-  const hasGrid = (content.creators?.length ?? 0) > 0 || networks.length > 0 || !!sched ||
+  const hasGrid = (content.creators?.length ?? 0) > 0 || networks.length > 0 || !!sched || !!nextEp ||
     (content.genres?.length ?? 0) > 0 || hasRating
-  if (!hasGrid && !cast.length) return null
+  const hasEpisodes = !!episodeRef(content)
+  if (!hasGrid && !cast.length && !hasEpisodes) return null
 
   return (
     <div className="content-info">
@@ -43,11 +61,13 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
           <>
             <dt>채널·편성</dt>
             <dd className="cal-detail-networks">
-              {networks.map(n => <span key={n.name} className="cal-net">{n.name}</span>)}
+              {networks.map(n => <span key={n} className="cal-net">{n}</span>)}
             </dd>
           </>
         )}
         {sched && (<><dt>구성</dt><dd>{sched}</dd></>)}
+        {/* 방영 중인 시리즈만 — 값은 scripts/sync-next-episodes.mjs 가 매일 TMDB 에서 받아 적는다 */}
+        {nextEp && (<><dt>다음 회차</dt><dd className="cal-detail-nextep">{nextEp}</dd></>)}
         {content.genres && content.genres.length > 0 && (
           <><dt>장르</dt><dd>{content.genres.join(' · ')}</dd></>
         )}
@@ -55,6 +75,9 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
           <><dt>평점</dt><dd>{content.voteAverage!.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
         )}
       </dl>
+
+      {/* 전체 회차 — 접혀 있다가 누르면 그때 받는다 (TV 작품만) */}
+      {hasEpisodes && <EpisodeList key={content.id} content={content} />}
 
       {cast.length > 0 && (
         <div className="cal-cast">

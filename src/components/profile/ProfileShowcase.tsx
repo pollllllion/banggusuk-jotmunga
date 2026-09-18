@@ -9,11 +9,12 @@ import { AvatarEditor } from '@/components/profile/AvatarEditor'
 import { LevelTag } from '@/components/profile/LevelTag'
 import { ExpertTag } from '@/components/profile/ExpertTag'
 import { TasteEditModal, type TasteSection } from '@/components/profile/TasteProfile'
+import { peopleOf, personPhotoUrl, ROLE_LABEL } from '@/utils/people'
 import type { WatchedEntry } from '@/components/profile/WatchedShelf'
 import { isExpertAuthor } from '@/utils/level'
 import { scoreColor } from '@/utils/helpers'
 import { clickable } from '@/utils/a11y'
-import type { Content, User } from '@/types'
+import type { Content, FavoritePerson, User } from '@/types'
 
 /**
  * 프로필 전시 — 인생작품 히어로 · 프로필 · 취향.
@@ -51,7 +52,9 @@ export function ProfileShowcase({ user, watched, editable }: {
     .filter((c): c is Content => Boolean(c))
   const bio = user.tasteBio?.trim()
   const favGenres = user.favoriteGenres ?? []
-  const favDirectors = user.favoriteDirectors ?? []
+  const favPeople = peopleOf(user)
+  const favMakers = favPeople.filter(p => p.role === 'maker')
+  const favActors = favPeople.filter(p => p.role === 'actor')
 
   /**
    * 프로필 숫자 칸에 쓸 별점 요약 — 몇 개 매겼나, 평균 몇 점인가.
@@ -189,22 +192,48 @@ export function ProfileShowcase({ user, watched, editable }: {
           <div className="taste-chips">
             {favGenres.map(g => <span key={g} className="taste-chip on">{g}</span>)}
             {editable
-              ? <button className="taste-chip add" onClick={() => openTaste('taste')} aria-label="선호 장르 편집">＋</button>
+              ? <button className="taste-chip add" onClick={() => openTaste('genres')} aria-label="선호 장르 편집">＋</button>
               : !favGenres.length && <span className="taste-blank">아직 등록 안 했어요</span>}
           </div>
         </div>
         <div className="feed-taste-row">
           <span className="taste-label">이 사람들 걸 봅니다</span>
-          <div className="taste-chips">
-            {favDirectors.map(d => <span key={d} className="taste-chip">{d}</span>)}
-            {editable
-              ? <button className="taste-chip add" onClick={() => openTaste('taste')} aria-label="좋아하는 감독·작가·배우 편집">＋</button>
-              : !favDirectors.length && <span className="taste-blank">아직 등록 안 했어요</span>}
-          </div>
+          {/* 감독·작가와 배우는 **줄을 가른다** — 사진 칩이 되면서 한 줄에 섞이면 머리말이 칩 사이에 묻혔다.
+              있는 쪽 줄만 그린다(빈 줄을 늘리지 않는다). ＋ 는 마지막 줄 끝에 하나만 */}
+          {(() => {
+            const addBtn = editable
+              ? <button className="taste-chip add" onClick={() => openTaste('people')} aria-label="좋아하는 감독·작가·배우 편집">＋</button>
+              : null
+            const groups = [
+              { role: 'maker' as const, list: favMakers },
+              { role: 'actor' as const, list: favActors },
+            ].filter(g => g.list.length > 0)
+            if (!groups.length) {
+              return <div className="taste-chips">{addBtn ?? <span className="taste-blank">아직 등록 안 했어요</span>}</div>
+            }
+            return groups.map((g, i) => (
+              <div key={g.role} className="taste-chips taste-people-line">
+                <span className="taste-sub">{ROLE_LABEL[g.role]}</span>
+                {g.list.map(p => <PersonChip key={`${g.role}-${p.tmdbId ?? p.name}`} person={p} />)}
+                {i === groups.length - 1 && addBtn}
+              </div>
+            ))
+          })()}
         </div>
       </section>
 
       {tasteOpen && <TasteEditModal user={user} section={tasteOpen} onClose={() => { setTasteOpen(null); rerender() }} />}
     </>
+  )
+}
+
+/** 사람 칩 — 사진이 있으면 사진, 없으면(이름만 적어 넣은 사람) 첫 글자 */
+function PersonChip({ person }: { person: FavoritePerson }) {
+  const photo = personPhotoUrl(person.profilePath)
+  return (
+    <span className="taste-chip person-chip">
+      {photo ? <img src={photo} alt="" loading="lazy" /> : <i aria-hidden>{person.name.slice(0, 1)}</i>}
+      {person.name}
+    </span>
   )
 }
