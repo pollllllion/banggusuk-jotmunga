@@ -1664,7 +1664,8 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   background: var(--danger-light); border-radius: var(--radius-sm);
   padding: 6px 10px; margin-bottom: 12px; display: inline-block;
 }
-.cur-para { font-size: 15px; color: var(--text-secondary); line-height: 1.85; margin-top: 16px; }
+/* pre-line: 문단 안 줄바꿈을 살린다(프리렌더는 <br>). 줄마다 쓴 짧은 목록("코돌비 → 코엑스")이 한 줄로 붙지 않게 */
+.cur-para { font-size: 15px; color: var(--text-secondary); line-height: 1.85; margin-top: 16px; white-space: pre-line; }
 .cur-para strong, .cur-list-block strong, .cur-table strong { color: var(--heading); font-weight: 800; }
 /* 본문 서식 (src/shared/curationMarkup.mjs) — ## 소제목 · - 목록 · | 표 | */
 .cur-subhead { font-size: 18px; font-weight: 800; color: var(--heading); line-height: 1.45; margin-top: 28px; }

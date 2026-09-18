@@ -76,3 +76,27 @@ describe('정보글(작품 없는 큐레이션)', () => {
     expect(lines.map(l => l.block.type)).toEqual(['p', 'table'])
   })
 })
+
+describe('챗GPT 화면에서 긁어 온 표(탭 구분)', () => {
+  const TSV = ['특별관\t핵심 특징\t대표 지점', 'MEGA | MX4D\t좌석 모션\t코엑스 등', 'BALCONY\t발코니형\t송도·분당'].join('\n')
+  it('첫 줄이 머리글, 칸 안의 | 는 글자 그대로', () => {
+    const [t] = textBlocks(TSV)
+    expect(t.type).toBe('table')
+    expect(t.head).toEqual(['특별관', '핵심 특징', '대표 지점'])
+    expect(t.rows[0][0]).toBe('MEGA | MX4D')
+  })
+  it('탭이 든 줄이 하나뿐이면 표가 아니라 문단', () => {
+    expect(textBlocks('가\t나').map(b => b.type)).toEqual(['p'])
+  })
+})
+
+describe('문단 안 줄바꿈 · 각주', () => {
+  it('줄마다 쓴 짧은 목록은 한 문단 안에서 줄바꿈으로 남는다(프리렌더는 <br>)', () => {
+    const b = textBlocks('코돌비 → 코엑스\n남돌비 → 남양주')
+    expect(b).toEqual([{ type: 'p', text: '코돌비 → 코엑스\n남돌비 → 남양주' }])
+    expect(blocksToHtml(b, esc)).toBe('<p>코돌비 → 코엑스<br>남돌비 → 남양주</p>')
+  })
+  it("'* ' 로 시작하는 각주는 목록이 아니다", () => {
+    expect(textBlocks('* Dolby Cinema는 포맷이다').map(b => b.type)).toEqual(['p'])
+  })
+})
