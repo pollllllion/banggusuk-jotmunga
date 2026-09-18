@@ -41,6 +41,7 @@ import { buildTalkJsonLd, talkCommentTree } from '../src/shared/talkSeo.mjs'
 import {
   buildCurationDescription, buildCurationJsonLd, curationBodyLines, publishBlockers,
 } from '../src/shared/curationSeo.mjs'
+import { blocksToHtml } from '../src/shared/curationMarkup.mjs'
 import { STATIC_PAGES } from '../src/shared/staticPages.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -438,8 +439,9 @@ async function main() {
       `<article>`,
       `<h1>${esc(c.title)}</h1>`,
       `<p>${esc(String(c.publishedAt).slice(0, 10))}</p>`,
+      // 본문·맺음말은 서식 블록(문단·소제목·목록·표) — 앱의 CurationBlocks 와 같은 구조
       ...curationBodyLines(c, byId).map(l => l.kind !== 'item'
-        ? `<p>${esc(l.text)}</p>`
+        ? blocksToHtml([l.block], esc)
         : [
             `<section>`,
             `<h2><a href="${esc(l.href)}">${esc(l.title)}</a></h2>`,

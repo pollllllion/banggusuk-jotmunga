@@ -38,11 +38,13 @@ export function AdminPage() {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const location = useLocation()
-  const navState = location.state as { newContent?: boolean; editContentId?: string } | null
+  const navState = location.state as { newContent?: boolean; editContentId?: string; curationWrite?: boolean } | null
   // 캘린더의 '+ 신작 등록' 바로가기로 진입 → 등록 폼, '이 작품 정보 수정' → 해당 작품 편집 폼.
   const openNewContent = Boolean(navState?.newContent)
   const editContentId = navState?.editContentId
-  const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce' | 'stats'>('contents')
+  // 큐레이션 목록의 '글 쓰기' → 큐레이션 탭의 직접 쓰기 칸으로
+  const curationWrite = Boolean(navState?.curationWrite)
+  const [tab, setTab] = useState<'contents' | 'curations' | 'reports' | 'users' | 'announce' | 'stats'>(curationWrite ? 'curations' : 'contents')
   const [tick, setTick] = useState(0)
   const rerender = () => setTick(t => t + 1)
 
@@ -86,7 +88,7 @@ export function AdminPage() {
 
       {tab === 'contents' && <ContentsTab rerender={rerender} tick={tick} openNew={openNewContent} editId={editContentId} />}
 
-      {tab === 'curations' && <CurationsTab rerender={rerender} />}
+      {tab === 'curations' && <CurationsTab rerender={rerender} startWrite={curationWrite} />}
 
       {tab === 'reports' && (!reports.length ? <p style={{ color: 'var(--subtext)', padding: '20px 0' }}>신고 내역이 없습니다.</p> :
         [...reports].sort((a, b) => (a.status === 'pending' ? -1 : 1)).map(r => (

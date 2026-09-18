@@ -1665,6 +1665,19 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   padding: 6px 10px; margin-bottom: 12px; display: inline-block;
 }
 .cur-para { font-size: 15px; color: var(--text-secondary); line-height: 1.85; margin-top: 16px; }
+.cur-para strong, .cur-list-block strong, .cur-table strong { color: var(--heading); font-weight: 800; }
+/* 본문 서식 (src/shared/curationMarkup.mjs) — ## 소제목 · - 목록 · | 표 | */
+.cur-subhead { font-size: 18px; font-weight: 800; color: var(--heading); line-height: 1.45; margin-top: 28px; }
+.cur-list-block { margin: 12px 0 0; padding-left: 20px; font-size: 15px; color: var(--text-secondary); line-height: 1.85; }
+.cur-table-wrap { margin-top: 18px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cur-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 14px; line-height: 1.6; color: var(--text-secondary);
+}
+.cur-table th, .cur-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); text-align: left; vertical-align: top; }
+.cur-table th { font-weight: 800; color: var(--heading); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+/* 첫 칸은 보통 항목 이름이다 — 줄이 바뀌면 표가 읽기 어렵다 */
+.cur-table td:first-child { font-weight: 700; color: var(--heading); white-space: nowrap; }
 
 .cur-items { margin-top: 28px; display: flex; flex-direction: column; gap: 20px; }
 /* 맺음말 — 작품 카드 뒤. 마지막 카드와 같은 구분선으로 끊어 "목록 밖의 글"임을 보인다 */
@@ -1711,6 +1724,18 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   .cur-detail h1 { font-size: 20px; }
   .cur-card-cover { width: 90px; }
   .cur-item-poster { width: 70px; }
+}
+/* 좁은 화면: 표의 행을 카드로 쌓는다. 3칸짜리 표를 가로로 밀어 보게 하면 마지막 칸(보통 제일
+   쓸모 있는 내용)을 아무도 안 본다. 첫 칸이 카드 제목, 나머지 칸 위에 머리글을 작게 붙인다 */
+@media (max-width: 600px) {
+  .cur-table thead { display: none; }
+  .cur-table tr { display: block; padding: 12px 0; border-bottom: 1px solid var(--border-light); }
+  .cur-table td { display: block; border: 0; padding: 2px 0; }
+  .cur-table td:first-child { font-size: 15px; white-space: normal; margin-bottom: 4px; }
+  .cur-table td[data-label]:not(:first-child)::before {
+    content: attr(data-label); display: block; margin-top: 6px;
+    font-size: 12px; font-weight: 700; color: var(--subtext);
+  }
 }
 
 /* 큐레이션 — 작품 고르기 */

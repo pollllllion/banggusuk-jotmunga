@@ -4,8 +4,10 @@ import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
 import { SITE_URL, SITE_NAME } from '@/utils/seo'
 import {
-  buildCurationDescription, buildCurationJsonLd, bodyParagraphs, outroParagraphs, paragraphs as splitParagraphs, isPublished,
+  buildCurationDescription, buildCurationJsonLd, paragraphs as splitParagraphs, isPublished,
 } from '@/shared/curationSeo.mjs'
+import { textBlocks } from '@/shared/curationMarkup.mjs'
+import { CurationBlocks } from '@/components/curation/CurationBlocks'
 import { clickable } from '@/utils/a11y'
 
 /**
@@ -38,8 +40,9 @@ export function CurationDetailPage() {
   }
 
   const published = isPublished(cur)
-  const paragraphs = bodyParagraphs(cur)
-  const outro = outroParagraphs(cur)
+  // 문단·소제목·목록·표 — 프리렌더(curationBodyLines → blocksToHtml)와 같은 블록
+  const bodyBlocks = textBlocks(cur.body)
+  const outroBlocks = textBlocks(cur.outro)
   const items = cur.items || []
 
   return (
@@ -65,9 +68,9 @@ export function CurationDetailPage() {
         )}
         {cur.coverUrl && <img className="cur-detail-cover" src={cur.coverUrl} alt="" />}
 
-        {(paragraphs as string[]).map((p, i) => <p key={i} className="cur-para">{p}</p>)}
+        <CurationBlocks blocks={bodyBlocks} />
 
-        <div className="cur-items">
+        {items.length > 0 && <div className="cur-items">
           {items.map(it => {
             const c = DS.getContentById(it.contentId)
             return (
@@ -86,11 +89,11 @@ export function CurationDetailPage() {
               </section>
             )
           })}
-        </div>
+        </div>}
 
-        {outro.length > 0 && (
+        {outroBlocks.length > 0 && (
           <div className="cur-outro">
-            {(outro as string[]).map((p, i) => <p key={i} className="cur-para">{p}</p>)}
+            <CurationBlocks blocks={outroBlocks} />
           </div>
         )}
       </article>

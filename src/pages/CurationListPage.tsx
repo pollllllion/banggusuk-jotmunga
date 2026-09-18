@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Seo } from '@/components/seo/Seo'
 import * as DS from '@/api/dataService'
+import { useAuthStore } from '@/stores/authStore'
 import { SITE_NAME } from '@/utils/seo'
 
 /** 카드에 늘어놓을 포스터 최대 장수 */
@@ -10,6 +11,8 @@ const MAX_POSTERS = 5
 /** 큐레이션 목록 — 발행된 기획 글만 최신순 */
 export function CurationListPage() {
   const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const [, setTick] = useState(0)
   const list = DS.getPublishedCurations()
 
@@ -28,6 +31,12 @@ export function CurationListPage() {
       />
       <div className="feed-header">
         <h2 className="feed-title">큐레이션</h2>
+        {/* 쓰기는 관리자만(RLS: curations_insert = is_admin). 편집기는 관리자 화면에 있다 */}
+        {isAdmin && (
+          <button className="btn btn-primary btn-small" onClick={() => navigate('/admin', { state: { curationWrite: true } })}>
+            글 쓰기
+          </button>
+        )}
       </div>
 
       {!list.length ? (

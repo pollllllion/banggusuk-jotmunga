@@ -5,11 +5,12 @@
  * 그냥 돌아야 하고 앱은 Vite 로 번들된다. 크롤러가 보는 HTML 과 사용자가 보는 화면이
  * 갈라지면 검색결과 제목과 실제 페이지가 달라진다.
  */
+import { textBlocks, textLength, plainText } from './curationMarkup.mjs'
 
 /** 발행 하한 — 이 아래면 애드센스·구글이 '자동 생성된 얇은 콘텐츠'로 본다 */
 export const MIN_BODY = 300      // 도입·마무리 본문 글자수
 export const MIN_NOTE = 20       // 작품 한 편당 코멘트 글자수
-export const MIN_ITEMS = 3       // 실린 작품 수
+export const MIN_ITEMS = 3       // 실린 작품 수 — 작품을 싣는 글일 때만. 0편이면 정보글(표·설명 위주)로 본다
 
 /**
  * 발행 가능한가 — 통과 못 하면 이유 목록을 돌려준다.
@@ -19,12 +20,14 @@ export const MIN_ITEMS = 3       // 실린 작품 수
  */
 export function publishBlockers(c) {
   const out = []
-  const body = (c.body || '').trim()
+  // 서식 기호(| --- | 표 구분줄, **)는 글자 수에 안 넣는다 — 구분줄만으로 하한을 넘기면 안 된다
+  const bodyLen = textLength(c.body)
   const items = c.items || []
   if (!(c.title || '').trim()) out.push('제목이 비어 있습니다.')
   if (!(c.summary || '').trim()) out.push('요약이 비어 있습니다. 목록 카드와 검색결과 설명에 쓰입니다.')
-  if (body.length < MIN_BODY) out.push(`본문이 ${body.length}자입니다. 최소 ${MIN_BODY}자 — 왜 이 목록을 묶었는지 직접 쓴 글이 있어야 합니다.`)
-  if (items.length < MIN_ITEMS) out.push(`작품이 ${items.length}편입니다. 최소 ${MIN_ITEMS}편.`)
+  if (bodyLen < MIN_BODY) out.push(`본문이 ${bodyLen}자입니다. 최소 ${MIN_BODY}자 — 직접 쓴 글이 있어야 합니다.`)
+  // 작품 없이 본문만 있는 정보글(예: 특별관 비교표)은 허용한다. 작품을 실을 거면 목록답게 3편 이상
+  if (items.length > 0 && items.length < MIN_ITEMS) out.push(`작품이 ${items.length}편입니다. 작품을 실으려면 최소 ${MIN_ITEMS}편 — 정보글이면 전부 빼세요.`)
   const thin = items.filter(i => (i.note || '').trim().length < MIN_NOTE)
   if (thin.length) out.push(`코멘트가 ${MIN_NOTE}자 미만인 작품 ${thin.length}편이 있습니다. 자동 생성 문장만 남으면 복제 콘텐츠가 됩니다.`)
   return out
@@ -57,7 +60,8 @@ export function buildCurationTitle(c) {
 export function buildCurationDescription(c) {
   const s = (c.summary || '').trim()
   if (s) return s
-  return bodyParagraphs(c)[0] || c.title
+  const first = textBlocks(c.body).find(b => b.type === 'p')
+  return first ? plainText(first.text) : c.title
 }
 
 /**
@@ -92,7 +96,8 @@ export function buildCurationJsonLd(c, siteUrl, siteName) {
  */
 export function curationBodyLines(c, byId) {
   const lines = []
-  for (const p of bodyParagraphs(c)) lines.push({ kind: 'p', text: p })
+  // 본문·맺음말은 서식 블록(문단·소제목·목록·표)으로 — 앱은 CurationBlocks, 프리렌더는 blocksToHtml 로 그린다
+  for (const block of textBlocks(c.body)) lines.push({ kind: 'p', block, text: block.text || '' })
   for (const it of c.items || []) {
     const content = byId && byId.get ? byId.get(it.contentId) : null
     lines.push({
@@ -107,6 +112,6 @@ export function curationBodyLines(c, byId) {
       exists: !!content,
     })
   }
-  for (const p of outroParagraphs(c)) lines.push({ kind: 'outro', text: p })
+  for (const block of textBlocks(c.outro)) lines.push({ kind: 'outro', block, text: block.text || '' })
   return lines
 }

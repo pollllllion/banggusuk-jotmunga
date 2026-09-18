@@ -6,6 +6,8 @@ import { OTT_FILTERS } from '@/utils/ott'
 import { CONTENT_TYPES } from '@/utils/constants'
 import { buildDraft, listCandidates, candidateCounts, monthRange, weekRange } from '@/shared/curationDraft.mjs'
 import { publishBlockers, MIN_BODY, MIN_NOTE, MIN_ITEMS } from '@/shared/curationSeo.mjs'
+import { textBlocks, textLength } from '@/shared/curationMarkup.mjs'
+import { CurationBlocks } from '@/components/curation/CurationBlocks'
 import type { Curation, CurationItem, ContentType } from '@/types'
 
 /**
@@ -36,7 +38,10 @@ function thisMonday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function CurationsTab({ rerender }: { rerender: () => void }) {
+/**
+ * @param startWrite 큐레이션 목록의 '글 쓰기' 버튼으로 들어왔다 — 직접 쓰기 칸을 펼쳐 둔다
+ */
+export function CurationsTab({ rerender, startWrite = false }: { rerender: () => void; startWrite?: boolean }) {
   const { user } = useAuthStore()
   const toast = useToastStore(s => s.show)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -60,6 +65,11 @@ export function CurationsTab({ rerender }: { rerender: () => void }) {
 
   return (
     <>
+      <WriteNew
+        authorId={user!.id}
+        initiallyOpen={startWrite}
+        onCreated={id => { toast('새 글을 만들었습니다. 본문을 채워 발행하세요.'); setEditingId(id) }}
+      />
       <DraftMaker
         authorId={user!.id}
         onCreated={id => { toast('초안을 만들었습니다. 본문과 코멘트를 채워야 발행할 수 있어요.'); setEditingId(id) }}
@@ -100,6 +110,60 @@ export function CurationsTab({ rerender }: { rerender: () => void }) {
         )
       })}
     </>
+  )
+}
+
+// ── 직접 쓰기 ───────────────────────────────────────────────
+/** 오늘 날짜로 된 기본 주소 — 영어 슬러그를 안 떠올려도 바로 시작할 수 있게 */
+function defaultSlug(): string {
+  const d = new Date()
+  return `post-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+}
+
+/**
+ * 캘린더 후보에서 고르지 않고 빈 글로 시작한다 — 특별관 비교표 같은 정보글.
+ * 작품은 편집 화면에서 붙여도 되고 안 붙여도 된다(0편이면 정보글, 붙이면 MIN_ITEMS(3)편 이상).
+ */
+function WriteNew({ authorId, initiallyOpen, onCreated }: { authorId: string; initiallyOpen: boolean; onCreated: (id: string) => void }) {
+  const toast = useToastStore(s => s.show)
+  const [open, setOpen] = useState(initiallyOpen)
+  const [title, setTitle] = useState('')
+  const [slug, setSlug] = useState(defaultSlug())
+
+  const create = () => {
+    const id = slug.trim()
+    if (!title.trim()) { toast('제목을 입력하세요.'); return }
+    // DB 제약(curations_id_slug)과 같은 규칙 — 주소가 곧 id 다
+    if (!/^[A-Za-z0-9._~-]+$/.test(id)) { toast('주소는 영문·숫자·- 만 쓸 수 있어요.'); return }
+    if (DS.getCurationById(id)) { toast('이미 있는 주소예요. 다른 주소를 쓰세요.'); return }
+    DS.createCuration({ id, title: title.trim(), summary: '', body: '', items: [], authorId })
+    setTitle(''); setSlug(defaultSlug()); setOpen(false)
+    onCreated(id)
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <button className="btn btn-primary btn-small" onClick={() => setOpen(true)}>✏️ 직접 쓰기 (표·정보글)</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="settings-section" style={{ marginBottom: 16 }}>
+      <div className="form-group"><label>제목</label>
+        <input type="text" className="form-input" value={title} onChange={e => setTitle(e.target.value)}
+          placeholder="예: CGV 특별관 총정리 — IMAX·4DX·SCREENX 차이" autoFocus />
+      </div>
+      <div className="form-group"><label>주소 — /curation/ 뒤에 붙습니다 (영문·숫자·-, 나중에 못 바꿈)</label>
+        <input type="text" className="form-input" value={slug} onChange={e => setSlug(e.target.value)}
+          placeholder="예: cgv-special-theaters" autoComplete="off" />
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary btn-small" onClick={create}>글 만들기</button>
+        <button className="btn btn-secondary btn-small" onClick={() => setOpen(false)}>취소</button>
+      </div>
+    </div>
   )
 }
 
@@ -316,16 +380,28 @@ function CurationEditor({ id, onDone }: { id: string; onDone: () => void }) {
         <input type="text" className="form-input" value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="비우면 안 넣습니다" />
       </div>
       <div className="form-group">
-        <label>본문 — 왜 이 목록을 묶었는지 ({body.trim().length}/{MIN_BODY}자)</label>
+        <label>본문 ({textLength(body)}/{MIN_BODY}자)</label>
         <textarea
           className="form-input" value={body} onChange={e => setBody(e.target.value)}
-          placeholder="이번 달 라인업의 흐름, 눈여겨볼 지점, 지난달과 뭐가 다른지 등. 빈 줄로 문단을 나눕니다."
-          style={{ minHeight: 180, resize: 'vertical' }}
+          placeholder={'빈 줄로 문단을 나눕니다.\n\n## 소제목\n- 목록 항목\n**굵게**\n\n| 특별관 | 핵심 특징 |\n| --- | --- |\n| IMAX | 대형 스크린 |'}
+          style={{ minHeight: 240, resize: 'vertical', fontFamily: 'inherit' }}
         />
+        <div className="label" style={{ marginTop: 4 }}>
+          서식: 빈 줄 = 문단 · <code>## 소제목</code> · <code>- 목록</code> · <code>**굵게**</code> ·
+          표는 <code>| 칸 | 칸 |</code> 줄로 (챗GPT 표를 그대로 붙여 넣어도 됩니다)
+        </div>
+        {textBlocks(body).some((b: { type: string }) => b.type !== 'p') && (
+          <div className="cur-preview cur-detail" style={{ marginTop: 10 }}>
+            <div className="label" style={{ fontWeight: 700 }}>미리보기</div>
+            <CurationBlocks blocks={textBlocks(body)} />
+          </div>
+        )}
       </div>
 
       <label style={{ display: 'block', margin: '16px 0 8px', fontWeight: 700 }}>
-        실린 작품 {items.length}편 — 각 {MIN_NOTE}자 이상 코멘트
+        실린 작품 {items.length}편 {items.length === 0
+          ? <span className="label" style={{ fontWeight: 400 }}>— 선택. 작품 없이 발행하면 정보글, 실으려면 {MIN_ITEMS}편 이상·각 {MIN_NOTE}자 코멘트</span>
+          : `— 각 ${MIN_NOTE}자 이상 코멘트`}
       </label>
       <ItemAdder
         existing={items.map(i => i.contentId)}
