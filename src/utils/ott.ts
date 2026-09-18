@@ -36,9 +36,27 @@ function appIcon({ bg, fg, label, fs }: LogoSpec): string {
 // 넷플릭스·티빙·디즈니+·웨이브는 TMDB 원래 로고를 그대로 사용한다(커스텀 아이콘 제외).
 const TMDB_LOGO_PLATFORMS = new Set(['netflix', 'tving', 'disneyplus', 'wavve'])
 
-// 이미지 파일로 대체하는 로고 (public/logos 아래 정적 자산)
+/**
+ * 행에 저장된 logoPath 대신 늘 이 로고를 쓴다.
+ * TMDB 가 같은 서비스를 다른 provider id 로 새로 올리면 로고도 딸려 온다 — 티빙 3897 번은
+ * 가로로 긴 'TVING' 글자 로고라 정사각 칸에서 찌그러졌다('내가 떨릴 수 있게', 2026-09-18).
+ */
+const PINNED_TMDB_LOGOS: Record<string, string> = {
+  tving: '/w4ov8Zx73eu2TjHsDs5EmiuYKA4.png',
+}
+
+/** 유튜브 앱 아이콘 — 흰 바탕에 빨간 재생 버튼. 'YT' 글자 배지로는 유튜브로 안 읽힌다 */
+const YOUTUBE_ICON = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">` +
+  `<rect width="48" height="48" rx="11" fill="#FFFFFF"/>` +
+  `<rect x="6" y="12.5" width="36" height="23" rx="7" fill="#FF0000"/>` +
+  `<path d="M20 18.5v11l9.5-5.5z" fill="#FFFFFF"/>` +
+  `</svg>`)
+
+// 이미지로 대체하는 로고 (public/logos 아래 정적 자산 또는 data URI)
 const IMAGE_LOGOS: Record<string, string> = {
   coupangplay: '/logos/coupangplay.png',
+  youtube: YOUTUBE_ICON,
 }
 
 // 앱 아이콘(브랜드 컬러 + 약칭)으로 그리는 플랫폼/채널 (normName 키)
@@ -53,7 +71,6 @@ const PLATFORM_SPECS: Record<string, LogoSpec> = {
   appletv:          { bg: '#000000', fg: '#FFFFFF', label: 'tv' },
   amazonprimevideo: { bg: '#0F171E', fg: '#1F9FEF', label: 'P' },
   uplusmobiletv:    { bg: '#E6007E', fg: '#FFFFFF', label: 'U+' },
-  youtube:          { bg: '#FF0000', fg: '#FFFFFF', label: 'YT' },
   // ── 방송 채널 ──
   tvn:   { bg: '#ED1C24', fg: '#FFFFFF', label: 'tvN' },
   jtbc:  { bg: '#1E1E1E', fg: '#FFFFFF', label: 'JTBC' },
@@ -93,7 +110,10 @@ function customLogo(name: string): string {
 export function providerLogoUrl(logoPath: string | null | undefined, providerName?: string): string | null {
   if (providerName) {
     const key = provKey(providerName)
-    if (TMDB_LOGO_PLATFORMS.has(key)) return logoPath ? IMG_LOGO + logoPath : customLogo(providerName)
+    if (TMDB_LOGO_PLATFORMS.has(key)) {
+      const path = PINNED_TMDB_LOGOS[key] || logoPath
+      return path ? IMG_LOGO + path : customLogo(providerName)
+    }
     return customLogo(providerName)
   }
   return logoPath ? IMG_LOGO + logoPath : null

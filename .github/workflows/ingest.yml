@@ -32,6 +32,15 @@ jobs:
           PAGES: '3'
         run: node scripts/ingest-tmdb.mjs
 
+      # 공개 예정작은 수집 때 포스터가 없다가 나중에 올라오는 일이 많다 — 빈 칸만 다시 본다.
+      # 포스터가 없으면 모바일 캘린더 칸이 회색 박스로 남는다. 03:30 재배포(daily-rebuild)가 반영한다.
+      - name: 빈 포스터 채우기
+        if: always()
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/fill-posters.mjs --apply
+
       # 중복은 수집이 만든다 — 정리도 수집 옆에 붙여 둔다.
       # 근거가 분명한 것만 자동으로 합치고, 동명이작 후보는 이 실행의 요약에
       # 경고로 남는다(예: '기프트' — 야구 코치물 vs 휠체어 럭비물).
