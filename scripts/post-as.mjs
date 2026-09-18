@@ -6,6 +6,7 @@
  *
  * 큐 항목 형식 (scripts/queue.example.json 참고):
  *   글   { "as": "popcorn", "content": "머더클럽", "title": "...", "body": "...", "rating": 7, "spoiler": false, "minutesAgo": 90 }
+ *   자유방 { "as": "docu", "board": "relay", "title": "...", "body": "..." }   ← content 없음 · 별점 없음
  *   댓글 { "as": "binge",   "replyTo": "머더클럽",  "body": "..." }   ← replyTo 는 원글 제목 일부 또는 글 id
  *
  * 규칙(자동 검사):
@@ -163,8 +164,11 @@ for (const [i, item] of queue.entries()) {
     }
 
     // ── 글 ──────────────────────────────────────────────────
-    const c = resolveContent(item.content)
+    // 자유방 글은 작품에 묶이지 않는다 — contentId null · board 'relay' (migration_free_board.sql)
+    const relay = item.board === 'relay'
+    const c = relay ? { ok: true, content: { id: null, title: '자유방' } } : resolveContent(item.content)
     if (!c.ok) { console.error(`${label} ✖ ${c.why}`); failed++; continue }
+    if (relay && item.rating != null) { console.error(`${label} ✖ 자유방 글에는 별점이 없습니다`); failed++; continue }
 
     let rating = item.rating ?? null
     if (rating != null && discussions.some(d => d.authorId === acc.id && d.contentId === c.content.id && d.rating != null)) {
@@ -176,6 +180,7 @@ for (const [i, item] of queue.entries()) {
       id: newId(), contentId: c.content.id, authorId: acc.id,
       title: item.title || null, body: item.body,
       rating, spoiler: !!item.spoiler, likes: [], createdAt: isoAgo(item.minutesAgo),
+      ...(relay ? { board: 'relay' } : {}),
     }
     console.log(`${label} 글 · ${persona.nick} → ${c.content.title}${rating != null ? ` (★${rating})` : ''}`)
     if (DRY) continue

@@ -15,6 +15,8 @@ import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText, renderVideoEmbeds } from '@/utils/richText'
 import { Seo } from '@/components/seo/Seo'
+import { SITE_URL } from '@/utils/seo'
+import { buildTalkJsonLd } from '@/shared/talkSeo.mjs'
 import { LoginGateModal } from '@/components/auth/LoginGateModal'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { markPostRead } from '@/utils/readPosts'
@@ -384,6 +386,11 @@ export function DiscussionDetailPage() {
         description={post.body}
         image={(!post.spoiler && post.images?.[0]) || content?.posterUrl}
         type="article"
+        // 프리렌더와 같은 함수 — 안 넘기면 Seo 가 원본 HTML 의 JSON-LD 를 지운다
+        jsonLd={buildTalkJsonLd({
+          post, content: content ?? null, comments, siteUrl: SITE_URL,
+          nameOf: x => x.authorId ? (DS.getUserById(x.authorId)?.nickname || '탈퇴한 사용자') : (x.guestName || '익명'),
+        })}
       />
       {/* 좁은 화면 고정 헤더 (디시 모바일) — 스크롤해도 붙어 있어서 긴 글 한가운데서도
           뒤로 가거나 메뉴를 열 수 있다. 넓은 화면에서는 CSS 로 숨기고 아래 '목록으로'를 쓴다.

@@ -32,11 +32,12 @@ import {
 } from '../src/shared/siteSeo.mjs'
 import {
   todayKey,
-  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf, schemaTypeOf,
+  buildContentTitle, buildContentDescription, buildContentJsonLd, ogTypeOf,
 } from '../src/shared/contentSeo.mjs'
 import { contentBodyLines, isIndexableContent } from '../src/shared/contentIndexable.mjs'
 import { pickRelated } from '../src/shared/relatedContents.mjs'
 import { TALK_LABEL, BOARD_SEO } from '../src/shared/boards.mjs'
+import { buildTalkJsonLd, talkCommentTree } from '../src/shared/talkSeo.mjs'
 import {
   buildCurationDescription, buildCurationJsonLd, curationBodyLines, publishBlockers,
 } from '../src/shared/curationSeo.mjs'
@@ -127,6 +128,20 @@ function contentBody(c, today) {
   ].filter(Boolean).join('\n      ')
 }
 
+/**
+ * 토론글 페이지의 댓글 — 화면에 보이는 것과 같은 트리(지워진 댓글 제외)를 정적으로 싣는다.
+ * 본문만 있으면 크롤러가 받는 글이 한두 문단뿐이다. 사람들이 검색하는 표현은 댓글에 더 많다.
+ */
+function talkCommentsSection(comments, nameOf) {
+  const tree = talkCommentTree(comments)
+  if (!tree.length) return ''
+  const li = c => `<li><b>${esc(nameOf(c))}</b> <p>${esc(c.body)}</p>`
+  const items = tree.map(({ c, replies }) =>
+    li(c) + (replies.length ? `<ul>${replies.map(r => li(r) + '</li>').join('')}</ul>` : '') + '</li>').join('')
+  const count = tree.reduce((n, t) => n + 1 + t.replies.length, 0)
+  return `<section><h2>댓글 ${count}</h2><ul>${items}</ul></section>`
+}
+
 /** 작품 페이지에 실을 토론글 수. 지금은 한 작품에 최대 4개뿐이라 넉넉하다 */
 const TALK_ON_CONTENT = 10
 
@@ -201,6 +216,19 @@ async function main() {
     console.warn(`[prerender] DB 조회 실패, 작품·토론글 프리렌더를 건너뜁니다: ${e.message}`)
     console.log(`[prerender] 안내 문서 ${n}개만 생성됨`)
     return
+  }
+
+  // 댓글도 따로 잡는다 — 못 읽어도 글 본문 프리렌더는 돌아야 한다.
+  let talkComments = []
+  try {
+    talkComments = await fetchAll('discussion_comments', 'id,discussionId,parentId,deleted,authorId,guestName,body,createdAt')
+  } catch (e) {
+    console.warn(`[prerender] 댓글 조회 실패, 댓글 없이 만듭니다: ${e.message}`)
+  }
+  const commentsByPost = new Map()
+  for (const cm of talkComments) {
+    if (!commentsByPost.has(cm.discussionId)) commentsByPost.set(cm.discussionId, [])
+    commentsByPost.get(cm.discussionId).push(cm)
   }
 
   // 큐레이션은 따로 잡는다 — 마이그레이션 전이라 테이블이 없어도 작품·토론글 프리렌더는 돌아야 한다.
@@ -340,6 +368,7 @@ async function main() {
     const c = byId.get(d.contentId)
     const title = d.title || '(제목 없음)'
     const hasRating = d.rating != null
+    const comments = commentsByPost.get(d.id) || []
     // 스포일러 글은 본문을 검색결과에 노출하지 않는다
     const desc = d.spoiler
       ? `${c ? `${c.title} · ` : ''}${hasRating ? `${d.rating}/10점. ` : ''}스포일러가 포함된 글입니다.`
@@ -350,22 +379,7 @@ async function main() {
       canonicalPath: `/talk/${d.id}`,
       ogType: 'article',
       image: c?.posterUrl,
-      // author 누락·itemReviewed 타입 오류는 구글이 '심각한 문제'로 잡아 스니펫을 통째로 뺀다
-      jsonLd: (c && hasRating) ? {
-        '@context': 'https://schema.org',
-        '@type': 'Review',
-        url: `${SITE_URL}/talk/${d.id}`,
-        name: title,
-        datePublished: d.createdAt,
-        author: { '@type': 'Person', name: authorName(d) },
-        itemReviewed: {
-          '@type': schemaTypeOf(c),
-          name: c.title,
-          url: `${SITE_URL}/content/${c.id}`,
-          ...(c.posterUrl ? { image: c.posterUrl } : {}),
-        },
-        reviewRating: { '@type': 'Rating', ratingValue: d.rating, bestRating: 10, worstRating: 1 },
-      } : null,
+      jsonLd: buildTalkJsonLd({ post: d, content: c, comments, nameOf: authorName, siteUrl: SITE_URL }),
     })
     const body = [
       `<article>`,
@@ -373,7 +387,10 @@ async function main() {
       c ? `<p>작품: <a href="/content/${esc(c.id)}">${esc(c.title)}</a></p>` : '',
       hasRating ? `<p>별점 ${esc(d.rating)}/10</p>` : '',
       d.spoiler ? `<p>스포일러가 포함된 글입니다.</p>` : `<p>${esc(d.body)}</p>`,
-      `</article>`, NAV,
+      `</article>`,
+      // 스포일러 글은 댓글도 싣지 않는다 — 댓글에 내용이 새는 일이 흔하다
+      d.spoiler ? '' : talkCommentsSection(comments, authorName),
+      NAV,
     ].filter(Boolean).join('\n      ')
     writePage(`talk/${d.id}`, render(template, head, body))
     n++
