@@ -14,7 +14,9 @@ export const DEFAULT_TITLE = `${SITE_NAME} - ${SITE_TAGLINE}`
 export const DEFAULT_DESCRIPTION =
   '넷플릭스·디즈니+·티빙·웨이브 등 OTT 공개일과 영화 개봉일을 달력 하나로. '
   + '공개 예정 작품의 D-day와 편성 정보, 기대평과 솔직 리뷰까지 한눈에 확인하세요.'
-export const DEFAULT_OG_IMAGE = `${SITE_URL}/logo.png`
+/** 링크 미리보기 이미지(1200×630). 카카오는 이미지를 주소별로 따로 캐시해서 공유 디버거로 지워도
+ *  같은 주소면 옛 그림이 남는다 — 그림을 바꿀 땐 파일 이름도 바꿀 것 (logo.png → og-image.png, 2026-09-18) */
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`
 
 /** 상대경로 → 절대 URL (og:image·canonical 은 절대경로여야 함) */
 export function absUrl(path) {
