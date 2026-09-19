@@ -37,7 +37,7 @@ const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '4', 10))
 // ONLY=tmdb-dr-275592 — 한 작품만 보강 (큐레이션에 넣으려고 막 추가한 행 등). 비우면 전체
 const ONLY = (process.env.ONLY || '').trim()
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 
 if (!ACCESS_TOKEN && !API_KEY) { console.error('TMDB_ACCESS_TOKEN 또는 TMDB_API_KEY 가 필요합니다.'); process.exit(1) }

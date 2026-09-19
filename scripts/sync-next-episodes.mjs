@@ -26,7 +26,7 @@ const CONCURRENCY = Math.max(1, parseInt(process.env.CONCURRENCY || '6', 10))
 /** 평소에 다시 보는 범위 — 공개한 지 이만큼 안 된 시리즈 (일일드라마 100부작이 다섯 달쯤 간다) */
 const RECENT_DAYS = 365
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || ''
 
 if (!ACCESS_TOKEN && !API_KEY) { console.error('TMDB_ACCESS_TOKEN 또는 TMDB_API_KEY 가 필요합니다.'); process.exit(1) }
