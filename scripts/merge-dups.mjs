@@ -3,6 +3,7 @@
  *
  *   npm run dedupe            # 탐지만 (읽기 전용 리포트)
  *   npm run dedupe -- --apply # 실제 병합 (백업 JSON 남김)
+ *   npm run dedupe -- --distinct <idA> <idB> "메모"  # 동명이작으로 표시 → 이후 경고 안 뜸
  *
  * 매일 새벽 TMDB 수집(.github/workflows/ingest.yml) 직후 --apply 로 자동 실행된다.
  * 중복은 수집이 만들어 내므로 수집 옆에 붙여 두는 게 맞다 — 사람이 대시보드를
@@ -21,7 +22,30 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { planMerges } from './dedupe-lib.mjs'
+import { fileURLToPath } from 'url'
+import { planMerges, pairKey } from './dedupe-lib.mjs'
+
+// 사람이 확인한 동명이작 쌍. 여기 있는 쌍은 '확인 필요' 경고를 다시 띄우지 않는다.
+// 수정은 --distinct 로 하고 커밋해야 CI(매일 새벽 수집)에도 반영된다.
+const DISTINCT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), 'distinct-works.json')
+const distinctList = fs.existsSync(DISTINCT_FILE) ? JSON.parse(fs.readFileSync(DISTINCT_FILE, 'utf8')) : []
+
+const di = process.argv.indexOf('--distinct')
+if (di !== -1) {
+  const [a, b, note = ''] = process.argv.slice(di + 1)
+  if (!a || !b || a.startsWith('--') || b.startsWith('--')) {
+    console.error('사용법: npm run dedupe -- --distinct <idA> <idB> "메모"')
+    process.exit(1)
+  }
+  if (distinctList.some(d => pairKey(...d.ids) === pairKey(a, b))) {
+    console.log(`이미 동명이작으로 표시됨: ${a} / ${b}`)
+  } else {
+    distinctList.push({ ids: [a, b], note, at: new Date().toISOString().slice(0, 10) })
+    fs.writeFileSync(DISTINCT_FILE, JSON.stringify(distinctList, null, 2) + '\n', 'utf8')
+    console.log(`동명이작으로 표시: ${a} / ${b} → scripts/distinct-works.json (커밋해야 CI 에 반영)`)
+  }
+  process.exit(0)
+}
 
 // URL 은 다른 스크립트(db.mjs·ingest-tmdb.mjs)와 같은 규칙 — CI 에는 .env 가 없다
 const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
@@ -63,9 +87,9 @@ const selectAll = async (table, select = '*') => {
 
 // ── 탐지 ────────────────────────────────────────────────────
 const contents = await selectAll('contents')
-const { plan, review, dupGroups } = planMerges(contents)
+const { plan, review, dupGroups, distinct } = planMerges(contents, distinctList.map(d => d.ids))
 
-console.log(`작품 ${contents.length}개 · 중복 후보 그룹 ${dupGroups}개`)
+console.log(`작품 ${contents.length}개 · 중복 후보 그룹 ${dupGroups}개${distinct ? ` (확인된 동명이작 ${distinct}쌍 제외)` : ''}`)
 if (!plan.length) console.log('자동 병합할 중복 없음.')
 for (const m of plan) console.log(`  병합: ${m.from} → ${m.into}  (${m.label} — ${m.why})`)
 for (const r of review) console.log(`  ⚠ 확인 필요(동명이작 가능): ${r.title} [${r.type}] — ${r.ids.join(' / ')}`)

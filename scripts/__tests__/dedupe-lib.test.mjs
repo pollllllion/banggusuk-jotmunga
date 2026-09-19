@@ -139,6 +139,13 @@ describe('planMerges', () => {
     expect(review[0].title).toBe('기프트')
   })
 
+  it('사람이 확인한 동명이작 쌍은 확인 목록에서 뺀다 (순서 무관)', () => {
+    const r = planMerges(contents, [['tmdb-dr-314647', 'tmdb-dr-302987']])
+    expect(r.review).toHaveLength(0)
+    expect(r.distinct).toBe(1)
+    expect(r.plan).toHaveLength(1)
+  })
+
   it('타입이 다르면 같은 제목이어도 묶지 않는다', () => {
     const { plan: p } = planMerges([
       row('a', { type: 'movie', title: '기프트' }),

@@ -97,12 +97,19 @@ export function sameWork(a, b) {
   return '수기·시드 행과 TMDB 행 중복'
 }
 
+/** 두 id 순서와 무관한 쌍 키 */
+export const pairKey = (a, b) => [a, b].sort().join('|')
+
 /**
- * 전체 작품 목록 → { plan, review, groups }
- *   plan:   자동 병합할 { from, into, label, why } 목록 (from 이 삭제됨)
- *   review: 동명이작 가능성이 있어 사람이 봐야 할 그룹
+ * 전체 작품 목록 → { plan, review, groups, distinct }
+ *   plan:     자동 병합할 { from, into, label, why } 목록 (from 이 삭제됨)
+ *   review:   동명이작 가능성이 있어 사람이 봐야 할 그룹
+ *   distinct: 사람이 이미 '동명이작'으로 확인한 쌍이라 review 에서 뺀 수
+ * distinctPairs: [[idA, idB], …] — scripts/distinct-works.json 에서 온다
  */
-export function planMerges(contents) {
+export function planMerges(contents, distinctPairs = []) {
+  const known = new Set(distinctPairs.map(([a, b]) => pairKey(a, b)))
+  let distinct = 0
   const groups = new Map()
   for (const c of contents) {
     const k = c.type + '|' + norm(c.title)
@@ -119,8 +126,9 @@ export function planMerges(contents) {
     for (const c of sorted.slice(1)) {
       const why = sameWork(keep, c)
       if (why) plan.push({ from: c.id, into: keep.id, label: keep.title, why })
+      else if (known.has(pairKey(keep.id, c.id))) distinct++
       else review.push({ title: keep.title, type: keep.type, ids: [keep.id, c.id] })
     }
   }
-  return { plan, review, dupGroups }
+  return { plan, review, dupGroups, distinct }
 }
