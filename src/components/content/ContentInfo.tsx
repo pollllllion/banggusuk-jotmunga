@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { castProfileUrl, channelNames, nextEpisodeOf } from '@/utils/ott'
+import { shortPlatformByName, trustedEpisodeCount, isShortForm } from '@/shared/shortForm.mjs'
 import { EpisodeList, episodeRef } from './EpisodeList'
 import type { Content } from '@/types'
 import type { DetailState } from '@/hooks/useContentDetail'
@@ -9,7 +10,9 @@ import '@/styles/calendar.css'
 function scheduleSummary(c: Content): string | null {
   const parts: string[] = []
   if (c.numberOfSeasons && c.numberOfSeasons > 1) parts.push(`시즌 ${c.numberOfSeasons}`)
-  if (c.numberOfEpisodes) parts.push(`총 ${c.numberOfEpisodes}부작`)
+  // 숏폼은 TMDB 회차 수가 1~2화로 틀려 있는 일이 흔하다 — 모르면 안 쓴다 (shared/shortForm.mjs)
+  const eps = trustedEpisodeCount(c)
+  if (eps) parts.push(`총 ${eps}부작`)
   if (c.runtime) parts.push(c.type === 'movie' ? `${c.runtime}분` : `회차당 ${c.runtime}분`)
   return parts.length ? parts.join(' · ') : null
 }
@@ -59,9 +62,14 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
         )}
         {networks.length > 0 && (
           <>
-            <dt>채널·편성</dt>
+            <dt>{isShortForm(content) ? '플랫폼' : '채널·편성'}</dt>
             <dd className="cal-detail-networks">
-              {networks.map(n => <span key={n} className="cal-net">{n}</span>)}
+              {networks.map(n => {
+                const sp = shortPlatformByName(n)
+                return sp?.url
+                  ? <a key={n} className="cal-net" href={sp.url} target="_blank" rel="noopener noreferrer">{sp.label} ↗</a>
+                  : <span key={n} className="cal-net">{sp?.label || n}</span>
+              })}
             </dd>
           </>
         )}

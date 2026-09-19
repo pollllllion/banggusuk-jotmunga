@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import * as DS from '@/api/dataService'
+import { buildQueryMatcher } from '@/shared/searchMatch.mjs'
+import { isShortForm } from '@/shared/shortForm.mjs'
 import { supabase } from '@/lib/supabaseClient'
 import { useToastStore } from '@/components/ui/Toast'
 import { parseNaverKeywords } from '@/shared/naverKeywords.mjs'
@@ -30,6 +33,12 @@ export function SearchQueriesSection({ days }: { days: number }) {
   }
   useEffect(load, [days])
 
+  // 검색어 → 우리 작품 → 숏폼인가. 숏폼 SEO 실험(2026-09-19~)의 판정 지표가 '검색 유입 중 숏폼 비중'이다
+  const isShortQuery = useMemo(() => {
+    const match = buildQueryMatcher(DS.getContents())
+    return (q: string) => { const c = match(q); return !!c && isShortForm(c) }
+  }, [data])
+
   if (state === 'loading') return <p className="settings-note" style={{ padding: '12px 0' }}>검색어 불러오는 중...</p>
 
   if (state === 'error') {
@@ -49,12 +58,14 @@ export function SearchQueriesSection({ days }: { days: number }) {
         title="구글에서 검색해 들어온 말"
         note="Search Console 이 준 값이라 우리 기록과 무관하게 정확해요. 매일 새벽 자동으로 받아옵니다."
         rows={data?.google ?? []}
+        isShortQuery={isShortQuery}
         empty="아직 받아온 검색어가 없어요. GSC_SERVICE_ACCOUNT_JSON 시크릿을 넣으면 다음 새벽부터 쌓입니다."
       />
       <QueryTable
         title="네이버에서 검색해 들어온 말"
-        note="네이버는 API 가 없어서 손으로 옮겨요. 서치어드바이저는 상위 30개·90일치만 보관하니, 붙여넣어 두면 그 뒤로도 남습니다. 평균 순위는 네이버가 주지 않아 빈칸입니다."
+        note="운영자 PC 가 매주 월요일 서치어드바이저에서 자동으로 받아와요(scripts/naver-sa.mjs · 작업 스케줄러). 네이버는 검색어별 값을 최근 7일치만 보관해서, 1주 넘게 못 받으면 그 사이는 비어요. 9/11 이전 줄은 손으로 붙여넣은 것이라 순위가 없어요."
         rows={data?.naver ?? []}
+        isShortQuery={isShortQuery}
         empty="아직 붙여넣은 검색어가 없어요."
       />
       <NaverPaste onSaved={() => { toast('네이버 검색어를 저장했어요.'); load() }} />
@@ -87,11 +98,20 @@ function missedClicks(r: Row, avgCtr: number): number {
   return Math.max(0, r.impressions * avgCtr - r.clicks)
 }
 
-function QueryTable({ title, note, rows, empty }: {
-  title: string; note: string; rows: Row[]; empty: string
+function QueryTable({ title, note, rows: allRows, empty, isShortQuery }: {
+  title: string; note: string; rows: Row[]; empty: string; isShortQuery: (q: string) => boolean
 }) {
   const [sort, setSort] = useState<SortKey>('clicks')
   const [page, setPage] = useState(1)
+  const [onlyShort, setOnlyShort] = useState(false)
+
+  // 숏폼 비중 — 전체 대비라서 '숏폼만' 필터와 상관없이 전체 행으로 센다
+  const shortSet = useMemo(() => new Set(allRows.filter(r => isShortQuery(r.query)).map(r => r.query)), [allRows, isShortQuery])
+  const shortRows = allRows.filter(r => shortSet.has(r.query))
+  const pct = (a: number, b: number) => b ? `${Math.round((a / b) * 100)}%` : '-'
+  const sumC = (rs: Row[]) => rs.reduce((n, r) => n + r.clicks, 0)
+  const sumI = (rs: Row[]) => rs.reduce((n, r) => n + r.impressions, 0)
+  const rows = onlyShort ? shortRows : allRows
 
   const totalClicksAll = rows.reduce((n, r) => n + r.clicks, 0)
   const totalImpressionsAll = rows.reduce((n, r) => n + r.impressions, 0)
@@ -123,6 +143,16 @@ function QueryTable({ title, note, rows, empty }: {
             검색어 <b>{sorted.length}</b>개 · 클릭 <b>{totalClicks.toLocaleString()}</b> · 노출 <b>{totalImpressions.toLocaleString()}</b>
             {!!avgCtr && <> · 평균 CTR <b>{(avgCtr * 100).toFixed(1)}%</b></>}
           </p>
+          {shortRows.length > 0 && (
+            <p className="qtable-total">
+              <span className="type-badge type-shortform">숏폼</span>{' '}
+              검색어 <b>{shortRows.length}</b>개 · 클릭 <b>{sumC(shortRows).toLocaleString()}</b> ({pct(sumC(shortRows), sumC(allRows))})
+              · 노출 <b>{sumI(shortRows).toLocaleString()}</b> ({pct(sumI(shortRows), sumI(allRows))})
+              <label style={{ marginLeft: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={onlyShort} onChange={e => { setOnlyShort(e.target.checked); setPage(1) }} /> 숏폼만
+              </label>
+            </p>
+          )}
           <div className="filter-bar" style={{ marginBottom: 6 }}>
             {SORTS.map(o => (
               <button
@@ -156,7 +186,10 @@ function QueryTable({ title, note, rows, empty }: {
                   {(pageNow - 1) * PER_PAGE + i + 1}
                 </span>
                 <span className="qtable-query" title={r.query}>
-                  {r.query}
+                  <span>
+                    {shortSet.has(r.query) && <><span className="type-badge type-shortform">숏폼</span>{' '}</>}
+                    {r.query}
+                  </span>
                   {/* 막대는 **지금 세운 기준**으로 그린다 — 다른 값으로 그리면 정렬이 안 된 것처럼 보인다 */}
                   <span className="qtable-bar">
                     <span style={{ width: `${barMax ? Math.max(2, Math.round((barValue(r) / barMax) * 100)) : 0}%` }} />
@@ -206,8 +239,9 @@ function NaverPaste({ onSaved }: { onSaved: () => void }) {
 
   return (
     <div className="settings-section">
-      <h3>네이버 검색어 붙여넣기</h3>
+      <h3>네이버 검색어 붙여넣기 (예비)</h3>
       <p className="settings-desc">
+        <b>평소엔 쓰지 마세요</b> — 자동 수집과 같은 기간을 붙여넣으면 두 번 세어집니다. 자동 수집이 몇 주 멈췄을 때만 씁니다.{' '}
         서치어드바이저 → <b>검색어 통계(유입 검색어)</b> 표를 긁어서 그대로 붙여넣으세요.
         줄마다 검색어와 숫자를 알아서 읽습니다. 같은 날짜에 다시 붙여넣으면 덮어씁니다.
       </p>

@@ -252,6 +252,19 @@ async function loadNextEpisodes(): Promise<Map<string, { date: string; number: n
   return out
 }
 
+/**
+ * 캘린더에 올릴 숏폼 id (migration_shortform_pick.sql). 수십 편뿐이다.
+ * 다음 회차와 같은 이유로 목록 컬럼에 넣지 않고 따로 받는다 — 칸이 아직 없으면 이 조회만 실패하고
+ * 숏폼이 캘린더에 안 뜰 뿐, 작품 로드는 멀쩡하다.
+ */
+async function loadCalendarPicks(): Promise<Set<string>> {
+  try {
+    const { data, error } = await supabase.from('contents').select('id').eq('calendarPick', true)
+    if (error) return new Set()
+    return new Set(((data ?? []) as unknown as { id: string }[]).map(r => r.id))
+  } catch { return new Set() }
+}
+
 /** 마지막 1단계가 받은 공개일 범위 — 부팅 스냅샷에 같이 적는다 */
 let lastWindow: { from: string; to: string } | null = null
 
@@ -259,6 +272,7 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   const { from, to } = windowRange(baseMonthFromUrl())
   lastWindow = { from, to }
   const nextEpisodesP = loadNextEpisodes()   // 작품 창과 나란히 받는다
+  const picksP = loadCalendarPicks()
   const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS)
     .gte('releaseDate', from).lte('releaseDate', to)
   if (error) { console.error('[supabase load] contents window', error.message) }
@@ -289,11 +303,15 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   // 방영 중인 작품은 첫 공개가 몇 달 전이라 창 밖일 수 있다 — 달력이 회차를 그리려면 작품 행이 있어야 한다
   const nextEpisodes = await nextEpisodesP
   for (const id of nextEpisodes.keys()) want(id)
+  // 고른 숏폼도 — 2단계 행에는 이 표시가 없어서, 1단계에서 붙여 둬야 달을 넘겨도 남는다
+  const picks = await picksP
+  for (const id of picks) want(id)
 
   if (need.size) rows.push(...await fetchContentsByIds([...need]))
   for (const r of rows as any[]) {
     const ne = nextEpisodes.get(r.id)
     if (ne) { r.nextEpisodeDate = ne.date; r.nextEpisodeNumber = ne.number }
+    if (picks.has(r.id)) r.calendarPick = true
   }
   return dedupeRows('contents', rows)
 }

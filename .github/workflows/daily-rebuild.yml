@@ -28,13 +28,15 @@ permissions:
 jobs:
   rebuild:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 빈 커밋 push 는 몇 초면 끝나지만, IndexNow 단계가 새 빌드가 라이브에 뜰 때까지(최대 15분) 기다린다
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
 
       - name: 빈 커밋을 main 에 push (= Cloudflare 빌드)
+        id: push
         run: |
           last=$(git log -1 --format=%ct)
           age=$(( $(date +%s) - last ))
@@ -46,3 +48,12 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit --allow-empty -m "chore: 정기 재배포 — 새 글·작품을 프리렌더·사이트맵에 반영 ($(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') KST)"
           git push origin HEAD:main
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # 이번 빌드로 새로 생긴 페이지를 네이버·빙에 바로 알린다 (scripts/indexnow.mjs).
+      # 배포 전 sitemap 을 받아 두고, 새 빌드가 라이브에 뜨면 다시 받아 늘어난 주소만 보낸다.
+      # 실패해도 배포와는 무관하다 — 다음 재배포 때 다시 비교된다.
+      - name: 새 페이지를 검색엔진에 알림 (IndexNow)
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        run: node scripts/indexnow.mjs --wait-deploy

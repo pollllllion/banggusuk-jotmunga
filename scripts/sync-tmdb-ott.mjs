@@ -20,13 +20,17 @@
  *   MODE                 full(기본) | incremental
  *   CONCURRENCY          상세 동시 조회 수(기본 4)
  *   MAX_PAGES            provider·쿼리당 최대 페이지(기본 15, 안전장치)
+ *   SHORT_START_DATE     숏폼 수집 시작일(full 기본 2024-01-01 — 아래 SHORT_START 주석)
+ *   SHORT_ONLY=1         숏폼 수집만 돌린다(영화·OTT 패스·정리 생략). 백필·점검용
  */
 import {
   TARGET_PROVIDER_NAMES, IMG_POSTER, IMG_BACKDROP,
   matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate, withinRange,
   buildContentId, mergeProviders, tmdbUrl, imgUrl, fetchWithRetry, pMap, normName,
-  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks, tmdbAlive,
+  pickGenres, tvKind, extractCast, extractDirectors, mapNetworks, tmdbAlive,
 } from './tmdb-lib.mjs'
+import { SHORT_NETWORK_QUERY, shortPlatformOf, shortPickScore, SHORT_PICK_MIN } from '../src/shared/shortForm.mjs'
+import { buildQueryMatcher } from '../src/shared/searchMatch.mjs'
 
 // watch-provider 카탈로그(정규명 → {providerId, logoPath}) — networks 폴백 로고 통일용. main에서 채움.
 const PROVIDER_DIR = new Map()
@@ -66,6 +70,12 @@ function addDays(iso, n) {
 function clamp(d, lo, hi) { return d < lo ? lo : d > hi ? hi : d }
 const START = MODE === 'incremental' ? clamp(addDays(today, -30), FULL_START, FULL_END) : FULL_START
 const END = MODE === 'incremental' ? clamp(addDays(today, 365), FULL_START, FULL_END) : FULL_END
+// 숏폼은 캘린더 범위(올해)보다 넓게 받는다 (2026-09-19).
+// 숏폼은 공개 뒤에야 TMDB 에 올라오고, 사람들은 1~2년 지난 작품도 제목으로 검색해 온다
+// (네이버 유입의 4분의 1이 숏폼 작품명). 캘린더에는 관리자가 고른 것만 뜨므로
+// (src/shared/shortForm.mjs isOnCalendar) 범위를 넓혀도 달력이 어지러워지지 않는다.
+const SHORT_START = MODE === 'incremental' ? START : (process.env.SHORT_START_DATE || '2024-01-01')
+const SHORT_ONLY = process.env.SHORT_ONLY === '1'
 const RUN_START = new Date().toISOString()   // 이번 실행 이전에 동기화된(=이번에 갱신 안 된) 행 판별용
 
 if (!ACCESS_TOKEN && !API_KEY) {
@@ -111,6 +121,43 @@ async function tmdbStatus(path) {
 }
 
 // ── 통계/에러 수집 ──────────────────────────────────────────
+// ── 숏폼 캘린더 선정 (migration_shortform_pick.sql) ─────────
+// HAS_PICK: calendarPick 칸이 DB 에 있나. 없으면 그 칸을 아예 안 보낸다 — 보내면 upsert 전체가 400 이다.
+let HAS_PICK = false
+// tmdbId → 우리 사이트 검색 유입 { clicks, impressions } (search_queries 전 기간)
+const DEMAND = new Map()
+// 우리 DB 에 줄거리가 이미 있는 작품(tmdbId) — TMDB 한국어 줄거리가 없어 옮겨 적어 둔 숏폼이 많다
+const HAS_SYNOPSIS = new Set()
+// 공개된 지 1년 넘은 숏폼은 캘린더에 올려 봐야 아무도 그 달을 넘겨 보지 않는다
+const PICK_FROM = addDays(today, -365)
+
+async function loadPickInputs() {
+  if (!SERVICE_KEY) return
+  // 칸이 없어도 점수는 매긴다(--dry 로 누가 뽑힐지 미리 보려고). 저장만 안 한다
+  try { await sbFetch('contents?select=calendarPick&limit=1'); HAS_PICK = true }
+  catch { console.log('   (calendarPick 칸 없음 — migration_shortform_pick.sql 적용 전. 선정 결과를 저장하지 않음)') }
+  const all = async (path) => {
+    const out = []
+    for (let from = 0; ; from += 1000) {
+      const res = await sbFetch(path, { headers: { Range: `${from}-${from + 999}` } })
+      const rows = await res.json(); out.push(...rows)
+      if (rows.length < 1000) return out
+    }
+  }
+  const contents = await all('contents?select=id,title,type,hidden,seasonNumber,tmdbId,synopsis')
+  for (const c of contents) if (c.tmdbId && c.synopsis) HAS_SYNOPSIS.add(c.tmdbId)
+  const queries = await all('search_queries?select=query,clicks,impressions')
+  const match = buildQueryMatcher(contents)
+  for (const q of queries) {
+    const c = match(q.query)
+    if (!c?.tmdbId) continue
+    const d = DEMAND.get(c.tmdbId) || { clicks: 0, impressions: 0 }
+    d.clicks += q.clicks || 0; d.impressions += q.impressions || 0
+    DEMAND.set(c.tmdbId, d)
+  }
+  console.log(`   숏폼 선정 입력 — 검색어 ${queries.length}행 · 작품과 짝지은 것 ${DEMAND.size}편`)
+}
+
 const stats = { providersProcessed: 0, moviesFetched: 0, tvShowsFetched: 0, seasonsFetched: 0, inserted: 0, updated: 0, skipped: 0, failed: 0 }
 const errors = []
 const logErr = (message, extra = {}) => { errors.push({ message, ...extra }); stats.failed++; console.warn('  ⚠️', message) }
@@ -141,12 +188,13 @@ async function discoverAll(path, baseParams, label) {
   return out
 }
 
-// tmdbId → { base, providerIds:Set, korean:bool } 후보 병합
-function addCand(cand, m, { providerId = null, korean = false } = {}) {
+// tmdbId → { base, providerIds:Set, korean:bool, short:bool } 후보 병합
+function addCand(cand, m, { providerId = null, korean = false, short = false } = {}) {
   let c = cand.get(m.id)
-  if (!c) { c = { base: m, providerIds: new Set(), korean: false }; cand.set(m.id, c) }
+  if (!c) { c = { base: m, providerIds: new Set(), korean: false, short: false }; cand.set(m.id, c) }
   if (providerId != null) c.providerIds.add(providerId)
   if (korean) c.korean = true
+  if (short) c.short = true
 }
 
 // ── 2) 영화 수집 ────────────────────────────────────────────
@@ -227,6 +275,16 @@ async function enrichMovie({ base, korean }) {
 async function collectTv(providers) {
   const cand = new Map()
 
+  // 0차) 숏폼 앱(DramaBox·Vigloo 등) — 방영사로 한 번에 받는다. 원어가 외국어여도
+  //      한글 제목이 있으면 받는다(enrichTv 에서 거른다). 인기도·OTT 조건은 없다 —
+  //      숏폼은 TMDB 인기도가 거의 0 이라 그걸로 거르면 전부 떨어진다.
+  const shorts = await discoverAll('/discover/tv', {
+    with_networks: SHORT_NETWORK_QUERY, include_adult: false, include_null_first_air_dates: false,
+    'first_air_date.gte': SHORT_START, 'first_air_date.lte': END, sort_by: 'first_air_date.desc', timezone: 'Asia/Seoul',
+  }, 'TV·숏폼')
+  for (const m of shorts) addCand(cand, m, { korean: true, short: true })
+  if (SHORT_ONLY) return cand
+
   // 1차) 한국어 TV
   const koFirst = await discoverAll('/discover/tv', {
     with_original_language: LANG_KO, include_adult: false, include_null_first_air_dates: false,
@@ -253,7 +311,7 @@ async function collectTv(providers) {
 }
 
 // TV 상세 보강 → [시리즈 행, (범위 내) 시즌 행들]
-async function enrichTv({ base, korean }) {
+async function enrichTv({ base, korean, short }) {
   let detail
   try {
     detail = await tmdb(`/tv/${base.id}`, { append_to_response: 'watch/providers,credits' })
@@ -274,11 +332,31 @@ async function enrichTv({ base, korean }) {
   const title = detail.name || base.name
   const poster = detail.poster_path || base.poster_path
   const genreIds = detail.genres?.map(g => g.id) || base.genre_ids || []
+  const shortPlat = shortPlatformOf({ networks: detail.networks })
+  // 숏폼은 한글 제목이 있는 것만 — 영어·중국어 제목 그대로면 한국에서 찾는 사람이 없다
+  if (short && !/[가-힣]/.test(title || '')) { stats.skipped++; return [] }
+  const rangeStart = shortPlat ? SHORT_START : START
+  // 숏폼 캘린더 선정 — 점수는 src/shared/shortForm.mjs shortPickScore
+  const first0 = detail.first_air_date || base.first_air_date
+  const pickScore = shortPlat ? shortPickScore({
+    demandClicks: DEMAND.get(base.id)?.clicks, demandImpressions: DEMAND.get(base.id)?.impressions,
+    voteCount: detail.vote_count, voteAverage: detail.vote_average, popularity: detail.popularity,
+    topCastPopularity: Math.max(0, ...(detail.credits?.cast || []).slice(0, 8).map(p => p.popularity || 0)),
+    hasSynopsis: !!(detail.overview || '').trim() || HAS_SYNOPSIS.has(base.id), hasPoster: !!(detail.poster_path || base.poster_path),
+  }) : 0
+  const calendarPick = !!shortPlat && pickScore >= SHORT_PICK_MIN && !!first0 && first0 >= PICK_FROM
+  if (calendarPick) {
+    stats.shortPicked = (stats.shortPicked || 0) + 1
+    console.log(`   ★ 캘린더 선정 ${pickScore}점 — ${detail.name || base.name} (${first0}, ${shortPlat.name})`)
+  }
 
-  // TV 공통 상세: 예능/드라마 구분, 연출(created_by), 장르, 출연, 채널, 편성
-  const tvType = tvContentType(genreIds)              // 'variety' | 'drama'
+  // TV 공통 상세: 예능/드라마/숏폼 구분, 연출(created_by), 장르, 출연, 채널, 편성
   const shared = {
-    contentType: tvType,
+    contentType: tvKind(genreIds, detail.networks),   // 'shortform' | 'variety' | 'drama'
+    // 숏폼 앱은 한국 OTT 목록(providers)에 없다 — 플랫폼 칸에 앱 이름을 적어 둬야
+    // 검색 설명문·본문에 '어디서 보는지'가 나온다
+    platform: shortPlat && !krProviders.length ? shortPlat.name : undefined,
+    calendarPick,
     genres: pickGenres(detail.genres, base.genre_ids),
     creators: (detail.created_by || []).map(c => c.name),
     castMembers: extractCast(detail.credits),
@@ -290,7 +368,7 @@ async function enrichTv({ base, korean }) {
 
   // 신규 시리즈: first_air_date 가 범위 내
   const first = detail.first_air_date || base.first_air_date
-  if (withinRange(first, START, END) && title && poster) {
+  if (withinRange(first, rangeStart, END) && title && poster) {
     rows.push(normalizeRow({
       mediaType: 'tv', eventType: 'series_release', tmdbId: base.id,
       title, originalTitle: detail.original_name || null,
@@ -310,7 +388,7 @@ async function enrichTv({ base, korean }) {
   for (const s of detail.seasons || []) {
     const sd = s.air_date
     if (s.season_number < 2) continue // 0=스페셜, 1=시리즈 첫 공개(중복)
-    if (!withinRange(sd, START, END)) continue
+    if (!withinRange(sd, rangeStart, END)) continue
     if (!title || !poster) continue
     rows.push(normalizeRow({
       mediaType: 'tv', eventType: 'season_release', tmdbId: base.id, seasonNumber: s.season_number,
@@ -341,7 +419,7 @@ function normalizeRow(x) {
     synopsis: x.overview || '',
     genres: x.genres || [],              // 한글 장르명
     creators: x.creators || [],          // 감독(영화) / 연출·제작(TV)
-    platform: x.providers?.[0]?.providerName || null,
+    platform: x.platform || x.providers?.[0]?.providerName || null,
     releaseYear: x.releaseDate ? Number(x.releaseDate.slice(0, 4)) : null,
     releaseDate: x.releaseDate,
     status: 'upcoming',
@@ -377,6 +455,8 @@ function normalizeRow(x) {
     runtime: x.runtime ?? null,
     numberOfSeasons: x.numberOfSeasons ?? null,
     numberOfEpisodes: x.numberOfEpisodes ?? null,
+    // 칸이 있을 때만 — 배치 안 모든 행이 같은 키를 가져야 해서 숏폼 아닌 행은 false
+    ...(HAS_PICK ? { calendarPick: x.calendarPick === true } : {}),
   }
 }
 
@@ -398,13 +478,17 @@ async function sbJson(pathAndQuery, init = {}) {
   return (await sbFetch(pathAndQuery, init)).json()
 }
 
-/** 기존 행의 manualOverride 상태 조회 (id → bool) */
+/** 기존 행의 manualOverride 상태 조회 (id → bool) + 이미 적혀 있는 줄거리 (id → 줄거리) */
 async function loadManualFlags(ids) {
   const inList = ids.map(id => `"${id}"`).join(',')
-  const res = await sbFetch(`contents?id=in.(${inList})&select=id,manualOverride`)
+  const res = await sbFetch(`contents?id=in.(${inList})&select=id,manualOverride,synopsis`)
   const rows = await res.json()
   const map = new Map()
-  for (const r of rows) map.set(r.id, r.manualOverride === true)
+  map.synopsis = new Map()
+  for (const r of rows) {
+    map.set(r.id, r.manualOverride === true)
+    if (r.synopsis) map.synopsis.set(r.id, r.synopsis)
+  }
   return map
 }
 
@@ -457,6 +541,9 @@ async function upsertProtected(rows) {
       })
       stats.updated++
     } else {
+      // TMDB 한국어 줄거리가 비어 있으면 이미 적힌 줄거리를 지킨다 — 숏폼은 한국어 줄거리가 없어서
+      // 다른 언어 줄거리를 옮겨 적어 둔다(2026-09-19). 빈 값으로 덮으면 매일 도로 사라진다
+      if (!r.synopsis && flags.synopsis.has(r.id)) r.synopsis = flags.synopsis.get(r.id)
       normal.push(r)
       if (flags.has(r.id)) stats.updated++; else stats.inserted++
     }
@@ -483,7 +570,7 @@ async function writeLog(status, extra = {}) {
 
 // ── 메인 ────────────────────────────────────────────────────
 async function main() {
-  console.log(`🎬 TMDB OTT 동기화 시작 — mode=${MODE}, 범위 ${START}~${END}, ${DRY ? 'DRY-RUN' : '반영'}`)
+  console.log(`🎬 TMDB OTT 동기화 시작 — mode=${MODE}, 범위 ${START}~${END} (숏폼 ${SHORT_START}~), ${DRY ? 'DRY-RUN' : '반영'}${SHORT_ONLY ? ' · 숏폼만' : ''}`)
   console.log(`   대상 OTT: ${TARGET_PROVIDER_NAMES.join(', ')}`)
 
   const [movieProviders, tvProviders] = await Promise.all([loadProviders('movie'), loadProviders('tv')])
@@ -496,8 +583,10 @@ async function main() {
     if (!PROVIDER_DIR.has(k)) PROVIDER_DIR.set(k, { providerId: p.providerId, logoPath: p.logoPath })
   }
 
+  await loadPickInputs()
+
   // 수집
-  const movieCand = await collectMovies(movieProviders)
+  const movieCand = SHORT_ONLY ? new Map() : await collectMovies(movieProviders)
   const tvCand = await collectTv(tvProviders)
   console.log(`🔎 후보 — 영화 ${movieCand.size}건, TV ${tvCand.size}건 (상세 보강 시작)`)
 
@@ -552,7 +641,7 @@ async function main() {
   //
   //   미개봉작은 조회조차 하지 않는다 — 아직 개봉도 안 한 작품이 사라졌을 리 없고,
   //   후보 수를 줄이면 그만큼 호출이 준다.
-  if (MODE === 'full') {
+  if (MODE === 'full' && !SHORT_ONLY) {
     try {
       const notUpcoming = `or=(releaseDate.lt.${today},releaseDate.is.null)`
       const cands = await sbJson(

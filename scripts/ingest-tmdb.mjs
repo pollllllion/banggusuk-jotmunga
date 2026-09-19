@@ -141,6 +141,31 @@ async function upsert(rows) {
   if (!res.ok) throw new Error(`Supabase upsert → ${res.status} ${await res.text()}`)
 }
 
+/**
+ * 이미 적힌 값을 이 수집기가 빈약한 값으로 덮지 않게 한다 (2026-09-19). upsert 가 merge-duplicates 라
+ * 보낸 칸은 무조건 덮인다.
+ *   · 숏폼 — 이 수집기는 목록 API 만 봐서 방영사를 모르고 전부 'drama'·'TV/OTT' 로 넣는다.
+ *     그대로 두면 숏폼(src/shared/shortForm.mjs)이 매일 드라마로 되돌아간다
+ *   · 줄거리 — TMDB 에 한국어 줄거리가 없는 작품은 다른 언어를 옮겨 적어 둔다(scripts/synopsis.mjs).
+ *     빈 값으로 덮으면 매일 도로 사라진다
+ */
+async function keepExisting(rows) {
+  const ids = rows.map(r => `"${r.id}"`)
+  for (let i = 0; i < ids.length; i += 100) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/contents?select=id,type,platform,synopsis&id=in.(${ids.slice(i, i + 100).join(',')})`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+    })
+    if (!res.ok) throw new Error(`Supabase 기존 행 조회 → ${res.status} ${await res.text()}`)
+    const keep = new Map((await res.json()).map(x => [x.id, x]))
+    for (const r of rows) {
+      const k = keep.get(r.id)
+      if (!k) continue
+      if (k.type === 'shortform') { r.type = 'shortform'; r.platform = k.platform }
+      if (!r.synopsis && k.synopsis) r.synopsis = k.synopsis
+    }
+  }
+}
+
 ;(async () => {
   console.log(`🎬 TMDB 수집 시작 (오늘=${today}, 페이지=${PAGES}, ${DRY ? 'DRY-RUN' : '반영'})`)
   const rows = await collect()
@@ -153,6 +178,7 @@ async function upsert(rows) {
   if (DRY) { console.log('\n(DRY-RUN: DB에 쓰지 않음)'); return }
   if (!rows.length) { console.log('\n반영할 데이터 없음.'); return }
 
+  await keepExisting(rows)
   await upsert(rows)
   console.log(`\n✅ Supabase contents 에 ${rows.length}건 upsert 완료.`)
 })().catch(e => { console.error('\n❌ 실패:', e.message); process.exit(1) })

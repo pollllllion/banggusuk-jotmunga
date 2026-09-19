@@ -1,0 +1,24 @@
+name: 새 페이지 알림 (IndexNow — 사람이 push 한 배포)
+
+# main push 는 곧 배포다(CLAUDE.md '배포'). 배포로 새로 생긴 페이지를 네이버·빙에 바로 알린다.
+# 배포 전 sitemap 을 받아 두고, 새 빌드가 라이브에 뜨면 다시 받아 늘어난 주소만 보낸다(scripts/indexnow.mjs).
+#
+# 정기 재배포(daily-rebuild.yml)의 빈 커밋은 GITHUB_TOKEN 으로 push 해서 이 워크플로를 깨우지 못한다
+# (GitHub 규칙) — 그쪽은 자기 안에 같은 단계를 따로 둔다. 둘이 겹치지 않는다.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: 새 페이지를 검색엔진에 알림
+        continue-on-error: true
+        run: node scripts/indexnow.mjs --wait-deploy

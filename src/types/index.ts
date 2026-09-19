@@ -130,6 +130,9 @@ export interface Content {
    *  지난 날짜가 남아 있을 수 있으니 읽을 땐 utils/ott 의 nextEpisodeOf 를 거칠 것 */
   nextEpisodeDate?: string | null
   nextEpisodeNumber?: number | null
+  /** 숏폼을 캘린더에 올릴지 (수집기 점수 또는 관리자). 역시 cache.ts 가 따로 받아 붙인다 —
+   *  shared/shortForm.mjs 의 isOnCalendar 가 읽는다 */
+  calendarPick?: boolean
 
   // ── 상세정보 확장 (감독/연출은 creators, 장르는 genres 재사용) ──
   castMembers?: CastMember[]          // 출연진 (상위 N명)

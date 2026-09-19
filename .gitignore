@@ -32,3 +32,8 @@ design/
 
 # supabase CLI 로컬 캐시
 supabase/.temp/
+
+# 네이버 서치어드바이저 수집(scripts/naver-sa.mjs) — 로그인 쿠키가 든 크롬 프로필과 분석용 기록
+scripts/.naver-profile/
+scripts/naver-sa-capture.local.json
+scripts/naver-sa.log

@@ -4,6 +4,7 @@
  * sync-tmdb-ott.mjs 와 유닛 테스트(scripts/__tests__)가 함께 import 합니다.
  * 여기 있는 함수는 전부 부수효과가 없어 테스트하기 쉽습니다.
  */
+import { shortPlatformOf } from '../src/shared/shortForm.mjs'
 
 // 대상 OTT 이름 후보 (provider_id 하드코딩 금지 → 이름으로 자동 매칭)
 export const TARGET_PROVIDER_NAMES = [
@@ -208,6 +209,15 @@ export function pickGenres(genres, genreIds, max = 4) {
 export function tvContentType(genreIds) {
   const ids = new Set(genreIds || [])
   return (ids.has(10764) || ids.has(10767)) ? 'variety' : 'drama'
+}
+
+/**
+ * TV 작품 종류 — 숏폼 앱(DramaBox·Vigloo 등)이 방영사면 'shortform', 아니면 장르로 예능/드라마.
+ * 종류를 쓰는 스크립트는 전부 이걸 써야 한다. 한 곳이라도 tvContentType 만 쓰면
+ * 다음 실행 때 숏폼이 'drama' 로 되돌아간다.
+ */
+export function tvKind(genreIds, networks) {
+  return shortPlatformOf({ networks }) ? 'shortform' : tvContentType(genreIds)
 }
 
 /** credits.cast → [{name, character, profilePath}] 상위 max명 */

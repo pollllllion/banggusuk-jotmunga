@@ -18,6 +18,7 @@ import { Seo } from '@/components/seo/Seo'
 import { BackIcon, BellIcon, BookmarkIcon, EyeIcon, FlagIcon } from '@/components/ui/Icons'
 import { ShareButton } from '@/components/ui/ShareButton'
 import { TYPE_LABELS } from '@/utils/constants'
+import { shortPlatformOf } from '@/shared/shortForm.mjs'
 import { scoreColor, scoreLabel } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
 import { summarizeRatings } from '@/utils/rating'
@@ -231,6 +232,8 @@ export function ContentDetailPage() {
 
   // ── SEO ──────────────────────────────────────────────────────
   const seoTitle = buildContentTitle(content, todayKey)
+  // 숏폼 앱(DramaBox 등) — 플랫폼을 한글 이름으로 쓰고 공식 사이트 링크를 단다
+  const shortPlat = shortPlatformOf(content)
   const seoDescription = buildContentDescription(content, todayKey)
   // 본문이 얇은 작품은 색인하지 않는다. sitemap·프리렌더와 같은 기준을 써야
   // "sitemap 엔 있는데 페이지는 noindex" 같은 모순이 안 생긴다.
@@ -272,11 +275,16 @@ export function ContentDetailPage() {
             공개일이 아직 안 정해진 작품(열혈사제2 등)에서 "TV/OTT ·" 로 점만 남았다. */}
         <span className="content-head-meta">
           {[
-            content.platform,
+            shortPlat ? shortPlat.label : content.platform,
             relDate ? `${relDate.replace(/-/g, '. ')} ${isUpcoming ? '공개예정' : '공개'}`
               : content.releaseYear ? `${content.releaseYear}년` : '',
           ].filter(Boolean).join(' · ')}
         </span>
+        {shortPlat?.url && (
+          <a className="content-watch-link" href={shortPlat.url} target="_blank" rel="noopener noreferrer">
+            {shortPlat.label}에서 보기 ↗
+          </a>
+        )}
       </div>
 
       {/* 작품에 대고 하는 것들 — 제목 줄과 포스터 띠 사이.

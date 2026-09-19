@@ -133,10 +133,11 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
   const [showDedup, setShowDedup] = useState(false)
   const [query, setQuery] = useState('')
   const [onlyUnverified, setOnlyUnverified] = useState(false)
+  const [onlyShort, setOnlyShort] = useState(false)
   const [limit, setLimit] = useState(PAGE)
 
   // 조건이 바뀌면 처음부터 다시 보여준다
-  useEffect(() => { setLimit(PAGE) }, [query, onlyUnverified])
+  useEffect(() => { setLimit(PAGE) }, [query, onlyUnverified, onlyShort])
 
   // 캘린더 '+ 신작 등록' 바로가기로 들어오면 폼을 자동으로 연다.
   useEffect(() => { if (openNew) { setEditing(null); setShowForm(true) } }, [openNew])
@@ -161,8 +162,9 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
     return [...DS.getContents()]
       .filter(c => !matchedIds || matchedIds.has(c.id))
       .filter(c => !onlyUnverified || !c.verified)
+      .filter(c => !onlyShort || c.type === 'shortform')
       .sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''))
-  }, [q, onlyUnverified, tick])
+  }, [q, onlyUnverified, onlyShort, tick])
   const unverifiedCount = useMemo(() => DS.getContents().filter(c => !c.verified).length, [tick])
   const dupGroupCount = useMemo(() => findDupGroups(DS.getContents()).length, [tick])
 
@@ -177,6 +179,17 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
   const toggleVerify = (c: Content) => {
     DS.updateContent(c.id, { verified: !c.verified })
     toast(c.verified ? '인증을 취소했어요.' : '공식 인증했어요.')
+    rerender()
+  }
+
+  /**
+   * 숏폼을 캘린더에 올리고 내린다 (shared/shortForm.mjs isOnCalendar).
+   * 수집기가 점수로 calendarPick 을 매일 다시 매기는데, 관리자가 정한 건 manualOverride 를 같이 켜서
+   * 다음 동기화가 덮지 않게 한다(보호 행은 calendarPick 을 안 건드린다 — sync-tmdb-ott upsertProtected).
+   */
+  const toggleCalendar = (c: Content) => {
+    DS.updateContent(c.id, { calendarPick: !c.calendarPick, manualOverride: true })
+    toast(c.calendarPick ? '캘린더에서 내렸어요.' : '캘린더에 올렸어요. 회차 수·공개일도 확인해 주세요.')
     rerender()
   }
 
@@ -225,6 +238,10 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
           <input type="checkbox" checked={onlyUnverified} onChange={e => setOnlyUnverified(e.target.checked)} />
           미인증만 보기 {unverifiedCount > 0 && <b style={{ color: 'var(--danger)' }}>({unverifiedCount})</b>}
         </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--subtext)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={onlyShort} onChange={e => setOnlyShort(e.target.checked)} />
+          숏폼만 보기
+        </label>
       </div>
 
       {contents.length === 0 && <p style={{ color: 'var(--subtext)', padding: '16px 0' }}>검색 결과가 없습니다.</p>}
@@ -242,6 +259,12 @@ function ContentsTab({ rerender, tick, openNew, editId }: { rerender: () => void
             </div>
           </div>
           <div className="admin-card-actions">
+            {c.type === 'shortform' && c.source === 'tmdb' && (
+              <button className={`btn btn-small ${c.calendarPick ? 'btn-secondary' : 'btn-primary'}`} onClick={() => toggleCalendar(c)}
+                title={`숏폼은 고른 것만 캘린더에 뜹니다${c.manualOverride ? ' (관리자 결정 — 자동 선정이 덮지 않음)' : ' (지금은 자동 선정)'}`}>
+                {c.calendarPick ? '캘린더 내리기' : '캘린더 올리기'}
+              </button>
+            )}
             <button className={`btn btn-small ${c.verified ? 'btn-secondary' : 'btn-primary'}`} onClick={() => toggleVerify(c)}>
               {c.verified ? '인증취소' : '인증'}
             </button>

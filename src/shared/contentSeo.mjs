@@ -7,8 +7,23 @@
  * (여기서 갈리면 검색결과 제목과 실제 페이지가 달라지는 최악의 상황이 된다)
  */
 
+import { shortPlatformOf } from './shortForm.mjs'
+
 export const TYPE_LABELS = {
-  movie: '영화', drama: '드라마', variety: '예능', webtoon: '웹툰', webnovel: '웹소설',
+  movie: '영화', drama: '드라마', variety: '예능', shortform: '숏폼 드라마', webtoon: '웹툰', webnovel: '웹소설',
+}
+
+/**
+ * 검색 문구에 쓸 '어디서 보나'.
+ * 한국 OTT 가 있으면 그 이름들, 숏폼 앱이면 '드라마박스(DramaBox)' — 사람들은 한글로도
+ * 영문으로도 찾는다. 둘 다 아니면 관리자가 적은 플랫폼 칸.
+ */
+export function wherePlatform(c) {
+  const ott = providerNames(c)
+  if (ott.length) return ott.join('·')
+  const sp = shortPlatformOf(c)
+  if (sp) return `${sp.label}(${sp.name})`
+  return c.platform || null
 }
 
 /** 로컬 기준 YYYY-MM-DD */
@@ -58,12 +73,10 @@ export function buildContentDescription(c, today = todayKey()) {
   const upcoming = isUpcoming(c, today)
   const rel = effectiveReleaseDate(c)
   const date = fmtDate(rel)
-  const ott = providerNames(c)
-
   const parts = []
 
   // 1) 한 줄 요약 — 무엇이고, 어디서, 언제 나오는가 (한 문장에 묶어야 '공개'가 중복되지 않는다)
-  const where = ott.length ? ott.join('·') : (c.platform || null)
+  const where = wherePlatform(c)
   const head = [c.title, typeLabel, where].filter(Boolean).join(' · ')
   if (upcoming) {
     parts.push(date ? `${head} ${date} 공개 예정.` : `${head} 공개 예정.`)
@@ -124,14 +137,14 @@ export function buildContentTitle(c, today = todayKey()) {
  */
 export function schemaTypeOf(c) {
   if (c.type === 'movie') return 'Movie'
-  if (c.type === 'drama' || c.type === 'variety') return 'TVSeries'
+  if (c.type === 'drama' || c.type === 'variety' || c.type === 'shortform') return 'TVSeries'
   if (c.type === 'webnovel') return 'Book'
   return 'CreativeWorkSeries'
 }
 
 export function ogTypeOf(c) {
   if (c.type === 'movie') return 'video.movie'
-  if (c.type === 'drama' || c.type === 'variety') return 'video.tv_show'
+  if (c.type === 'drama' || c.type === 'variety' || c.type === 'shortform') return 'video.tv_show'
   return 'article'
 }
 

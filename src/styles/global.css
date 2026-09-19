@@ -313,6 +313,7 @@ html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: 
 .type-movie { background: #EDE9FE; color: #6D28D9; }
 .type-drama { background: #DBEAFE; color: #1D4ED8; }
 .type-variety { background: #FEF3C7; color: #B45309; }
+.type-shortform { background: #FFE4E6; color: #BE123C; }
 .type-webtoon { background: #DCFCE7; color: #15803D; }
 .type-webnovel { background: #FCE7F3; color: #BE185D; }
 .type-webnovel { background: #FEF3C7; color: #B45309; }
@@ -928,6 +929,9 @@ html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: 
   margin: 0; line-height: 1.3; min-width: 0;
 }
 .content-head-meta { font-size: 12.5px; color: var(--text-secondary); }
+/* 숏폼 앱 공식 사이트로 — 숏폼은 한국 OTT 목록에 없어서 '어디서 보는지'가 이 링크뿐이다 */
+.content-watch-link { font-size: 12.5px; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
+.content-watch-link:hover { text-decoration: underline; }
 
 /* 작품 액션 줄 — [본 작품][찜][공유][신고]. 더보기 아래, 토론글 바로 위.
    '토론하기'는 여기 없다 — 토론글 목록 머리에 있는 것 하나로 충분하다. */

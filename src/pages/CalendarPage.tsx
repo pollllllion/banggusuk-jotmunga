@@ -28,6 +28,7 @@ import { SITE_NAME, SITE_URL } from '@/utils/seo'
 import { getPushState, enablePush } from '@/utils/push'
 import '@/styles/calendar.css'
 import { clickable } from '@/utils/a11y'
+import { isOnCalendar } from '@/shared/shortForm.mjs'
 
 /** 홈(캘린더) 구조화 데이터 — 검색결과에 사이트명·검색창을 노출시키기 위한 것 */
 const WEBSITE_JSONLD = {
@@ -187,6 +188,9 @@ export function CalendarPage() {
       if (c.hidden) continue
       // 찜 달력 — 내가 찜한 것만. 종류·OTT 필터도 그대로 겹쳐서 걸린다
       if (favOnly && !favIds.has(c.id)) continue
+      // 숏폼은 관리자가 고른 것만 (양산형이 달력을 덮지 않게 — shared/shortForm.mjs).
+      // 단 찜 달력에서는 내가 찜한 숏폼도 보인다
+      if (!favOnly && !isOnCalendar(c)) continue
       const date = effectiveReleaseDate(c)
       if (!date) continue
       // '드라마·예능' 필터는 drama·variety 둘 다 포함

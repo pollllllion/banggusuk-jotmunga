@@ -22,9 +22,10 @@
  */
 import {
   IMG_POSTER, IMG_BACKDROP, extractKrFlatrate, networksToProviders, pickKrMovieDate,
-  pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks,
+  pickGenres, tvContentType, tvKind, extractCast, extractDirectors, mapNetworks,
   imgUrl, tmdbUrl, fetchWithRetry, pMap, parseContentId, needsEnrich,
 } from './tmdb-lib.mjs'
+import { shortPlatformOf } from '../src/shared/shortForm.mjs'
 
 const APPLY = process.argv.includes('--apply')
 const ALL = process.argv.includes('--all')
@@ -161,6 +162,13 @@ async function buildPatch(c) {
     if (!c.castMembers?.length) {
       const t = tvContentType(genreIds)
       if (t !== c.type) fill.type = t
+    }
+    // 숏폼 앱 작품은 출연진 유무와 상관없이 숏폼으로 (목록 수집기 ingest-tmdb 는 'drama' 로 넣는다).
+    // 플랫폼 칸도 앱 이름으로 — ingest 가 넣은 'TV/OTT' 로는 어디서 보는지 알 수 없다
+    if (!locked && tvKind(genreIds, detail.networks) === 'shortform') {
+      if (c.type !== 'shortform') fill.type = 'shortform'
+      const shortName = shortPlatformOf({ networks: detail.networks })?.name
+      if (!providers.length && shortName && c.platform !== shortName) fill.platform = shortName
     }
   } else {
     put('runtime', detail.runtime ?? null)

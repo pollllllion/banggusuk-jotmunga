@@ -14,7 +14,7 @@
  * 있는데 페이지는 noindex 인 모순이 생긴다.
  */
 
-import { TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming, hasTmdbRating } from './contentSeo.mjs'
+import { TYPE_LABELS, todayKey, effectiveReleaseDate, isUpcoming, hasTmdbRating, wherePlatform } from './contentSeo.mjs'
 
 /**
  * 색인 대상이 되기 위한 최소 본문 길이(자).
@@ -41,7 +41,8 @@ export function contentBodyLines(c, today = todayKey()) {
   return [
     c.originalTitle && c.originalTitle !== c.title ? `원제: ${c.originalTitle}` : '',
     `${typeLabel}${rel ? ` · ${rel.replace(/-/g, '. ')} ${upcoming ? '공개 예정' : '공개'}` : ''}`,
-    ott.length ? `공개 플랫폼: ${ott.join(', ')}` : (c.platform ? `플랫폼: ${c.platform}` : ''),
+    // OTT 가 없으면 숏폼 앱 이름(한글·영문) 또는 관리자가 적은 플랫폼 칸
+    ott.length ? `공개 플랫폼: ${ott.join(', ')}` : (wherePlatform(c) ? `플랫폼: ${wherePlatform(c)}` : ''),
     c.genres?.length ? `장르: ${c.genres.join(', ')}` : '',
     c.creators?.length ? `연출·제작: ${c.creators.join(', ')}` : '',
     cast.length ? `출연: ${cast.join(', ')}` : '',
