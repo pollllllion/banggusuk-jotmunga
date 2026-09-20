@@ -50,3 +50,13 @@ jobs:
           TMDB_REGION: KR
           MODE: ${{ steps.m.outputs.mode }}
         run: node scripts/sync-tmdb-ott.mjs
+
+      # 위 동기화는 status 를 아예 쓰지 않는다 — 새로 들어온 행은 여기서 값을 받는다.
+      # (예전엔 수집기가 'upcoming' 을 박아서, 완결 판정을 매 동기화가 되돌렸다)
+      - name: 공개 상태 재판정
+        if: always()
+        env:
+          TMDB_ACCESS_TOKEN: ${{ secrets.TMDB_ACCESS_TOKEN }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/sync-status.mjs --apply

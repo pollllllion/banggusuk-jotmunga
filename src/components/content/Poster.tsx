@@ -1,5 +1,5 @@
 import { scoreColor } from '@/utils/helpers'
-import { isUpcoming } from '@/utils/ott'
+import { isUnreleased } from '@/utils/ott'
 import { todayKey } from '@/shared/contentSeo.mjs'
 import type { Content } from '@/types'
 
@@ -23,9 +23,8 @@ import type { Content } from '@/types'
  */
 export function Poster({ content, showScore = true, showVerified = true }: { content: Content; showScore?: boolean; showVerified?: boolean }) {
   const img = content.posterUrl || content.backdropUrl || null
-  // 공개일이 아직 안 나온 작품(열혈사제2 등)은 날짜로는 판정이 안 된다 — status 도 같이 본다.
-  // 작품방 제목 줄이 쓰는 기준과 맞춘다.
-  const upcoming = isUpcoming(content, todayKey()) || content.status === 'upcoming'
+  // 날짜가 있으면 날짜, 없으면(열혈사제2 등) status — 작품방 제목 줄과 같은 기준이다.
+  const upcoming = isUnreleased(content, todayKey())
 
   return (
     <div

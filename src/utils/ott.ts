@@ -141,6 +141,20 @@ export function isUpcoming(c: Content, todayKey: string): boolean {
   return !!d && d > todayKey
 }
 
+/**
+ * 아직 안 나온 작품인가 — 화면에서 '공개 예정'으로 다뤄야 하는지의 기준.
+ *
+ * **날짜가 있으면 날짜만 믿는다.** status 는 보조일 뿐이고, 공개일이 없는 작품
+ * (열혈사제2 등)에만 쓴다. `isUpcoming(c) || c.status === 'upcoming'` 처럼 OR 로 묶으면
+ * 안 된다 — TMDB 수집기가 status 를 'upcoming' 으로 박아넣고 공개일이 지나도
+ * 갱신하지 않아서(2026-09-20 기준 2,620편 중 2,472편이 'upcoming', 나머지는 null),
+ * 이미 나온 작품까지 전부 '공개 예정'으로 잡힌다. 실제로 캘린더 별점 줄이
+ * 이 OR 때문에 통째로 숨겨져 있었다.
+ */
+export function isUnreleased(c: Content, todayKey: string): boolean {
+  return effectiveReleaseDate(c) ? isUpcoming(c, todayKey) : c.status === 'upcoming'
+}
+
 /** 이 작품의 OTT 목록(안전 접근) — 플랫폼 우선순위대로 정렬해서 반환 */
 export function providersOf(c: Content): ContentProvider[] {
   return sortProviders(Array.isArray(c.providers) ? c.providers : [])

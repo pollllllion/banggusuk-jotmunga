@@ -56,6 +56,19 @@ jobs:
           if [ "$(date -u +%u)" = "7" ]; then ALL="--all"; else ALL=""; fi
           node scripts/sync-next-episodes.mjs --apply $ALL
 
+      # 공개 상태(공개 예정 / 공개 중 / 완결) 재판정. 수집기는 새 행에 'upcoming' 만 적고
+      # 공개일이 지나도 고치지 않는다 — 이 단계가 매일 그걸 따라잡는다. 다음 회차 동기화 뒤에
+      # 둔 건 방영 중 판정이 nextEpisodeDate 를 먼저 보기 때문이다(그만큼 TMDB 호출이 준다).
+      # 평소엔 바뀔 수 있는 행만, 일요일엔 완결 행까지 전부 다시 본다.
+      - name: 공개 상태 재판정
+        if: always()
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          if [ "$(date -u +%u)" = "7" ]; then ALL="--all"; else ALL=""; fi
+          node scripts/sync-status.mjs --apply $ALL
+
       # 누적관객수(영화진흥위원회) — 한국 극장 개봉 영화만. 상영 중에는 매일 오르는 값이라
       # 빈 칸만 채우는 보강과 따로 돈다. KOFIC 키가 없거나 칸이 아직 없으면 안내만 찍고 넘어간다.
       - name: 누적관객수 동기화 (KOFIC)

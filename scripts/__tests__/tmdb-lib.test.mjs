@@ -3,7 +3,7 @@ import {
   normName, matchTargetProviders, extractKrFlatrate, networksToProviders, pickKrMovieDate,
   withinRange, buildContentId, mergeProviders, fetchWithRetry,
   pickGenres, tvContentType, extractCast, extractDirectors, mapNetworks, tmdbAlive,
-  parseContentId, needsEnrich, pickNextEpisode,
+  parseContentId, needsEnrich, pickNextEpisode, tvStatus,
 } from '../tmdb-lib.mjs'
 
 describe('normName / provider 이름 매칭', () => {
@@ -375,5 +375,68 @@ describe('pickNextEpisode — 어느 행에 다음 회차를 적나', () => {
   it('스페셜(0 시즌)·날짜 없는 회차는 뺀다', () => {
     expect(pickNextEpisode(detail(0, 5))).toBeNull()
     expect(pickNextEpisode(detail(1, 5, null))).toBeNull()
+  })
+})
+
+describe('tvStatus — 공개 상태 판정 (scripts/sync-status.mjs)', () => {
+  const OPTS = { today: '2026-09-20', staleBefore: '2026-05-23' }
+  const ep = (season, date) => ({ season_number: season, air_date: date })
+  const tv = (o = {}) => ({ status: 'Returning Series', in_production: true, ...o })
+
+  describe('시리즈 행', () => {
+    it('다음 회차가 남아 있으면 공개 중', () => {
+      expect(tvStatus(tv({ next_episode_to_air: ep(1, '2026-09-24') }), null, OPTS)).toBe('ongoing')
+    })
+
+    it('TMDB 가 끝났다고 하면 완결', () => {
+      expect(tvStatus(tv({ status: 'Ended', in_production: false }), null, OPTS)).toBe('completed')
+      expect(tvStatus(tv({ status: 'Canceled', in_production: false }), null, OPTS)).toBe('completed')
+    })
+
+    it('방영 첫 주라 다음 회차가 아직 안 올라온 작품은 공개 중', () => {
+      // '나는 너를 알고 있다' — 2026-09-17 첫 회차 뒤 next 가 비어 있었다
+      expect(tvStatus(tv({ last_episode_to_air: ep(1, '2026-09-17') }), null, OPTS)).toBe('ongoing')
+    })
+
+    it("몇 년째 'Returning Series' 로 남은 시즌제는 완결로 본다 (STALE_DAYS)", () => {
+      expect(tvStatus(tv({ last_episode_to_air: ep(3, '2025-11-01') }), null, OPTS)).toBe('completed')
+    })
+
+    it('제작이 멈췄으면 마지막 회차가 최근이어도 완결', () => {
+      expect(tvStatus(tv({ in_production: false, last_episode_to_air: ep(1, '2026-09-17') }), null, OPTS)).toBe('completed')
+    })
+
+    it("'Planned' 는 아직 안 나온 것", () => {
+      expect(tvStatus(tv({ status: 'Planned', in_production: false }), null, OPTS)).toBe('upcoming')
+    })
+  })
+
+  describe('시즌 행 — 시리즈 상태를 그대로 쓰면 안 된다', () => {
+    it('제 시즌의 다음 회차가 있으면 공개 중', () => {
+      expect(tvStatus(tv({ next_episode_to_air: ep(2, '2026-09-24') }), 2, OPTS)).toBe('ongoing')
+    })
+
+    it('다음 시즌이 방영 중이면 이 시즌은 완결', () => {
+      expect(tvStatus(tv({ next_episode_to_air: ep(3, '2026-09-24'), last_episode_to_air: ep(3, '2026-09-17') }), 2, OPTS))
+        .toBe('completed')
+    })
+
+    it('더 나중 시즌이 이미 나갔으면 완결', () => {
+      expect(tvStatus(tv({ last_episode_to_air: ep(4, '2026-09-19') }), 2, OPTS)).toBe('completed')
+    })
+
+    it('이 시즌이 방금 시작했고 다음 회차가 아직 없으면 공개 중', () => {
+      // '기묘한 이야기 시즌2' — 2026-09-17 첫 회차 뒤 next 가 비어 있었다
+      expect(tvStatus(tv({ last_episode_to_air: ep(2, '2026-09-17') }), 2, OPTS)).toBe('ongoing')
+    })
+
+    it('이 시즌이 오래전에 끝났으면 완결', () => {
+      expect(tvStatus(tv({ last_episode_to_air: ep(2, '2025-03-01') }), 2, OPTS)).toBe('completed')
+    })
+
+    it('지난 날짜가 next 에 남아 있어도 공개 중으로 보지 않는다', () => {
+      expect(tvStatus(tv({ next_episode_to_air: ep(2, '2026-09-13'), last_episode_to_air: ep(2, '2026-09-13') }), 2, OPTS))
+        .toBe('ongoing')  // 마지막 회차가 최근이라 아직 방영 중 — 날짜만으로 완결 처리하지 않는다
+    })
   })
 })

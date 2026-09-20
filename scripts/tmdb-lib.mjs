@@ -290,6 +290,44 @@ export function needsEnrich(c, { today, all = false } = {}) {
 }
 
 /**
+ * TV 행의 공개 상태 — TMDB 시리즈 상세 하나로 'ongoing' / 'completed' / 'upcoming' 을 가른다.
+ * (공개일이 이미 지난 행에만 쓴다 — 미래면 부를 것도 없이 'upcoming' 이다. sync-status.mjs 참고)
+ *
+ * 시즌 행(tmdb-dr-N-sK)은 시리즈 상태를 그대로 쓰면 안 된다. 시즌2가 방영 중이어도 시즌1 행은
+ * 완결이다. 추가 호출 없이 '마지막/다음 방영 회차가 몇 번째 시즌인지' 로 가른다.
+ *
+ * 공통으로 깔린 어려움: TMDB 는 방영 첫 주에 next_episode_to_air 가 비어 있는 일이 잦고
+ * ('기묘한 이야기 시즌2' 가 2026-09-17 첫 회차 뒤 그랬다), 반대로 몇 년 전 끝난 시즌제 작품을
+ * 'Returning Series' 로 계속 들고 있다. 그래서 마지막 회차 날짜로 신선도를 같이 본다(staleBefore).
+ *
+ * @param {object} detail TMDB /tv/{id} 응답
+ * @param {number|null} seasonNumber 시즌 행이면 그 시즌 번호, 시리즈 행이면 null
+ * @param {{today: string, staleBefore: string}} opts 'YYYY-MM-DD'
+ */
+export function tvStatus(detail, seasonNumber, { today, staleBefore }) {
+  const day = v => (v ? String(v).slice(0, 10) : null)
+  const next = detail?.next_episode_to_air
+  const last = detail?.last_episode_to_air
+  const fresh = () => detail?.in_production && (!day(last?.air_date) || day(last.air_date) >= staleBefore)
+
+  if (seasonNumber) {
+    if (next?.season_number === seasonNumber && day(next.air_date) >= today) return 'ongoing'
+    if (next?.season_number > seasonNumber) return 'completed'   // 다음 시즌으로 넘어갔다
+    if (last?.season_number > seasonNumber) return 'completed'   // 더 나중 시즌이 이미 나갔다
+    // 이 시즌이 마지막으로 나간 시즌이다 — 다음 회차가 아직 안 올라왔을 뿐일 수 있다
+    if (last?.season_number === seasonNumber && fresh()) return 'ongoing'
+    return 'completed'
+  }
+
+  if (day(next?.air_date) >= today) return 'ongoing'
+  const s = detail?.status
+  if (s === 'Ended' || s === 'Canceled') return 'completed'
+  if (s === 'Planned') return 'upcoming'
+  // 'Returning Series' · 'In Production' · 'Pilot' — 다음 회차가 안 잡혀 있다
+  return fresh() ? 'ongoing' : 'completed'
+}
+
+/**
  * 이 행에 적을 "다음 회차" — TMDB tv 상세의 next_episode_to_air 에서 고른다. 없으면 null.
  *
  * 한 시리즈가 시리즈 행(tmdb-dr-N)과 시즌 행(tmdb-dr-N-sK)으로 나뉘어 있을 수 있어서,

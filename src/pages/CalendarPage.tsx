@@ -15,7 +15,7 @@ import { TYPE_LABELS } from '@/utils/constants'
 import { scoreColor } from '@/utils/helpers'
 import { getAirPattern } from '@/utils/airPattern'
 import {
-  effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl, nextEpisodeOf,
+  effectiveReleaseDate, isUpcoming, isUnreleased, providersOf, providerLogoUrl, nextEpisodeOf,
   hasProvider, releaseSourceLabel, platformSortRank, posterThumb,
   THEATER_FILTER, isTheatricalRelease,
   CALENDAR_OTT_FILTERS, OTHER_FILTER, hasMinorProvider,
@@ -666,7 +666,7 @@ export function CalendarPage() {
                 · 개수를 늘 같이 쓴다 — 한두 개짜리 평균을 TMDB(수천 표) 옆에 숫자만 놓으면 믿음이 깎인다
                 · 수치는 selected.avgRating(DB 집계값). 화면에서 다시 세지 않는다 — 남의 watched 는
                   캐시에 안 와서(USER_SCOPED) 여기서 세면 실제보다 적게 나온다 */}
-            {!(isUpcoming(selected, todayKey) || selected.status === 'upcoming') && (
+            {!isUnreleased(selected, todayKey) && (
               <div className="cal-score">
                 {selected.reviewCount > 0 ? (
                   <>

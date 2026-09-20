@@ -422,7 +422,12 @@ function normalizeRow(x) {
     platform: x.platform || x.providers?.[0]?.providerName || null,
     releaseYear: x.releaseDate ? Number(x.releaseDate.slice(0, 4)) : null,
     releaseDate: x.releaseDate,
-    status: 'upcoming',
+    // ★ status 는 보내지 않는다 (2026-09-20) ★
+    //   이 수집기는 2026년 **전체**(지난 작품 포함)를 훑는데 예전엔 무조건 'upcoming' 을 박았다.
+    //   upsert 가 merge-duplicates 라 이미 완결로 판정된 작품도 동기화될 때마다 '공개 예정' 으로
+    //   되돌아갔다 — 전체 2,620편 중 2,472편이 'upcoming' 이었던 이유다.
+    //   status 의 저자는 scripts/sync-status.mjs 하나뿐이고, 워크플로가 이 단계 뒤에 그걸 돌린다.
+    //   새 행은 잠깐 null 이지만 같은 실행 안에서 채워진다.
     popularity: Math.round(x.popularity || 0),
     // ★ avgRating·reviewCount 는 보내지 않는다 (2026-09-14) ★
     //   upsert 가 merge-duplicates 라 이미 있는 작품에 0 을 덮어써서, 동기화될 때마다 이용자 별점이

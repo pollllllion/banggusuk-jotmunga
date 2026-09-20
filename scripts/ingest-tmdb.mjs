@@ -73,6 +73,8 @@ function toRow(type, m, dateField, genreMap, platform) {
     platform,
     releaseYear: Number(date.slice(0, 4)),
     releaseDate: date,
+    // 여기는 `date < today` 를 위에서 걸러 **아직 안 나온 작품만** 들어오므로 'upcoming' 이 맞다.
+    // 공개일이 지난 뒤 이 값을 고치는 건 scripts/sync-status.mjs 다 (매일 이 수집 뒤에 돈다).
     status: 'upcoming',
     popularity: Math.round(m.popularity || 0),
     // avgRating·reviewCount 는 보내지 않는다 — upsert(merge-duplicates)가 기존 작품의 이용자 별점을

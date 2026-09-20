@@ -54,7 +54,11 @@ Vite + TS + Supabase 정적 SPA. 두 대의 PC에서 번갈아 작업한다.
 ## 스크립트
 
 `npm run dev`(:3000) · `build`(prebuild=sitemap, postbuild=prerender) · `test`
-`ingest` / `sync:ott` / `dedupe` / `enrich` / `personas:create` / `post` 는 `.env`의 `SUPABASE_SERVICE_KEY` 필요.
+`ingest` / `sync:ott` / `dedupe` / `enrich` / `status` / `personas:create` / `post` 는 `.env`의 `SUPABASE_SERVICE_KEY` 필요.
+
+`status`(`scripts/sync-status.mjs`)는 공개 상태(공개 예정·공개 중·완결)를 다시 매긴다. **수집기는 이 칸의 저자가 아니다** —
+`sync-tmdb-ott` 는 아예 안 쓰고 `ingest` 는 새 예정작에만 적는다. 공개일이 지난 뒤 값을 고치는 건 이 스크립트 하나뿐이고,
+두 수집 워크플로가 각자 끝에서 돌린다. 수집기에 `status` 를 다시 넣지 말 것 — 완결 판정이 매번 '공개 예정' 으로 되돌아간다.
 
 ## 시드 페르소나로 글 올리기
 
