@@ -130,6 +130,9 @@ export interface Content {
    *  지난 날짜가 남아 있을 수 있으니 읽을 땐 utils/ott 의 nextEpisodeOf 를 거칠 것 */
   nextEpisodeDate?: string | null
   nextEpisodeNumber?: number | null
+  /** 누적관객수 (영화진흥위원회 KOFIC · 한국 극장 개봉 영화만).
+   *  시작 로드 컬럼이 아니라 cache.ts 가 값 있는 행만 따로 받아 붙인다 — 목록·정렬에서도 읽을 수 있다 */
+  koficAudience?: number | null
   /** 숏폼을 캘린더에 올릴지 (수집기 점수 또는 관리자). 역시 cache.ts 가 따로 받아 붙인다 —
    *  shared/shortForm.mjs 의 isOnCalendar 가 읽는다 */
   calendarPick?: boolean

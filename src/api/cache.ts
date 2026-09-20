@@ -265,6 +265,32 @@ async function loadCalendarPicks(): Promise<Set<string>> {
   } catch { return new Set() }
 }
 
+/**
+ * 누적관객수가 적힌 작품 (id → 명). 한국 극장 개봉 영화 수백 편뿐이다
+ * (supabase/migration_kofic.sql · scripts/sync-kofic.mjs).
+ *
+ * 다음 회차·숏폼 픽과 같은 이유로 목록 컬럼에 넣지 않고 따로 받는다 — 칸이 없으면 이 조회만
+ * 실패하고 관객수가 안 보일 뿐이다. 값이 있는 행만 받으므로 gzip 0.7KB(2026-09-20 실측).
+ *
+ * 2단계(loadRest)가 목록 컬럼만 담은 새 행으로 덮으므로, 받은 표를 모듈에 들고 있다가
+ * 그쪽에서도 다시 얹는다 — 안 그러면 작품 전체가 오는 순간 관객수가 사라진다.
+ */
+let audienceById = new Map<string, number>()
+
+async function loadAudience(): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  try {
+    const { data, error } = await supabase.from('contents')
+      .select('id,koficAudience').not('koficAudience', 'is', null)
+    if (error) return out
+    for (const r of (data ?? []) as unknown as any[]) {
+      const n = Number(r.koficAudience)
+      if (Number.isFinite(n) && n > 0) out.set(r.id, n)
+    }
+  } catch { /* 표시만 안 나온다 */ }
+  return out
+}
+
 /** 마지막 1단계가 받은 공개일 범위 — 부팅 스냅샷에 같이 적는다 */
 let lastWindow: { from: string; to: string } | null = null
 
@@ -273,6 +299,7 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   lastWindow = { from, to }
   const nextEpisodesP = loadNextEpisodes()   // 작품 창과 나란히 받는다
   const picksP = loadCalendarPicks()
+  const audienceP = loadAudience()
   const { data, error } = await supabase.from('contents').select(CONTENT_LIST_COLS)
     .gte('releaseDate', from).lte('releaseDate', to)
   if (error) { console.error('[supabase load] contents window', error.message) }
@@ -307,11 +334,15 @@ async function loadContentsWindow(src: Record<Table, any[]>): Promise<any[]> {
   const picks = await picksP
   for (const id of picks) want(id)
 
+  audienceById = await audienceP
+
   if (need.size) rows.push(...await fetchContentsByIds([...need]))
   for (const r of rows as any[]) {
     const ne = nextEpisodes.get(r.id)
     if (ne) { r.nextEpisodeDate = ne.date; r.nextEpisodeNumber = ne.number }
     if (picks.has(r.id)) r.calendarPick = true
+    const audi = audienceById.get(r.id)
+    if (audi) r.koficAudience = audi
   }
   return dedupeRows('contents', rows)
 }
@@ -348,7 +379,11 @@ export async function loadRest() {
   const prevById = new Map(cache.contents.map((c: any) => [c.id, c]))
   const merged = fresh.map((r: any) => {
     const prev = prevById.get(r.id)
-    return prev ? { ...prev, ...r } : r
+    const row = prev ? { ...prev, ...r } : r
+    // 곁다리로 받은 값은 목록 컬럼에 없다 — 새 행으로 덮인 뒤 다시 얹는다
+    const audi = audienceById.get(row.id)
+    if (audi) row.koficAudience = audi
+    return row
   })
   // 로드 중에 새로 만들어진 작품(ensureContent)이 fresh 에 없을 수 있다
   const freshIds = new Set(fresh.map((r: any) => r.id))

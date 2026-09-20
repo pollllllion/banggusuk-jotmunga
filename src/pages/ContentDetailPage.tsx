@@ -19,7 +19,7 @@ import { BackIcon, BellIcon, BookmarkIcon, EyeIcon, FlagIcon } from '@/component
 import { ShareButton } from '@/components/ui/ShareButton'
 import { TYPE_LABELS } from '@/utils/constants'
 import { shortPlatformOf } from '@/shared/shortForm.mjs'
-import { scoreColor, scoreLabel } from '@/utils/helpers'
+import { scoreColor, scoreLabel, formatAudience } from '@/utils/helpers'
 import { expertRatingFor } from '@/utils/level'
 import { summarizeRatings } from '@/utils/rating'
 import { SITE_URL } from '@/utils/seo'
@@ -360,6 +360,16 @@ export function ContentDetailPage() {
                 {content.voteAverage!.toFixed(1)}
               </span>
               <span className="score-tmdb-cnt">· {content.voteCount!.toLocaleString('ko-KR')}명</span>
+            </div>
+          )}
+          {/* 누적관객 — 한국 극장 개봉작만. 평점 옆에 나란히 둔다.
+              별점이 아직 없는 영화에서도 "얼마나 봤나"는 판단이 된다 — 그게 이 줄의 값이다.
+              출처는 정부기관 공식 API(영화진흥위원회), 값은 scripts/sync-kofic.mjs 가 매일 적는다. */}
+          {typeof content.koficAudience === 'number' && content.koficAudience > 0 && (
+            <div className="score-tmdb score-kofic">
+              <span className="score-tmdb-label">누적관객</span>
+              <span className="score-tmdb-val">{formatAudience(content.koficAudience)}</span>
+              <span className="score-tmdb-cnt">· 영화진흥위원회</span>
             </div>
           )}
           {expertRating.count > 0 && (

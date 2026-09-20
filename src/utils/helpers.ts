@@ -9,6 +9,16 @@ export function normalizeTitle(s: string): string {
   return (s || '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase()
 }
 
+/**
+ * 누적관객수 표기 — 1,234,567명.
+ *
+ * '123만 명'으로 줄여도 읽기는 쉽지만, 관객수는 '천만'처럼 정확한 수가 곧 이야깃거리라
+ * 원수를 그대로 쓴다. 출처(영화진흥위원회)는 쓰는 쪽에서 덧붙인다.
+ */
+export function formatAudience(n: number): string {
+  return `${Math.round(n).toLocaleString('ko-KR')}명`
+}
+
 /** SHA-256 hex (유동닉 글 비밀번호 해시용) */
 export async function sha256hex(str: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))

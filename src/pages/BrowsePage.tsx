@@ -261,6 +261,11 @@ export function BrowsePage() {
     (b.reviewCount ?? 0) - (a.reviewCount ?? 0) ||
     (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
   else if (sort === 'reviews') contents = [...contents].sort((a, b) => b.reviewCount - a.reviewCount)
+  // 관객순 — 한국 극장 개봉 영화만 값이 있다(영화진흥위원회). 없는 작품은 뒤로 밀되 순서가
+  // 아무렇게나 되지 않게 공개연도로 한 번 더 가른다. 영화 필터를 같이 걸면 이 줄만 남는다.
+  else if (sort === 'audience') contents = [...contents].sort((a, b) =>
+    (b.koficAudience ?? 0) - (a.koficAudience ?? 0) ||
+    (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
   else if (sort === 'year') contents = [...contents].sort((a, b) => (b.releaseYear ?? 0) - (a.releaseYear ?? 0))
   // ?sort=latest (옛 링크) — 등록순. 버튼은 없앴지만 주소로 들어오면 그대로 보여준다
   else if (sort !== 'relevance') contents = [...contents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -333,6 +338,7 @@ export function BrowsePage() {
           <button className={sort === 'top' ? 'active' : ''} onClick={() => setParam('sort', 'top')}>평점순</button>
           <button className={sort === 'year' || sort === 'latest' ? 'active' : ''} onClick={() => setParam('sort', 'year')}>공개연도</button>
           <button className={sort === 'reviews' ? 'active' : ''} onClick={() => setParam('sort', 'reviews')}>리뷰순</button>
+          <button className={sort === 'audience' ? 'active' : ''} onClick={() => setParam('sort', 'audience')}>관객순</button>
         </div>
       </div>
 

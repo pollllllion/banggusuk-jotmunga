@@ -669,6 +669,17 @@ html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: 
   box-shadow: 0 1px 4px rgba(0,0,0,.25);
 }
 
+/* 천만 관객 — 포스터 왼쪽 위. '✓ 공식'이 같이 있으면 그 아래로 내려 겹치지 않게 한다
+   (금색은 이 배지 하나만 쓴다 — 둘이 같은 색이면 눈이 구분을 못 한다) */
+.audience-badge {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  padding: 2px 7px; border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #B45309, #F59E0B); color: #fff;
+  font-size: 10px; font-weight: 800; white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.verified-badge + .audience-badge { top: 28px; }
+
 /* 관리자 작품목록 — 인증 상태 태그 */
 .admin-verified-tag { margin-left: 6px; padding: 0 7px; border-radius: var(--radius-full); font-size: 11px; font-weight: 700; border: 1px solid; }
 .admin-verified-tag.ok { color: var(--primary); border-color: var(--primary); }
@@ -1478,6 +1489,9 @@ html::-webkit-scrollbar-thumb { border: 2px solid transparent; background-clip: 
 .score-tmdb-label { font-size: 11px; color: var(--subtext); }
 .score-tmdb-val { font-size: 15px; font-weight: 800; }
 .score-tmdb-cnt { font-size: 11px; color: var(--subtext); }
+
+/* 누적관객(KOFIC) — TMDB 평점 줄과 같은 모양. 둘이 잇달아 나오면 경계선이 겹쳐 두 줄로 보인다 */
+.score-tmdb + .score-kofic { border-top: 0; margin-top: 2px; padding-top: 0; }
 
 .score-expert {
   display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;

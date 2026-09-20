@@ -190,6 +190,20 @@
 .cal-modal-just { font-size: 11px; color: var(--subtext); padding: 0 20px 16px; margin: 0; }
 .cal-modal-syn { font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
 
+/* ── 오티티칼 별점 줄 (모달 · 2026-09-20) ──
+   작품방의 점수 띠(.cs-score)와 같은 생김새를 좁은 모달 폭에 맞춰 줄였다.
+   버튼(.score-mine)은 global.css 것을 그대로 쓴다 — 두 벌로 두면 한쪽만 고쳐진다. */
+.cal-score {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 20px; padding: 10px 0;
+  border-top: 1px solid var(--border-light);
+}
+.cal-score-num { font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.cal-score-sub { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-score-sub em { font-style: normal; font-size: 11.5px; color: var(--subtext); }
+.cal-score-empty { font-size: 12.5px; color: var(--subtext); }
+.cal-score .score-mine { margin: 0 0 0 auto; width: auto; flex-shrink: 0; }
+
 /* ── 상세 정보 (네이버 검색 스타일) ── */
 .cal-detail { padding: 4px 20px 4px; }
 .cal-detail-grid {
@@ -408,6 +422,8 @@
   .cal-modal-top { gap: 12px; padding: 16px; }
   .cal-modal-info h2 { font-size: 16px; }
   .cal-detail { padding: 4px 16px; }
+  .cal-score { margin: 0 16px; }
+  .cal-score .score-mine { flex: 1 0 100%; margin: 8px 0 0; }
   .cal-modal-actions { padding: 0 16px 16px; gap: 6px; }
   .cal-act { font-size: 13px; }
   .cal-modal-just { padding: 0 16px 14px; }

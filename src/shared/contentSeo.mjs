@@ -46,6 +46,18 @@ function fmtDate(d) {
   return d ? d.replace(/-/g, '. ') : null
 }
 
+/**
+ * 검색결과용 관객수 표기 — 1,692만 명 / 9,050명.
+ *
+ * 화면(작품방·모달)은 원수를 그대로 쓰지만, 설명은 네이버가 110자쯤에서 자른다.
+ * '16,928,432명'은 그 줄에서 자리를 너무 먹어서 뒤 문장을 밀어낸다 — 만 단위로 줄인다.
+ */
+export function audienceLabel(n) {
+  const v = Math.round(Number(n) || 0)
+  if (v <= 0) return null
+  return v >= 10000 ? `${Math.floor(v / 10000).toLocaleString('ko-KR')}만 명` : `${v.toLocaleString('ko-KR')}명`
+}
+
 /** 이 작품을 볼 수 있는 OTT 이름들 (중복 제거, 최대 3개) */
 function providerNames(c) {
   const names = (c.providers || []).map(p => p.providerName).filter(Boolean)
@@ -103,7 +115,15 @@ export function buildContentDescription(c, today = todayKey()) {
     }
   }
 
-  // 3) 줄거리가 있으면 그대로, 없으면 장르·출연·편성으로 대체
+  // 3) 누적관객 — 한국 극장 개봉 영화만 (영화진흥위원회, scripts/sync-kofic.mjs).
+  //    '○○ 관객수'·'○○ 몇만'은 평점과 같은 부류의 검색이고, 평점과 달리 **우리가 아니라
+  //    정부기관이 센 수**라 표본 걱정이 없다. 별점이 없는 영화에서도 이 줄은 채워진다.
+  if (!upcoming) {
+    const audi = audienceLabel(c.koficAudience)
+    if (audi) parts.push(`누적관객 ${audi}.`)
+  }
+
+  // 4) 줄거리가 있으면 그대로, 없으면 장르·출연·편성으로 대체
   if (c.synopsis && c.synopsis.trim()) {
     parts.push(c.synopsis.trim())
   } else {
@@ -167,6 +187,18 @@ export function buildContentJsonLd(c, siteUrl) {
       : {}),
     ...(c.castMembers && c.castMembers.length
       ? { actor: c.castMembers.slice(0, 10).map(m => ({ '@type': 'Person', name: m.name })) }
+      : {}),
+    // 누적관객수 — schema.org 에 극장 관객수 속성이 없어 additionalProperty(PropertyValue)로 둔다.
+    // 검색결과에 그려지지는 않지만, 이 페이지가 가진 사실을 구조화해 두는 값은 남는다.
+    ...(c.koficAudience > 0
+      ? {
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: '누적관객수',
+            value: c.koficAudience,
+            unitText: '명',
+          },
+        }
       : {}),
     // 리뷰 0건인데 aggregateRating 을 넣으면 구글이 스팸으로 본다
     ...(c.reviewCount > 0

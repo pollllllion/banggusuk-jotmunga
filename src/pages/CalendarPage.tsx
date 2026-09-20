@@ -7,9 +7,12 @@ import { useToastStore } from '@/components/ui/Toast'
 import { Poster } from '@/components/content/Poster'
 import { ContentInfo } from '@/components/content/ContentInfo'
 import { ContentDetailFallback } from '@/components/content/ContentDetailFallback'
+import { RatingSheet } from '@/components/content/RatingSheet'
+import { Stars } from '@/components/ui/Score'
 import { useContentDetail } from '@/hooks/useContentDetail'
 import { BellIcon, BookmarkIcon, CommentIcon } from '@/components/ui/Icons'
 import { TYPE_LABELS } from '@/utils/constants'
+import { scoreColor } from '@/utils/helpers'
 import { getAirPattern } from '@/utils/airPattern'
 import {
   effectiveReleaseDate, isUpcoming, providersOf, providerLogoUrl, nextEpisodeOf,
@@ -137,6 +140,7 @@ export function CalendarPage() {
   const [alerted, setAlerted] = useState(false)
   const [dayList, setDayList] = useState<{ key: string; items: Content[]; episodes: Content[] } | null>(null)
   const [airPattern, setAirPattern] = useState<string | null>(null)
+  const [rateOpen, setRateOpen] = useState(false)
 
   // 배경을 눌러 닫는 건 마우스만의 방법이다. 날짜 목록이 위에 있으면 그것부터 닫는다.
   useEscapeKey(!!dayList || !!selected, () => { if (dayList) setDayList(null); else setSelected(null) })
@@ -304,6 +308,55 @@ export function CalendarPage() {
       toast('공개일에 알려드릴게요.')
     } catch (e: any) {
       toast(e?.message || '알림 권한을 받지 못했어요. 설정에서 다시 켜주세요.')
+    }
+  }
+
+  /**
+   * 별점 매기기 — 캘린더 모달 안에서 바로.
+   *
+   * 왜 여기냐: 캘린더가 유입이 가장 많은 화면인데 별점을 매길 자리가 없었다. 작품방까지
+   * 들어가야만 매길 수 있으니 2,594편 중 별점 달린 건 81편(3%)에 그쳤다(2026-09-20 실측).
+   * 작품 앞에 서 있는 지금 한 번에 끝낸다 — 작품방의 openRating 과 같은 규칙이다.
+   */
+  const myRating = user && selected
+    ? DS.getUserWatched(user.id).find(w => w.contentId === selected.id)?.rating ?? null
+    : null
+
+  const openRating = () => {
+    if (!selected) return
+    if (!isAccount) { toast('별점은 로그인(고정닉) 후 매길 수 있어요.'); return }
+    // 글로 매긴 별점이 있으면 그쪽이 원본이다 — 두 곳에서 따로 매기면 어느 게 진짜인지 알 수 없다
+    const posted = user && DS.getDiscussionsByContent(selected.id)
+      .find(d => d.authorId === user.id && d.rating != null)
+    if (posted) { toast(`이 작품엔 글로 매긴 별점(★ ${posted.rating})이 있어요. 작품방에서 고쳐주세요.`); return }
+    setRateOpen(true)
+  }
+
+  const pickRating = async (rating: number | null) => {
+    setRateOpen(false)
+    if (!user || !selected) return
+    const c = selected
+    const watched = DS.isWatched(user.id, c.id)
+    try {
+      // 별점을 매겼다는 건 봤다는 뜻이다 — 안 담겨 있으면 담으면서 매긴다(작품방과 동일)
+      if (!watched && rating != null) {
+        await DS.registerWatched({
+          contentId: c.id, type: c.type, title: c.title,
+          posterUrl: c.posterUrl, platform: c.platform,
+          releaseYear: c.releaseYear, synopsis: c.synopsis,
+          genres: c.genres, creators: c.creators,
+        })
+      }
+      await DS.updateWatchedRating(user.id, c.id, rating)
+      DS.recomputeContentRating(c.id)
+      toast(rating != null
+        ? (watched ? `★ ${rating} 로 매겼어요.` : `★ ${rating} · 본 작품에도 담았어요.`)
+        : '별점을 지웠어요.')
+      // 재집계는 cache.contents 에 새 객체를 넣는다 — 모달이 든 건 옛 객체라 다시 집어와야 반영된다
+      const fresh = DS.getContentById(c.id)
+      if (fresh) setSelected(fresh)
+    } catch {
+      toast('별점을 저장하지 못했어요. 잠시 후 다시 시도해주세요.')
     }
   }
 
@@ -603,6 +656,39 @@ export function CalendarPage() {
               </div>
             </div>
 
+            {/* ── 오티티칼 별점 ─────────────────────────────────────────
+                값이 있을 때만 숫자를 쓰고, 없으면 그 자리를 '첫 별점' 버튼에 준다.
+                캘린더 창(±60일) 585편 중 우리 별점이 달린 건 10편이다(2026-09-20 실측) —
+                숫자만 넣으면 열에 아홉이 빈칸이라 오히려 비어 보인다. 빈칸을 채울 버튼이
+                그 자리의 쓸모고, 별점이 쌓여야 TMDB 옆에 내놓을 수치도 생긴다.
+
+                · 아직 안 나온 작품은 줄을 통째로 뺀다 — 별점이 있을 수 없다(작품방과 같은 규칙)
+                · 개수를 늘 같이 쓴다 — 한두 개짜리 평균을 TMDB(수천 표) 옆에 숫자만 놓으면 믿음이 깎인다
+                · 수치는 selected.avgRating(DB 집계값). 화면에서 다시 세지 않는다 — 남의 watched 는
+                  캐시에 안 와서(USER_SCOPED) 여기서 세면 실제보다 적게 나온다 */}
+            {!(isUpcoming(selected, todayKey) || selected.status === 'upcoming') && (
+              <div className="cal-score">
+                {selected.reviewCount > 0 ? (
+                  <>
+                    <span className="cal-score-num" style={{ color: scoreColor(selected.avgRating) }}>
+                      {selected.avgRating.toFixed(1)}
+                    </span>
+                    <span className="cal-score-sub">
+                      <Stars score={selected.avgRating} size={12} />
+                      <em>오티티칼 별점 {selected.reviewCount}개</em>
+                    </span>
+                  </>
+                ) : (
+                  <span className="cal-score-empty">아직 오티티칼 별점이 없어요</span>
+                )}
+                <button type="button" className={`score-mine ${myRating != null ? 'on' : ''}`} onClick={openRating}>
+                  {myRating != null
+                    ? <>내 별점 <b style={{ color: scoreColor(myRating) }}>{myRating}</b></>
+                    : selected.reviewCount > 0 ? '별점 남기기' : '첫 별점 남기기'}
+                </button>
+              </div>
+            )}
+
             {/* 상세 정보 (네이버 검색 스타일) */}
             <div className="cal-detail">
               <ContentInfo content={selected} detail={detail} />
@@ -637,6 +723,15 @@ export function CalendarPage() {
             )}
             {selProviders.length > 0 && (
               <p className="cal-modal-just">OTT 제공 정보: JustWatch · 실제 국내 공개일과 다를 수 있어요.</p>
+            )}
+
+            {rateOpen && (
+              <RatingSheet
+                title={selected.title}
+                rating={myRating}
+                onPick={pickRating}
+                onClose={() => setRateOpen(false)}
+              />
             )}
           </div>
         </div>

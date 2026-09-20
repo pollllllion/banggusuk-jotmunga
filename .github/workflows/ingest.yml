@@ -56,6 +56,15 @@ jobs:
           if [ "$(date -u +%u)" = "7" ]; then ALL="--all"; else ALL=""; fi
           node scripts/sync-next-episodes.mjs --apply $ALL
 
+      # 누적관객수(영화진흥위원회) — 한국 극장 개봉 영화만. 상영 중에는 매일 오르는 값이라
+      # 빈 칸만 채우는 보강과 따로 돈다. KOFIC 키가 없거나 칸이 아직 없으면 안내만 찍고 넘어간다.
+      - name: 누적관객수 동기화 (KOFIC)
+        if: always()
+        env:
+          KOFIC_API_KEY: ${{ secrets.KOFIC_API_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/sync-kofic.mjs --apply --days=10
+
       # 공개 예정작은 수집 때 포스터가 없다가 나중에 올라오는 일이 많다 — 빈 칸만 다시 본다.
       # 포스터가 없으면 모바일 캘린더 칸이 회색 박스로 남는다. 03:30 재배포(daily-rebuild)가 반영한다.
       - name: 빈 포스터 채우기

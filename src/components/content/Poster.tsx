@@ -38,6 +38,14 @@ export function Poster({ content, showScore = true, showVerified = true }: { con
         </div>
       )}
       {showVerified && content.verified && <span className="verified-badge" title="관리자 공식 인증 작품">✓ 공식</span>}
+      {/* 천만 관객 — 한국에서 '천만'은 그 자체로 이름표라 숫자보다 이 말이 빨리 읽힌다.
+          2,594편 중 두 편뿐이라(2026-09-20) 포스터가 배지밭이 되지 않는다.
+          값은 영화진흥위원회 집계(scripts/sync-kofic.mjs) */}
+      {(content.koficAudience ?? 0) >= 10_000_000 && (
+        <span className="audience-badge" title={`누적관객 ${content.koficAudience!.toLocaleString('ko-KR')}명 (영화진흥위원회)`}>
+          천만 관객
+        </span>
+      )}
       {showScore && content.reviewCount > 0 && (
         <span className="score-corner" style={{ background: scoreColor(content.avgRating) }}>
           {content.avgRating.toFixed(1)}

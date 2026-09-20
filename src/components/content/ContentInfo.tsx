@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import { castProfileUrl, channelNames, nextEpisodeOf } from '@/utils/ott'
+import { formatAudience } from '@/utils/helpers'
 import { shortPlatformByName, trustedEpisodeCount, isShortForm } from '@/shared/shortForm.mjs'
 import { EpisodeList, episodeRef } from './EpisodeList'
 import type { Content } from '@/types'
@@ -46,8 +47,9 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
   const sched = scheduleSummary(content)
   const nextEp = nextEpisodeLabel(content)
   const hasRating = typeof content.voteAverage === 'number' && content.voteAverage > 0
+  const hasAudience = typeof content.koficAudience === 'number' && content.koficAudience > 0
   const hasGrid = (content.creators?.length ?? 0) > 0 || networks.length > 0 || !!sched || !!nextEp ||
-    (content.genres?.length ?? 0) > 0 || hasRating
+    (content.genres?.length ?? 0) > 0 || hasRating || hasAudience
   const hasEpisodes = !!episodeRef(content)
   if (!hasGrid && !cast.length && !hasEpisodes) return null
 
@@ -81,6 +83,12 @@ export function ContentInfo({ content, detail = 'ready' }: { content: Content; d
         )}
         {hasRating && (
           <><dt>평점</dt><dd>{content.voteAverage!.toFixed(1)} <span className="cal-detail-sub">/ 10 (TMDB)</span></dd></>
+        )}
+        {/* 누적관객 — 한국에서 극장 개봉한 영화만 있다. 평점이 남의 취향이라면 이건 사실에 가깝고,
+            출처가 정부기관(영화진흥위원회)이라 숫자를 그대로 믿고 쓸 수 있다.
+            값은 scripts/sync-kofic.mjs 가 매일 받아 적는다(상세 전용 칸이라 모달·작품방에서만 보인다) */}
+        {hasAudience && (
+          <><dt>누적관객</dt><dd>{formatAudience(content.koficAudience!)} <span className="cal-detail-sub">(영화진흥위원회)</span></dd></>
         )}
       </dl>
 
