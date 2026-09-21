@@ -1,7 +1,7 @@
 /**
  * 네이버 유입 검색어 받아오기 (서치어드바이저 → Supabase) — 내 PC 전용
  *
- *   node --env-file-if-exists=.env scripts/naver-sa.mjs            # 수집해서 반영 (작업 스케줄러가 주 1회 부른다)
+ *   node --env-file-if-exists=.env scripts/naver-sa.mjs            # 수집해서 반영 (작업 스케줄러가 매일 부른다)
  *   node --env-file-if-exists=.env scripts/naver-sa.mjs --dry      # 미리보기
  *   node --env-file-if-exists=.env scripts/naver-sa.mjs --login    # 처음 한 번 / 로그인이 풀렸을 때
  *
@@ -22,6 +22,16 @@
  *   ② period=7 에서 ①과 이미 적힌 날들을 뺀 나머지 → 비어 있는 날들 중 첫날에 한 덩어리로
  *   관리자 통계는 기간 안의 행을 합쳐 보여주므로(search_queries_summary) 덩어리여도 합계는 정확하다.
  *   7일보다 오래 안 돌면 그 사이 날짜는 네이버에서도 사라져 못 받는다.
+ *
+ * 왜 매일 도나 (2026-09-21):
+ *   ① 네이버 로그인 쿠키는 접속할 때마다 갱신된다 — 주 1회는 세션을 굶겨서 자꾸 풀렸다
+ *   ② 매일 period=1 을 받으면 날짜별 실제값이 들어가 ②의 덩어리 추정이 거의 필요 없어진다
+ *   ③ 하루 실패해도 다음 날 메우니 '7일 넘겨 영구 손실' 이 사실상 사라진다
+ *
+ * 로그인 만료 판정 (2026-09-21):
+ *   예전엔 응답이 조금만 이상해도 전부 '로그인 풀림' 으로 알렸다(오진). 이제는
+ *   nid.naver.com 리다이렉트 · 401/403 · 로그인 페이지 HTML 일 때만 만료로 보고,
+ *   나머지(일시적 5xx·JSON 깨짐)는 잠깐 쉬었다 세 번까지 다시 해 본다.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -40,8 +50,11 @@ const DRY = process.argv.includes('--dry')
 const SUPA = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const KEY = process.env.SUPABASE_SERVICE_KEY
 
+// headless 크롬은 UA 에 'HeadlessChrome' 이 박혀서 네이버가 비정상 접속으로 보고 세션을 끊을 수 있다.
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
 const openBrowser = headless => chromium.launchPersistentContext(PROFILE, {
   channel: 'chrome', headless, viewport: { width: 1280, height: 900 },
+  ...(headless ? { userAgent: UA } : {}),
 })
 
 // ── 로그인 ──────────────────────────────────────────────────
@@ -66,9 +79,21 @@ if (LOGIN) {
 // ── 수집 ────────────────────────────────────────────────────
 if (!KEY && !DRY) { console.error('SUPABASE_SERVICE_KEY 가 없습니다 (.env).'); process.exit(1) }
 
-/** 작업 스케줄러는 창 없이 돈다 — 사람이 손써야 할 때만 화면에 알림을 띄운다 */
-function alertUser(text) {
-  execFile('msg', ['*', `[오티티칼] ${text}`], () => {})
+/**
+ * 작업 스케줄러는 창 없이 돈다 — 사람이 손써야 할 때만 알린다.
+ * msg 팝업은 그 PC 화면 앞에 있어야 보이므로 텔레그램을 먼저 보낸다(퀀트와 같은 봇, .env 두 줄).
+ */
+async function alertUser(text) {
+  const msg = `[오티티칼] ${text}`
+  execFile('msg', ['*', msg], () => {})
+  const token = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_CHAT_ID
+  if (!token || !chat) return
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat, text: msg, disable_web_page_preview: true }),
+    })
+  } catch (e) { console.warn('텔레그램 알림 실패:', e.message) }
 }
 
 const ymd = s => `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`
@@ -96,26 +121,50 @@ async function writeLog(status, extra = {}) {
   } catch (e) { console.warn('로그 기록 실패:', e.message) }
 }
 
-async function fetchReports() {
+/** 로그인이 진짜 풀렸을 때만 던진다 — 이걸 받으면 사람을 부른다 */
+class LoginExpired extends Error {}
+const looksLikeLogin = t => /nid\.naver\.com|<title>[^<]*네이버 ?로그인/i.test(t || '')
+
+async function fetchOnce() {
   const encId = fs.existsSync(CONFIG) ? JSON.parse(fs.readFileSync(CONFIG, 'utf8')).encId : null
-  if (!encId) return { needLogin: true }
+  if (!encId) throw new LoginExpired('로그인 기록(enc_id)이 없습니다')
   const ctx = await openBrowser(true)
   try {
     const page = ctx.pages()[0] || await ctx.newPage()
     await page.goto(CONSOLE)
     await page.waitForTimeout(2500)
     // 로그인이 풀렸으면 네이버 로그인 화면으로 넘어간다
-    if (/nid\.naver\.com/.test(page.url())) return { needLogin: true }
+    if (/nid\.naver\.com/.test(page.url())) throw new LoginExpired('콘솔이 로그인 화면으로 넘어갔습니다')
     const base = `https://searchadvisor.naver.com/api-console/report/expose/${encId}?site=${encodeURIComponent(SITE)}&device=d&topN=1000`
     const get = async period => {
-      const text = await page.evaluate(async u => (await fetch(u, { credentials: 'include' })).text(), `${base}&period=${period}`)
-      let j; try { j = JSON.parse(text) } catch { return null }
-      return j?.code === 0 ? { latest: j.meta?.latestDate, ...j.items?.[0] } : null
+      const r = await page.evaluate(async u => {
+        const res = await fetch(u, { credentials: 'include' })
+        return { status: res.status, url: res.url, text: await res.text() }
+      }, `${base}&period=${period}`)
+      // ── 여기부터가 '진짜 만료' 다
+      if (r.status === 401 || r.status === 403) throw new LoginExpired(`API ${r.status}`)
+      if (looksLikeLogin(r.url) || looksLikeLogin(r.text)) throw new LoginExpired('API 가 로그인 페이지를 돌려줬습니다')
+      // ── 아래는 일시적 실패로 본다 (재시도하면 대개 풀린다)
+      let j
+      try { j = JSON.parse(r.text) } catch { throw new Error(`period=${period}: JSON 이 아닙니다 (HTTP ${r.status})`) }
+      if (j?.code !== 0) throw new Error(`period=${period}: code=${j?.code} ${j?.message || ''}`.trim())
+      const item = j.items?.[0]
+      if (!item) throw new Error(`period=${period}: 리포트가 비었습니다`)
+      return { latest: j.meta?.latestDate, ...item }
     }
-    const day = await get(1), week = await get(7)
-    if (!day || !week) return { needLogin: true }
-    return { day, week }
+    return { day: await get(1), week: await get(7) }
   } finally { await ctx.close() }
+}
+
+/** 일시적 실패는 세 번까지 다시 — 로그인 만료면 곧장 포기한다 */
+async function fetchReports(tries = 3) {
+  for (let n = 1; ; n++) {
+    try { return await fetchOnce() } catch (e) {
+      if (e instanceof LoginExpired || n >= tries) throw e
+      console.warn(`… ${n}번째 실패(${e.message}) — ${20 * n}초 뒤 다시`)
+      await new Promise(r => setTimeout(r, 20000 * n))
+    }
+  }
 }
 
 const toRow = (day, q) => ({
@@ -126,13 +175,6 @@ const toRow = (day, q) => ({
 
 try {
   const r = await fetchReports()
-  if (r.needLogin) {
-    console.error('네이버 로그인이 필요합니다: node --env-file-if-exists=.env scripts/naver-sa.mjs --login')
-    alertUser('네이버 서치어드바이저 로그인이 풀려 검색어를 받지 못했습니다. 방좋 폴더에서 npm run naver:login 을 실행해 주세요.')
-    await writeLog('failed', { errors: [{ message: 'login required' }] })
-    process.exit(1)
-  }
-
   const L = ymd(r.day.latest)
   const windowStart = addDays(L, -6)
   const rows = (r.day.querys || []).map(q => toRow(L, q))
@@ -174,8 +216,14 @@ try {
   await writeLog('success', { rangeStart: missing[0] || L, rangeEnd: L, stats: { day: rows.length, lump: lump.length, missingDays: missing.length } })
   console.log(`✅ ${all.length}행 저장`)
 } catch (e) {
+  if (e instanceof LoginExpired) {
+    console.error(`네이버 로그인이 필요합니다 (${e.message}): npm run naver:login`)
+    await alertUser('네이버 서치어드바이저 로그인이 풀려 검색어를 받지 못했습니다. 방좋 폴더에서 npm run naver:login 을 실행해 주세요. (7일 넘기면 그 사이 검색어는 영구 손실)')
+    await writeLog('failed', { errors: [{ message: `login required: ${e.message}` }] })
+    process.exit(1)
+  }
   console.error('❌', e.message)
-  alertUser(`네이버 검색어 수집이 실패했습니다: ${e.message}`)
+  await alertUser(`네이버 검색어 수집이 실패했습니다: ${e.message}`)
   await writeLog('failed', { errors: [{ message: e.message }] })
   process.exit(1)
 }
