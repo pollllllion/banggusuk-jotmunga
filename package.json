@@ -39,8 +39,7 @@
     "test": "vitest run",
     "naver": "node --env-file-if-exists=.env scripts/naver-sa.mjs",
     "naver:login": "node --env-file-if-exists=.env scripts/naver-sa.mjs --login",
-    "indexnow": "node --env-file-if-exists=.env scripts/indexnow.mjs",
-    "briefing": "node --env-file-if-exists=.env scripts/weekly-briefing.mjs"
+    "indexnow": "node --env-file-if-exists=.env scripts/indexnow.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
