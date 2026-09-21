@@ -50,11 +50,17 @@ const DRY = process.argv.includes('--dry')
 const SUPA = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co'
 const KEY = process.env.SUPABASE_SERVICE_KEY
 
-// headless 크롬은 UA 에 'HeadlessChrome' 이 박혀서 네이버가 비정상 접속으로 보고 세션을 끊을 수 있다.
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
-const openBrowser = headless => chromium.launchPersistentContext(PROFILE, {
-  channel: 'chrome', headless, viewport: { width: 1280, height: 900 },
-  ...(headless ? { userAgent: UA } : {}),
+// 네이버 '보호조치' 대책 (2026-09-21):
+//   예전엔 수집을 headless + 고정 UA(Chrome/140)로 돌렸다. 실제 크롬은 153 이라 로그인할 때와 수집할 때
+//   UA·client hints·webdriver 지문이 서로 달라, 네이버가 같은 쿠키를 다른 기기가 쓰는 '도용' 으로 보고
+//   계정에 보호조치를 걸었다. 이제 로그인·수집 모두 같은 일반 크롬 창(수집 땐 화면 밖)으로 띄우고
+//   자동화 표시도 끈다 — 네이버 눈엔 늘 같은 브라우저다. 작업 스케줄러가 Interactive 로 돌아서 창을 띄울 수 있다.
+const openBrowser = hidden => chromium.launchPersistentContext(PROFILE, {
+  channel: 'chrome', headless: false, viewport: null,
+  ignoreDefaultArgs: ['--enable-automation'],
+  args: ['--disable-blink-features=AutomationControlled', '--window-size=1280,900',
+    // 크롬은 마지막 창 위치를 프로필에 기억한다 — 로그인 창은 꼭 화면 안 위치를 지정해야 구석에 안 숨는다
+    hidden ? '--window-position=-32000,-32000' : '--window-position=100,50'],
 })
 
 // ── 로그인 ──────────────────────────────────────────────────
