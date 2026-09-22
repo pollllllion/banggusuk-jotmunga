@@ -10,6 +10,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     // src/shared 는 앱과 빌드 스크립트가 함께 쓰는 .mjs 라 mjs 도 포함한다
-    include: ['scripts/**/*.test.mjs', 'src/**/*.test.{ts,mjs}'],
+    include: ['scripts/**/*.test.mjs', 'src/**/*.test.{ts,mjs}', 'worker/**/*.test.ts'],
   },
 })

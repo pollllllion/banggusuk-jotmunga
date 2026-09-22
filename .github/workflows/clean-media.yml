@@ -34,6 +34,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL || 'https://ggswwptjbwvesjkowwsc.supabase.co' }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # R2(ottcal-media) 청소용 — worker 의 MEDIA_ADMIN_TOKEN 과 같은 값. 없으면 R2 는 건너뛴다
+          MEDIA_ADMIN_TOKEN: ${{ secrets.MEDIA_ADMIN_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.apply }}" != "true" ]; then
             node scripts/clean-media.mjs

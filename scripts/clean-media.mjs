@@ -1,5 +1,8 @@
 /**
- * talk-media 고아 파일 청소 — 어느 글에도 안 붙어 있는 업로드본 삭제
+ * 짤 고아 파일 청소 — 어느 글에도 안 붙어 있는 업로드본 삭제
+ *
+ * 저장소 두 곳을 다 본다 (2026-09-22~ 새 업로드는 R2):
+ *   Supabase 'talk-media' 버킷 · Cloudflare R2 'ottcal-media'(worker/ 관리 API, MEDIA_ADMIN_TOKEN 필요)
  *
  *   npm run clean:media          # 대상만 출력 (기본은 건드리지 않는다)
  *   npm run clean:media -- --apply
@@ -26,11 +29,16 @@
  * 안전장치: 올라온 지 GRACE_HOURS(기본 24)시간이 안 된 파일은 건드리지 않는다.
  *   — 글 쓰는 중에 올린 짤을 지워버리면 안 되므로.
  */
+import { extractMediaRefs } from './media-refs.mjs'
+
 const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
 const key = process.env.SUPABASE_SERVICE_KEY
 const APPLY = process.argv.includes('--apply')
 const GRACE_HOURS = Math.max(1, parseInt(process.env.GRACE_HOURS || '24', 10))
 const BUCKET = 'talk-media'
+// R2(worker 관리 API) — 토큰이 없으면 R2 쪽은 건너뛴다 (Supabase 쪽만 예전처럼 청소)
+const MEDIA_BASE = process.env.MEDIA_BASE || 'https://ottcal.com'
+const MEDIA_TOKEN = process.env.MEDIA_ADMIN_TOKEN
 
 if (!url || !key) {
   console.error('VITE_SUPABASE_URL / SUPABASE_SERVICE_KEY 가 필요합니다 (.env).')
@@ -72,46 +80,81 @@ async function referencedNames() {
   for (const row of await get('discussions?select=images,bodyHtml,body')) {
     blobs.push((row.images || []).join(' '), row.bodyHtml || '', row.body || '')
   }
-  for (const row of await get('discussion_comments?select=body')) blobs.push(row.body || '')
+  // 댓글도 글과 똑같이 bodyHtml 안에 <img> 로 짤을 품는다 (migration_comment_media).
+  // 이 줄에서 bodyHtml 을 빼면 댓글 짤이 전부 고아로 잡혀 24시간 뒤 지워진다.
+  for (const row of await get('discussion_comments?select=body,bodyHtml')) {
+    blobs.push(row.body || '', row.bodyHtml || '')
+  }
   for (const row of await get('reviews?select=body')) blobs.push(row.body || '')
   // 리뷰 댓글은 본문 컬럼 이름이 content 다 (discussion_comments 와 다르다)
   for (const row of await get('comments?select=content')) blobs.push(row.content || '')
   // 프로필 사진은 글이 아니라 profiles 에 붙어 있다 — 여기를 빼면 아바타가 고아로 잡힌다
   for (const row of await get('profiles?select=avatarUrl')) blobs.push(row.avatarUrl || '')
 
-  // 주소 형태가 바뀌어도 견디도록 "talk-media/ 뒤쪽 경로"만 뽑는다
-  const names = new Set()
-  const re = /talk-media\/([^\s"'<>)\\]+)/g
-  for (const text of blobs) {
-    for (const m of text.matchAll(re)) names.add(decodeURIComponent(m[1].split('?')[0]))
-  }
-  return names
+  // 주소 형태가 바뀌어도 견디도록 "talk-media/ 뒤쪽 경로"(Supabase)·"/media/ 뒤쪽 키"(R2)만 뽑는다
+  return extractMediaRefs(blobs)
 }
 
-const files = await listAll()
+/** R2 전체 목록 — worker 의 관리 API 를 거친다 (R2 에 직접 붙는 키를 따로 두지 않으려고) */
+async function listR2() {
+  const out = []
+  for (let cursor = null; ;) {
+    const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''
+    const res = await fetch(`${MEDIA_BASE}/api/media-admin/list${qs}`, { headers: { Authorization: `Bearer ${MEDIA_TOKEN}` } })
+    if (!res.ok) throw new Error(`R2 목록 조회 실패 ${res.status} ${(await res.text()).slice(0, 200)}`)
+    const page = await res.json()
+    for (const o of page.objects) out.push({ path: o.key, size: o.size, createdAt: o.uploaded })
+    if (!page.cursor) break
+    cursor = page.cursor
+  }
+  return out
+}
+
+async function deleteSupabase(paths) {
+  const res = await fetch(`${url}/storage/v1/object/${BUCKET}`, {
+    method: 'DELETE', headers: H, body: JSON.stringify({ prefixes: paths }),
+  })
+  if (!res.ok) throw new Error(`삭제 실패 ${res.status} ${(await res.text()).slice(0, 200)}`)
+}
+
+async function deleteR2(keys) {
+  const res = await fetch(`${MEDIA_BASE}/api/media-admin/delete`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${MEDIA_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys }),
+  })
+  if (!res.ok) throw new Error(`R2 삭제 실패 ${res.status} ${(await res.text()).slice(0, 200)}`)
+}
+
 const used = await referencedNames()
 const cutoff = Date.now() - GRACE_HOURS * 3600 * 1000
 
-const orphans = files.filter(f => !used.has(f.path) && new Date(f.createdAt).getTime() < cutoff)
-const young = files.filter(f => !used.has(f.path) && new Date(f.createdAt).getTime() >= cutoff)
+// 저장소마다 [이름, 파일 목록, 참조 집합, 삭제 함수]. R2 는 토큰이 있을 때만 본다
+const stores = [['Supabase talk-media', await listAll(), used.supabase, deleteSupabase]]
+if (MEDIA_TOKEN) stores.push(['R2 ottcal-media', await listR2(), used.r2, deleteR2])
+else console.log('MEDIA_ADMIN_TOKEN 이 없어 R2 는 건너뜁니다.\n')
 
-const total = files.reduce((s, f) => s + f.size, 0)
-const freed = orphans.reduce((s, f) => s + f.size, 0)
-console.log(`버킷 ${files.length}개 ${mb(total)}MB / 사용중 ${files.length - orphans.length - young.length}개`)
-console.log(`고아 ${orphans.length}개 ${mb(freed)}MB${young.length ? ` (유예중 ${young.length}개는 보존)` : ''}`)
-for (const f of orphans) console.log(`  - ${f.path} ${mb(f.size)}MB ${f.createdAt}`)
+let failed = false
+for (const [name, files, refs, remove] of stores) {
+  const orphans = files.filter(f => !refs.has(f.path) && new Date(f.createdAt).getTime() < cutoff)
+  const young = files.filter(f => !refs.has(f.path) && new Date(f.createdAt).getTime() >= cutoff)
+  const total = files.reduce((s, f) => s + f.size, 0)
+  const freed = orphans.reduce((s, f) => s + f.size, 0)
 
-if (!orphans.length) { console.log('지울 것 없음.'); process.exit(0) }
-if (!APPLY) { console.log('\n--apply 를 붙이면 실제로 삭제합니다.'); process.exit(0) }
+  console.log(`[${name}] ${files.length}개 ${mb(total)}MB / 사용중 ${files.length - orphans.length - young.length}개`)
+  console.log(`고아 ${orphans.length}개 ${mb(freed)}MB${young.length ? ` (유예중 ${young.length}개는 보존)` : ''}`)
+  for (const f of orphans) console.log(`  - ${f.path} ${mb(f.size)}MB ${f.createdAt}`)
 
-// 한 번에 너무 많이 보내지 않도록 100개씩
-let deleted = 0
-for (let i = 0; i < orphans.length; i += 100) {
-  const chunk = orphans.slice(i, i + 100).map(f => f.path)
-  const res = await fetch(`${url}/storage/v1/object/${BUCKET}`, {
-    method: 'DELETE', headers: H, body: JSON.stringify({ prefixes: chunk }),
-  })
-  if (!res.ok) { console.error('삭제 실패', res.status, (await res.text()).slice(0, 200)); process.exit(1) }
-  deleted += chunk.length
+  if (!orphans.length) { console.log('지울 것 없음.\n'); continue }
+  if (!APPLY) { console.log('--apply 를 붙이면 실제로 삭제합니다.\n'); continue }
+
+  // 한 번에 너무 많이 보내지 않도록 100개씩
+  try {
+    for (let i = 0; i < orphans.length; i += 100) await remove(orphans.slice(i, i + 100).map(f => f.path))
+    console.log(`삭제 완료: ${orphans.length}개 ${mb(freed)}MB 회수\n`)
+  } catch (e) {
+    console.error(String(e.message || e))
+    failed = true
+  }
 }
-console.log(`\n삭제 완료: ${deleted}개 ${mb(freed)}MB 회수`)
+if (failed) process.exit(1)

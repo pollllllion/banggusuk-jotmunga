@@ -1,7 +1,8 @@
 /**
- * Cloudflare Workers (정적 자산) 배포 설정
+ * Cloudflare Workers (정적 자산 + 짤 저장소) 배포 설정
  *
- * 이 앱은 서버 코드가 없는 정적 SPA다. Worker 스크립트 없이 dist/ 를 그대로 서빙한다.
+ * 앱 자체는 서버 코드가 없는 정적 SPA다. dist/ 를 그대로 서빙한다.
+ * Worker 코드(worker/)는 토론방 짤 업로드·서빙(/api/media, /media/*)만 맡는다.
  * 정적 자산 요청은 Workers 요청 할당량에 포함되지 않는다(무료·무제한).
  *
  * not_found_handling: 'single-page-application'
@@ -27,8 +28,21 @@
   // DNS 전파 대기 없이 배포 결과를 바로 확인할 수 있는 검증용 주소로 살려둔다.
   // 중복 색인은 모든 페이지의 canonical 이 ottcal.com 을 가리켜 방지된다.
   "workers_dev": true,
+
+  // 토론방 짤 저장소(R2) — worker/index.ts 참고.
+  // ⚠️ 이 버킷이 Cloudflare 계정에 없으면 **배포 자체가 실패한다.** main 에 머지하기 전에
+  //    대시보드 R2 에서 'ottcal-media' 버킷을 먼저 만든다.
+  "main": "worker/index.ts",
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "ottcal-media" }
+  ],
+
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
+    // 이 경로만 Worker 가 먼저 받는다. 나머지는 지금처럼 정적 자산이 먼저라
+    // Worker 요청 할당량(무료 하루 10만)을 쓰지 않는다.
+    "run_worker_first": ["/api/*", "/media/*"],
     "not_found_handling": "single-page-application",
 
     // 기본값(auto-trailing-slash)은 /content/{id} 를 /content/{id}/ 로 307 리다이렉트한다.

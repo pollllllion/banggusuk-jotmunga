@@ -5,7 +5,11 @@
  *  · GIF 는 canvas 로 다시 그리면 애니메이션이 죽는다 → 압축 불가
  *  · 앱 시작 시 discussions 전체를 캐시로 긁어오므로 본문/컬럼에 수 MB 짜리
  *    data URL 이 섞이면 첫 로딩이 통째로 무거워진다
- * → 파일은 Supabase Storage('talk-media') 에 올리고 DB 엔 공개 URL 만 담는다.
+ * → 파일은 저장소에 올리고 DB 엔 공개 URL 만 담는다.
+ *
+ * 저장소 (2026-09-22~): Cloudflare R2 (worker/ 의 POST /api/media → https://ottcal.com/media/...).
+ *   Supabase Storage 는 볼 때마다 무료 전송량(월 5GB)이 깎여 20MB 움짤을 감당 못 한다. R2 는 전송 요금이 없다.
+ *   R2 창구가 없을 때(npm run dev · 배포 전)만 예전 Supabase 'talk-media' 버킷으로 올린다 — storeMedia().
  */
 import { supabase } from '@/lib/supabaseClient'
 import { uuid } from '@/utils/helpers'
@@ -95,15 +99,7 @@ export async function uploadTalkMedia(input: File): Promise<string> {
 
   const file = await shrinkIfStatic(input)
   const path = `talk/${uuid()}.${EXT[file.type]}`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
-    cacheControl: '31536000',
-  })
-  if (error) {
-    console.error('[talk-media upload]', error)
-    throw new Error('업로드에 실패했어요. 잠시 후 다시 시도해주세요.')
-  }
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+  return storeMedia('talk', path, file)
 }
 
 /**
@@ -152,15 +148,7 @@ export async function uploadAvatar(input: File, opts?: { alreadySquare?: boolean
   // 자르기 창을 거쳐 온 그림은 이미 256px 정사각 webp 다 — 또 구우면 화질만 깎인다
   const file = opts?.alreadySquare ? input : await squareShrink(input)
   const path = `avatars/${uuid()}.webp`
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
-    cacheControl: '31536000',
-  })
-  if (error) {
-    console.error('[avatar upload]', error)
-    throw new Error('업로드에 실패했어요. 잠시 후 다시 시도해주세요.')
-  }
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+  return storeMedia('avatars', path, file)
 }
 
 /** 가운데를 정사각형으로 잘라 AVATAR_PX 로 줄인 webp. 실패하면 원본 그대로 올린다. */
@@ -183,3 +171,41 @@ async function squareShrink(file: File): Promise<File> {
     return file   // GIF 애니메이션 등 — 원본을 그대로 올린다
   }
 }
+
+/**
+ * 파일 저장 → 공개 URL. **R2 가 먼저, 안 되면 Supabase.**
+ *
+ * R2 창구(worker 의 POST /api/media)는 배포된 사이트에만 있다. vite 개발 서버나
+ * 버킷을 만들기 전 배포에서는 404·HTML 이 돌아오므로 그때는 예전 버킷으로 조용히 넘어간다.
+ * 반대로 창구가 "크기 초과·형식 불가" 처럼 **판정을 내린** 거절(4xx + JSON)은 그대로 사용자에게 보여준다
+ * — 거기서 Supabase 로 우회하면 서버 쪽 관문이 무의미해진다.
+ * path 는 Supabase 로 갈 때만 쓴다 (R2 는 서버가 키를 정한다).
+ */
+async function storeMedia(kind: 'talk' | 'avatars', path: string, file: File): Promise<string> {
+  try {
+    const res = await fetch(`/api/media?kind=${kind}`, { method: 'POST', body: file, headers: { 'Content-Type': file.type } })
+    const isJson = (res.headers.get('Content-Type') || '').includes('application/json')
+    if (isJson) {
+      const data = await res.json() as { url?: string; error?: string }
+      if (res.ok && data.url) return data.url
+      if (res.status >= 400 && res.status < 500 && res.status !== 404 && res.status !== 405) {
+        throw new MediaRejected(data.error || '업로드에 실패했어요.')
+      }
+    }
+  } catch (e) {
+    if (e instanceof MediaRejected) throw new Error(e.message)
+    /* 창구 없음·네트워크 문제 → 아래 Supabase 로 */
+  }
+
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    contentType: file.type,
+    cacheControl: '31536000',
+  })
+  if (error) {
+    console.error(`[${kind} upload]`, error)
+    throw new Error('업로드에 실패했어요. 잠시 후 다시 시도해주세요.')
+  }
+  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+}
+
+class MediaRejected extends Error {}

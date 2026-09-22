@@ -37,3 +37,6 @@ supabase/.temp/
 scripts/.naver-profile/
 scripts/naver-sa-capture.local.json
 scripts/naver-sa.log
+
+# wrangler dev 의 로컬 R2·캐시 흉내 저장소
+.wrangler/
