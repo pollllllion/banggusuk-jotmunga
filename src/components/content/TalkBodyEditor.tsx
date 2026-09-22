@@ -2,20 +2,33 @@ import { useEffect, useRef, useState } from 'react'
 import { useToastStore } from '@/components/ui/Toast'
 import {
   uploadTalkMedia, uploadTalkMediaFromUrl, looksLikeImageUrl,
-  imgSrcFromHtml, isProbablyGifUrl, MAX_FILES, MAX_BYTES,
+  imgSrcFromHtml, isProbablyGifUrl, MAX_FILES, ACCEPT,
+  type UploadedMedia, type OnProgress,
 } from '@/utils/talkMedia'
-import { sanitizeRichText, richTextToPlain, extractImageUrls } from '@/utils/richText'
+import { sanitizeRichText, richTextToPlain, countAttachments } from '@/utils/richText'
+import { IMAGE_MAX_BYTES, VIDEO_MAX_BYTES, MB, VIDEO_KEY_RE, videoUrl } from '@/utils/mediaHost'
 import { youtubeId, youtubeWatchUrl } from '@/utils/youtube'
 
 /** 첨부거리 — 파일, 주소, 또는 "주소 우선 · 실패하면 이 파일" 쌍 */
 type MediaItem = File | string | { url: string; fallback: File }
 
-async function resolveItem(item: MediaItem, limit: number): Promise<string> {
-  if (typeof item === 'string') return uploadTalkMediaFromUrl(item, limit)
-  if (item instanceof File) return uploadTalkMedia(item, limit)
-  try { return await uploadTalkMediaFromUrl(item.url, limit) }
-  catch { return uploadTalkMedia(item.fallback, limit) }
+async function resolveItem(item: MediaItem, onProgress: OnProgress): Promise<UploadedMedia> {
+  if (typeof item === 'string') return uploadTalkMediaFromUrl(item, onProgress)
+  if (item instanceof File) return uploadTalkMedia(item, onProgress)
+  try { return await uploadTalkMediaFromUrl(item.url, onProgress) }
+  catch { return uploadTalkMedia(item.fallback, onProgress) }
 }
+
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
+/**
+ * 에디터 안의 동영상 자리 — 저장은 키만 가진 <div data-vid> 지만, 쓰는 동안엔 올린 영상이
+ * 실제로 보이게 소리 끈 미리보기를 안에 둔다. 저장 전 정화가 안쪽을 '[동영상]' 글자로 갈아 끼운다.
+ */
+const videoCard = (key: string) =>
+  `<div data-vid="${esc(key)}" contenteditable="false"><video src="${esc(videoUrl(key))}" muted playsinline preload="metadata"></video></div>`
+
+const MB_LIMITS = `사진·움짤 ${IMAGE_MAX_BYTES / MB}MB · 동영상 ${VIDEO_MAX_BYTES / MB}MB`
 
 /** 글자 크기 — execCommand('fontSize') 의 1~7 을 사람 말로 */
 const SIZES = [
@@ -48,7 +61,7 @@ const FONTS = [
  */
 export function TalkBodyEditor({
   html, onHtml, maxLength = 5000,
-  compact = false, maxFiles = MAX_FILES, maxBytes = MAX_BYTES,
+  compact = false, maxFiles = MAX_FILES,
   placeholder, autoFocus = false, inputRef, onFocus, onBlur,
 }: {
   html: string
@@ -56,10 +69,8 @@ export function TalkBodyEditor({
   maxLength?: number
   /** 댓글용 간단형 — 서식 툴바를 감추고 [이미지·움짤]·[유튜브]만 입력칸 아래에 둔다 */
   compact?: boolean
-  /** 짤 개수 상한 (글 4 · 댓글 1) */
+  /** 첨부(사진·움짤·동영상) 개수 상한 — 글·댓글 모두 4. 크기 한도는 형식별로 talkMedia 가 본다 */
   maxFiles?: number
-  /** 짤 한 개 크기 상한 (글 20MB · 댓글 5MB) — 정지 이미지는 줄인 뒤 크기로 잰다 */
-  maxBytes?: number
   placeholder?: string
   autoFocus?: boolean
   /** 부모가 입력칸에 직접 손대야 할 때 (하단 고정 바 → 입력칸으로 스크롤·포커스) */
@@ -72,14 +83,15 @@ export function TalkBodyEditor({
   const editorRef = useRef<HTMLDivElement | null>(null)
   const savedRange = useRef<Range | null>(null)
   const [busy, setBusy] = useState(false)
+  /** 올리는 중 표시 — "2/3 · 45%". 큰 움짤·영상은 수십 초 걸려서, 숫자가 없으면 멈춘 줄 안다 */
+  const [progress, setProgress] = useState('')
   const [dragging, setDragging] = useState(false)
   const [urlOpen, setUrlOpen] = useState(false)
   const [urlInput, setUrlInput] = useState('')
   const [ytOpen, setYtOpen] = useState(false)
   const [ytInput, setYtInput] = useState('')
   const [len, setLen] = useState(() => richTextToPlain(html).length)
-  const [shots, setShots] = useState(() => extractImageUrls(html).length)
-  const capMb = Math.round(maxBytes / 1024 / 1024)
+  const [shots, setShots] = useState(() => countAttachments(html))
 
   // 초기 내용만 한 번 넣는다 — 이후엔 브라우저가 들고 있는다(입력 중 커서가 튀지 않게)
   useEffect(() => {
@@ -87,6 +99,12 @@ export function TalkBodyEditor({
       editorRef.current.innerHTML = html
       // 저장할 때 contenteditable 속성은 정화로 빠진다 — 고쳐 쓰러 열면 영상 자리를 다시 한 덩이로 묶는다
       editorRef.current.querySelectorAll('[data-yt]').forEach(el => el.setAttribute('contenteditable', 'false'))
+      // 동영상 자리는 저장된 '[동영상]' 글자 대신 미리보기로 다시 그린다
+      editorRef.current.querySelectorAll('[data-vid]').forEach(el => {
+        const key = el.getAttribute('data-vid') || ''
+        if (VIDEO_KEY_RE.test(key)) el.outerHTML = videoCard(key)
+        else el.remove()
+      })
     }
     // contentEditable 은 autoFocus 속성을 안 먹는다 — 답글·수정칸을 열자마자 바로 쓰게 직접 건다
     if (autoFocus) editorRef.current?.focus()
@@ -96,11 +114,11 @@ export function TalkBodyEditor({
   const sync = () => {
     const raw = editorRef.current?.innerHTML || ''
     const plain = richTextToPlain(raw)
-    const imgs = extractImageUrls(raw)
+    const attached = countAttachments(raw)
     setLen(plain.length)
-    setShots(imgs.length)
+    setShots(attached)
     // 빈 <div><br></div> 만 남은 건 빈 글로 본다. 유튜브 자리만 있는 글도 빈 글이 아니다
-    onHtml(plain.trim() || imgs.length || raw.includes('data-yt') ? raw : '')
+    onHtml(plain.trim() || attached || raw.includes('data-yt') ? raw : '')
   }
 
   /** 툴바를 누르면 에디터가 포커스를 잃으므로, 마지막 커서 자리를 기억해 뒀다 되돌린다.
@@ -141,12 +159,14 @@ export function TalkBodyEditor({
     remember(); sync()
   }
 
-  /** 커서 자리에 짤을 끼워 넣는다 */
-  const insertImages = (urls: string[]) => {
-    if (!urls.length) return
+  /** 커서 자리에 짤·동영상을 끼워 넣는다 (동영상은 한 덩이 카드 + 다음 줄) */
+  const insertMedia = (items: UploadedMedia[]) => {
+    if (!items.length) return
     restore()
-    for (const url of urls) {
-      document.execCommand('insertHTML', false, `<img src="${url.replace(/"/g, '&quot;')}" alt="">`)
+    for (const m of items) {
+      document.execCommand('insertHTML', false, m.kind === 'video'
+        ? `${videoCard(m.key)}<div><br></div>`
+        : `<img src="${esc(m.url)}" alt="">`)
     }
     remember(); sync()
   }
@@ -173,26 +193,30 @@ export function TalkBodyEditor({
   const addAll = async (items: MediaItem[]) => {
     if (!items.length) return
     const where = compact ? '댓글 하나에' : '한 글에'
-    const room = maxFiles - extractImageUrls(editorRef.current?.innerHTML || '').length
-    if (room <= 0) { toast(`짤은 ${where} 최대 ${maxFiles}개까지 넣을 수 있어요.`); return }
-    if (items.length > room) toast(`${room}개만 올릴게요. (${where} 최대 ${maxFiles}개)`)
+    const room = maxFiles - countAttachments(editorRef.current?.innerHTML || '')
+    if (room <= 0) { toast(`사진·움짤·동영상은 ${where} ${maxFiles}개까지 넣을 수 있어요.`); return }
+    if (items.length > room) toast(`${room}개만 올릴게요. (${where} ${maxFiles}개까지)`)
 
+    const todo = items.slice(0, room)
     setBusy(true)
-    const added: string[] = []
+    const added: UploadedMedia[] = []
     try {
-      for (const item of items.slice(0, room)) {
-        try { added.push(await resolveItem(item, maxBytes)) }
+      for (let i = 0; i < todo.length; i++) {
+        const head = todo.length > 1 ? `${i + 1}/${todo.length} · ` : ''
+        setProgress(`${head}0%`)
+        try { added.push(await resolveItem(todo[i], f => setProgress(`${head}${Math.round(f * 100)}%`))) }
         catch (e: any) { toast(e?.message || '업로드에 실패했어요.') }
       }
-      if (added.length) { insertImages(added); toast('짤을 넣었어요!') }
+      if (added.length) insertMedia(added)
     } finally {
       setBusy(false)
+      setProgress('')
     }
   }
 
   const onPaste = (e: React.ClipboardEvent) => {
     const files = Array.from(e.clipboardData.items)
-      .filter(i => i.type.startsWith('image/'))
+      .filter(i => i.kind === 'file' && (i.type.startsWith('image/') || i.type.startsWith('video/')))
       .map(i => i.getAsFile())
       .filter((f): f is File => !!f)
 
@@ -241,7 +265,7 @@ export function TalkBodyEditor({
     <>
       <div className="talk-toolbar">
         <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => fileRef.current?.click()}>
-          이미지·움짤
+          사진·움짤·영상
         </button>
         {!compact && (
           <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setYtOpen(false); setUrlOpen(o => !o) }}>
@@ -252,8 +276,8 @@ export function TalkBodyEditor({
           유튜브
         </button>
         <span className="talk-toolbar-hint">
-          {busy ? '올리는 중…' : compact
-            ? `짤 ${shots}/${maxFiles} · ${capMb}MB 이하 · 붙여넣기 가능`
+          {busy ? `올리는 중… ${progress}` : compact
+            ? `첨부 ${shots}/${maxFiles} · 붙여넣기·끌어다 놓기 가능`
             : `커서 자리에 들어감 · 붙여넣기(Ctrl+V)·드래그&드롭 · ${shots}/${maxFiles}`}
         </span>
       </div>
@@ -335,12 +359,12 @@ export function TalkBodyEditor({
         {compact && attachBar}
       </div>
 
-      <input ref={fileRef} type="file" accept="image/gif,image/png,image/jpeg,image/webp" multiple={maxFiles > 1} hidden
+      <input ref={fileRef} type="file" accept={ACCEPT} multiple={maxFiles > 1} hidden
         onChange={e => { addAll(Array.from(e.target.files || [])); e.target.value = '' }} />
 
       {!compact && (
         <span className="disc-count" style={{ fontSize: 12, color: over ? 'var(--danger)' : 'var(--subtext)' }}>
-          {len}/{maxLength} · 짤은 개당 {capMb}MB 이하, 한 글에 {maxFiles}개까지 (지울 땐 글자처럼 백스페이스)
+          {len}/{maxLength} · {MB_LIMITS}, 한 글에 {maxFiles}개까지 (지울 땐 글자처럼 백스페이스)
         </span>
       )}
     </>

@@ -2,7 +2,8 @@
  * Cloudflare Workers (정적 자산 + 짤 저장소) 배포 설정
  *
  * 앱 자체는 서버 코드가 없는 정적 SPA다. dist/ 를 그대로 서빙한다.
- * Worker 코드(worker/)는 토론방 짤 업로드·서빙(/api/media, /media/*)만 맡는다.
+ * Worker 코드(worker/)는 토론방 첨부 올리기(/api/media)와 청소용 관리 API 만 맡는다.
+ * 보여 주기는 R2 커스텀 도메인 media.ottcal.com 이 직접 한다.
  * 정적 자산 요청은 Workers 요청 할당량에 포함되지 않는다(무료·무제한).
  *
  * not_found_handling: 'single-page-application'
@@ -36,13 +37,18 @@
   "r2_buckets": [
     { "binding": "MEDIA", "bucket_name": "ottcal-media" }
   ],
+  // 올린 파일의 공개 주소 — 버킷에 직접 붙인 커스텀 도메인(대시보드 R2 → ottcal-media → Settings).
+  // 보여 주기는 Worker 를 거치지 않는다: 요청 한도를 안 쓰고, 동영상 Range 요청도 R2 가 알아서 받는다.
+  "vars": {
+    "MEDIA_PUBLIC_BASE": "https://media.ottcal.com"
+  },
 
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
     // 이 경로만 Worker 가 먼저 받는다. 나머지는 지금처럼 정적 자산이 먼저라
     // Worker 요청 할당량(무료 하루 10만)을 쓰지 않는다.
-    "run_worker_first": ["/api/*", "/media/*"],
+    "run_worker_first": ["/api/*"],
     "not_found_handling": "single-page-application",
 
     // 기본값(auto-trailing-slash)은 /content/{id} 를 /content/{id}/ 로 307 리다이렉트한다.

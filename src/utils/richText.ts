@@ -6,8 +6,14 @@
  * 허용하는 건 글자 모양과 <img>, 유튜브 자리(<div data-yt="영상ID">) 뿐 — 링크·스크립트·이벤트 속성은 전부 걷어낸다.
  * <img> 는 본문에 끼워 넣는 짤이라 src 가 http(s) 인 것만 남긴다(data:·javascript: 차단).
  * 유튜브는 iframe 을 저장하지 않고 ID 만 남긴다. 플레이어는 그릴 때 renderVideoEmbeds 가 만든다.
+ * 올린 동영상도 같은 방식이다 — <video> 를 저장하지 않고 R2 키만(<div data-vid="talk/….mp4">) 남긴다.
+ * 주소는 그릴 때 우리 저장소(media.ottcal.com) 뒤에 그 키를 붙여 만든다. 남의 주소를 재생할 길은 없다.
  */
 import { YT_ID_RE, youtubeWatchUrl, youtubeEmbedUrl } from './youtube'
+import { VIDEO_KEY_RE, videoUrl } from './mediaHost'
+
+/** 동영상 자리의 글자 — 평문 사본(알림·검색·목록 미리보기)에 이렇게 남는다 */
+export const VIDEO_LABEL = '[동영상]'
 
 /** 남겨도 되는 태그 (글자 모양 계열 + 본문에 낀 짤) */
 const ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'DIV', 'P', 'SPAN', 'FONT', 'IMG'])
@@ -86,6 +92,16 @@ function scrub(root: Element) {
       continue
     }
 
+    // 올린 동영상 자리: 우리 R2 키 모양일 때만 남긴다
+    if (el.tagName === 'DIV' && el.hasAttribute('data-vid')) {
+      const key = el.getAttribute('data-vid') || ''
+      if (!VIDEO_KEY_RE.test(key)) { el.remove(); continue }
+      for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name)
+      el.setAttribute('data-vid', key)
+      el.textContent = VIDEO_LABEL
+      continue
+    }
+
     for (const attr of Array.from(el.attributes)) {
       if (attr.name.toLowerCase() !== 'style') el.removeAttribute(attr.name)
     }
@@ -105,13 +121,34 @@ export function sanitizeRichText(dirty: string): string {
 }
 
 /**
- * 정화된 본문의 유튜브 자리를 실제 플레이어로 바꾼다 — **화면에 그리기 직전에만.**
+ * 정화된 본문의 유튜브·동영상 자리를 실제 플레이어로 바꾸고, 짤은 화면에 닿을 때 받게(lazy) 한다
+ * — **화면에 그리기 직전에만.**
+ * 긴 댓글 목록에서 보지도 않은 짤·영상까지 한꺼번에 받으면 폰 데이터가 그대로 샌다.
+ * 동영상은 자동재생하지 않고 preload=metadata(첫 장면·길이만)로 둔다 — 누를 때 받는다.
  * 반드시 sanitizeRichText 를 먼저 거친 HTML 에 쓴다(정화가 iframe 을 지우므로 순서가 반대면 사라진다).
  * iframe 주소는 검증한 ID 로 우리가 만든다 — 저장된 값에서 주소를 가져오지 않는다.
  */
 export function renderVideoEmbeds(safeHtml: string): string {
-  if (!safeHtml || !safeHtml.includes('data-yt')) return safeHtml
+  if (!safeHtml || !/data-yt|data-vid|<img/.test(safeHtml)) return safeHtml
   const doc = new DOMParser().parseFromString(`<body>${safeHtml}</body>`, 'text/html')
+  doc.body.querySelectorAll('img').forEach(img => {
+    img.setAttribute('loading', 'lazy')
+    img.setAttribute('decoding', 'async')
+  })
+  doc.body.querySelectorAll('div[data-vid]').forEach(el => {
+    const key = el.getAttribute('data-vid') || ''
+    if (!VIDEO_KEY_RE.test(key)) { el.remove(); return }
+    const box = doc.createElement('div')
+    box.className = 'talk-video'
+    const video = doc.createElement('video')
+    video.setAttribute('src', videoUrl(key))
+    video.setAttribute('controls', '')
+    video.setAttribute('preload', 'metadata')
+    // 아이폰에서 누르자마자 전체화면으로 튀지 않고 글 안에서 재생되게
+    video.setAttribute('playsinline', '')
+    box.appendChild(video)
+    el.replaceWith(box)
+  })
   doc.body.querySelectorAll('div[data-yt]').forEach(el => {
     const id = el.getAttribute('data-yt') || ''
     if (!YT_ID_RE.test(id)) { el.remove(); return }
@@ -147,6 +184,20 @@ export function extractImageUrls(html: string): string[] {
   return [...doc.body.querySelectorAll('img')]
     .map(img => img.getAttribute('src') || '')
     .filter(src => /^https?:\/\//i.test(src))
+}
+
+/** 본문 HTML 안의 올린 동영상 키 목록 — 첨부 개수 세기용 */
+export function extractVideoKeys(html: string): string[] {
+  if (!html || !html.includes('data-vid')) return []
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
+  return [...doc.body.querySelectorAll('div[data-vid]')]
+    .map(el => el.getAttribute('data-vid') || '')
+    .filter(key => VIDEO_KEY_RE.test(key))
+}
+
+/** 첨부 수 (짤 + 올린 동영상) — 한 글·한 댓글 4개 한도를 이걸로 센다. 유튜브는 첨부가 아니라 세지 않는다 */
+export function countAttachments(html: string): number {
+  return extractImageUrls(html).length + extractVideoKeys(html).length
 }
 
 /** 평문 → HTML (서식 없이 쓴 옛 글을 에디터에 열 때) */

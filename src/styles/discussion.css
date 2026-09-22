@@ -291,6 +291,12 @@
   margin: 6px 0; border-radius: var(--radius-md); overflow: hidden; background: #000;
 }
 .disc-detail-text.rich .yt-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+/* 올린 동영상 — 세로 영상(폰 촬영)도 있으니 비율을 강제하지 않고 높이만 막는다 */
+.disc-detail-text.rich .talk-video { margin: 6px 0; }
+.disc-detail-text.rich .talk-video video {
+  display: block; max-width: min(100%, 640px); max-height: 520px;
+  border-radius: var(--radius-md); background: #000;
+}
 
 /* 첨부 움짤·이미지 — 본문 아래에 세로로. 원본 클릭 시 새 탭 */
 .disc-detail-media { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
@@ -367,6 +373,11 @@
   margin: 6px 0; border-radius: var(--radius-md); overflow: hidden; background: #000;
 }
 .disc-comment-body.rich .yt-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.disc-comment-body.rich .talk-video { margin: 6px 0; }
+.disc-comment-body.rich .talk-video video {
+  display: block; max-width: min(100%, 420px); max-height: 360px;
+  border-radius: var(--radius-md); background: #000;
+}
 
 /* 댓글·답글 입력칸(TalkBodyEditor compact) — 첨부 줄이 입력칸 아래로 간다 */
 /* 글자 크기는 건드리지 않는다 — 좁은 화면에서 global.css 가 16px 로 올려 두는 건
@@ -467,6 +478,12 @@
 }
 .talk-editor .talk-body [data-yt]::before {
   content: '▶ 유튜브'; flex-shrink: 0; font-weight: 800; color: #ff0033;
+}
+/* 에디터 안의 올린 동영상 — 소리 끈 미리보기. 한 덩이라 백스페이스로 통째로 지워진다 */
+.talk-editor .talk-body [data-vid] { margin: 6px 0; user-select: all; }
+.talk-editor .talk-body [data-vid] video {
+  display: block; max-width: min(100%, 320px); max-height: 240px;
+  border-radius: var(--radius-sm); background: #000;
 }
 /* contentEditable 은 placeholder 속성이 없어서 직접 그린다 */
 .talk-editor .talk-body:empty::before {

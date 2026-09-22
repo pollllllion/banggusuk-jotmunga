@@ -1,44 +1,75 @@
 import { describe, it, expect } from 'vitest'
-import { handleMedia, sniffImageType, isAllowedOrigin, publicUrl, MAX_BYTES, type Env, type R2BucketLike } from '../media'
+import {
+  handleMedia, sniff, sniffImageType, isAllowedOrigin, publicUrl,
+  IMAGE_MAX_BYTES, GIF_MAX_BYTES, VIDEO_MAX_BYTES, type Env, type R2BucketLike,
+} from '../media'
 
 /** 메모리 속 가짜 R2 */
 function fakeBucket() {
   const store = new Map<string, { buf: ArrayBuffer; type?: string; uploaded: Date }>()
   const bucket: R2BucketLike = {
-    async get(key) {
-      const o = store.get(key)
-      if (!o) return null
-      return { key, size: o.buf.byteLength, uploaded: o.uploaded, httpEtag: `"${key}"`, httpMetadata: { contentType: o.type }, body: new Response(o.buf).body }
+    async put(key, value, opts) {
+      if (!(value instanceof ArrayBuffer)) throw new Error('테스트에서는 ArrayBuffer 로 와야 한다')
+      store.set(key, { buf: value, type: opts?.httpMetadata?.contentType, uploaded: new Date() })
     },
-    async put(key, value, opts) { store.set(key, { buf: value, type: opts?.httpMetadata?.contentType, uploaded: new Date() }) },
     async delete(keys) { for (const k of [keys].flat()) store.delete(k) },
     async list() {
-      return { objects: [...store].map(([key, o]) => ({ key, size: o.buf.byteLength, uploaded: o.uploaded, httpEtag: '' })), truncated: false }
+      return { objects: [...store].map(([key, o]) => ({ key, size: o.buf.byteLength, uploaded: o.uploaded })), truncated: false }
     },
   }
   return { bucket, store }
 }
 const env = (bucket: R2BucketLike, token?: string): Env => ({
-  MEDIA: bucket, MEDIA_ADMIN_TOKEN: token, ASSETS: { fetch: async () => new Response('asset') },
+  MEDIA: bucket, MEDIA_ADMIN_TOKEN: token, MEDIA_PUBLIC_BASE: 'https://media.ottcal.com',
+  ASSETS: { fetch: async () => new Response('asset') },
 })
 
-const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 1, 0, 1, 0, 0, 0]).buffer
-const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]).buffer
-const JPG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]).buffer
-const WEBP = new TextEncoder().encode('RIFF\0\0\0\0WEBPVP8 ').buffer
-const HTML = new TextEncoder().encode('<html><script>alert(1)</script>').buffer
+const bytes = (...parts: (number[] | string)[]) =>
+  new Uint8Array(parts.flatMap(p => typeof p === 'string' ? [...p].map(c => c.charCodeAt(0)) : p))
+const GIF = bytes('GIF89a', [1, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+const PNG = bytes([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], [0, 0, 0, 0, 0, 0, 0, 0])
+const JPG = bytes([0xff, 0xd8, 0xff, 0xe0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+const WEBP = bytes('RIFF', [0, 0, 0, 0], 'WEBPVP8 ', [0, 0, 0, 0])
+const MP4 = bytes([0, 0, 0, 0x20], 'ftypisom', [0, 0, 2, 0])
+const MOV = bytes([0, 0, 0, 0x14], 'ftypqt  ', [0, 0, 0, 0])
+const WEBM = bytes([0x1a, 0x45, 0xdf, 0xa3], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+const HTML = bytes('<html><script>alert(1)</script>')
 
-const post = (body: ArrayBuffer, origin = 'https://ottcal.com', kind = 'talk', type = 'image/gif') =>
-  new Request(`https://ottcal.com/api/media?kind=${kind}`, { method: 'POST', body, headers: { Origin: origin, 'Content-Type': type } })
+/** 본문이 여러 조각으로 나뉘어 와도(실제 네트워크처럼) 처리되는지 보려고 스트림으로 만든다 */
+const streamOf = (data: Uint8Array, chunk = 5) => new ReadableStream<Uint8Array>({
+  start(c) { for (let i = 0; i < data.length; i += chunk) c.enqueue(data.slice(i, i + chunk)); c.close() },
+})
 
-describe('sniffImageType', () => {
-  it('파일 첫 바이트로 형식을 가린다', () => {
-    expect(sniffImageType(GIF)).toBe('image/gif')
-    expect(sniffImageType(PNG)).toBe('image/png')
-    expect(sniffImageType(JPG)).toBe('image/jpeg')
-    expect(sniffImageType(WEBP)).toBe('image/webp')
-    expect(sniffImageType(HTML)).toBeNull()
-    expect(sniffImageType(new ArrayBuffer(0))).toBeNull()
+const post = (data: Uint8Array, opts: { origin?: string; kind?: string; length?: number | null } = {}) => {
+  const headers: Record<string, string> = { Origin: opts.origin ?? 'https://ottcal.com' }
+  if (opts.length !== null) headers['Content-Length'] = String(opts.length ?? data.byteLength)
+  return new Request(`https://ottcal.com/api/media?kind=${opts.kind ?? 'talk'}`, {
+    method: 'POST', body: streamOf(data), headers, duplex: 'half',
+  } as RequestInit)
+}
+
+describe('sniff', () => {
+  it('파일 첫 바이트로 형식을 가린다 (사진·움짤·동영상)', () => {
+    expect(sniff(GIF)?.type).toBe('image/gif')
+    expect(sniff(PNG)?.type).toBe('image/png')
+    expect(sniff(JPG)?.type).toBe('image/jpeg')
+    expect(sniff(WEBP)?.type).toBe('image/webp')
+    expect(sniff(MP4)?.type).toBe('video/mp4')
+    expect(sniff(MOV)?.type).toBe('video/quicktime')
+    expect(sniff(WEBM)?.type).toBe('video/webm')
+    expect(sniff(HTML)).toBeNull()
+    expect(sniff(new Uint8Array(0))).toBeNull()
+  })
+  it('형식별 한도 — 사진·움짤 50MB, 동영상 100MB', () => {
+    expect(sniff(PNG)?.max).toBe(IMAGE_MAX_BYTES)
+    expect(sniff(GIF)?.max).toBe(GIF_MAX_BYTES)
+    expect(sniff(MP4)?.max).toBe(VIDEO_MAX_BYTES)
+    expect(IMAGE_MAX_BYTES).toBe(50_000_000)
+    expect(VIDEO_MAX_BYTES).toBe(100_000_000)
+  })
+  it('sniffImageType 은 사진만', () => {
+    expect(sniffImageType(GIF.buffer as ArrayBuffer)).toBe('image/gif')
+    expect(sniffImageType(MP4.buffer as ArrayBuffer)).toBeNull()
   })
 })
 
@@ -56,74 +87,76 @@ describe('isAllowedOrigin', () => {
 })
 
 describe('publicUrl', () => {
-  it('본 도메인은 www 없이, 검증 주소는 그 주소 그대로', () => {
-    expect(publicUrl('https://www.ottcal.com/api/media', 'talk/a.gif')).toBe('https://ottcal.com/media/talk/a.gif')
-    expect(publicUrl('https://ottcal.x.workers.dev/api/media', 'talk/a.gif')).toBe('https://ottcal.x.workers.dev/media/talk/a.gif')
+  it('R2 커스텀 도메인 뒤에 키를 붙인다', () => {
+    expect(publicUrl({ MEDIA_PUBLIC_BASE: 'https://media.ottcal.com/' }, 'talk/a.gif')).toBe('https://media.ottcal.com/talk/a.gif')
+    expect(publicUrl({}, 'talk/a.gif')).toBe('https://media.ottcal.com/talk/a.gif')
   })
 })
 
-describe('업로드 → 서빙', () => {
-  it('GIF 를 올리면 R2 에 저장하고 /media 주소로 다시 받을 수 있다', async () => {
+describe('올리기', () => {
+  it('GIF 를 올리면 R2 에 저장하고 media.ottcal.com 주소를 준다 (조각난 본문도 온전히)', async () => {
     const { bucket, store } = fakeBucket()
     const res = (await handleMedia(post(GIF), env(bucket)))!
     expect(res.status).toBe(201)
     const { url, key } = await res.json() as { url: string; key: string }
     expect(key).toMatch(/^talk\/[0-9a-f-]{36}\.gif$/)
-    expect(url).toBe(`https://ottcal.com/media/${key}`)
+    expect(url).toBe(`https://media.ottcal.com/${key}`)
     expect(store.get(key)?.type).toBe('image/gif')
-
-    const got = (await handleMedia(new Request(url), env(bucket)))!
-    expect(got.status).toBe(200)
-    expect(got.headers.get('Content-Type')).toBe('image/gif')
-    expect(got.headers.get('X-Content-Type-Options')).toBe('nosniff')
-    expect(got.headers.get('Cache-Control')).toContain('immutable')
-    expect(new Uint8Array(await got.arrayBuffer())).toEqual(new Uint8Array(GIF))
+    expect(new Uint8Array(store.get(key)!.buf)).toEqual(GIF)
   })
 
-  it('클라이언트가 붙인 Content-Type 이 아니라 실제 내용으로 형식을 정한다', async () => {
-    const { bucket } = fakeBucket()
-    const res = (await handleMedia(post(PNG, undefined, 'talk', 'image/gif'), env(bucket)))!
-    const { key } = await res.json() as { key: string }
-    expect(key.endsWith('.png')).toBe(true)
+  it('동영상(MP4·MOV·WEBM)도 받는다', async () => {
+    const { bucket, store } = fakeBucket()
+    for (const [data, ext, type] of [[MP4, 'mp4', 'video/mp4'], [MOV, 'mov', 'video/quicktime'], [WEBM, 'webm', 'video/webm']] as const) {
+      const { key } = await (await handleMedia(post(data), env(bucket)))!.json() as { key: string }
+      expect(key.endsWith(`.${ext}`)).toBe(true)
+      expect(store.get(key)?.type).toBe(type)
+    }
   })
 
   it('HTML 같은 비이미지는 415 로 거절한다 (우리 도메인에서 스크립트가 돌면 안 된다)', async () => {
     const { bucket, store } = fakeBucket()
-    const res = (await handleMedia(post(HTML, undefined, 'talk', 'image/gif'), env(bucket)))!
-    expect(res.status).toBe(415)
+    expect((await handleMedia(post(HTML), env(bucket)))!.status).toBe(415)
     expect(store.size).toBe(0)
+  })
+
+  it('프로필 사진 자리에 동영상은 안 된다', async () => {
+    const { bucket } = fakeBucket()
+    expect((await handleMedia(post(MP4, { kind: 'avatars' }), env(bucket)))!.status).toBe(415)
   })
 
   it('남의 사이트에서 올리면 403', async () => {
     const { bucket } = fakeBucket()
-    expect((await handleMedia(post(GIF, 'https://evil.com'), env(bucket)))!.status).toBe(403)
+    expect((await handleMedia(post(GIF, { origin: 'https://evil.com' }), env(bucket)))!.status).toBe(403)
   })
 
-  it('20MB 를 넘으면 413', async () => {
-    const { bucket } = fakeBucket()
-    const big = new Uint8Array(MAX_BYTES + 1)
-    big.set(new Uint8Array(GIF))
-    expect((await handleMedia(post(big.buffer), env(bucket)))!.status).toBe(413)
+  it('형식별 크기 한도 — 움짤 50MB 초과·동영상 100MB 초과는 413 (본문을 다 받기 전에)', async () => {
+    const { bucket, store } = fakeBucket()
+    const gif = (await handleMedia(post(GIF, { length: GIF_MAX_BYTES + 1 }), env(bucket)))!
+    expect(gif.status).toBe(413)
+    expect((await gif.json() as { error: string }).error).toContain('움짤은 50MB')
+    expect((await handleMedia(post(MP4, { length: VIDEO_MAX_BYTES + 1 }), env(bucket)))!.status).toBe(413)
+    expect(store.size).toBe(0)
   })
 
-  it('알 수 없는 kind 는 400, GET 업로드는 405', async () => {
+  it('60MB 사진은 막힌다 (동영상이면 들어갈 크기 — 한도는 형식을 본 뒤에 정한다)', async () => {
     const { bucket } = fakeBucket()
-    expect((await handleMedia(post(GIF, undefined, '../etc'), env(bucket)))!.status).toBe(400)
+    // 선언 길이만 60MB — 본문은 짧아서 저장 단계(길이 불일치)까지 가지 않고 판정만 본다
+    const png = (await handleMedia(post(PNG, { length: 60_000_000 }), env(bucket)))!
+    expect(png.status).toBe(413)
+  })
+
+  it('Content-Length 가 없으면 411, 알 수 없는 kind 는 400, GET 은 405', async () => {
+    const { bucket } = fakeBucket()
+    expect((await handleMedia(post(GIF, { length: null }), env(bucket)))!.status).toBe(411)
+    expect((await handleMedia(post(GIF, { kind: '../etc' }), env(bucket)))!.status).toBe(400)
     expect((await handleMedia(new Request('https://ottcal.com/api/media'), env(bucket)))!.status).toBe(405)
   })
 
-  it('키 모양이 틀린 경로는 R2 를 뒤지지 않고 404', async () => {
-    const { bucket } = fakeBucket()
-    // '/media/../x' 는 URL 이 알아서 '/x' 로 접는다 — 인코딩된 '..%2F' 가 실제 우회 시도 모양이다
-    expect((await handleMedia(new Request('https://ottcal.com/media/..%2Fsecret'), env(bucket)))!.status).toBe(404)
-    expect((await handleMedia(new Request('https://ottcal.com/media/talk/x.html'), env(bucket)))!.status).toBe(404)
-    expect((await handleMedia(new Request('https://ottcal.com/media/talk/%E0.gif'), env(bucket)))!.status).toBe(404)
-  })
-
-  it('짤과 무관한 경로는 null (정적 자산으로 넘긴다)', async () => {
+  it('첨부와 무관한 경로는 null (정적 자산으로 넘긴다)', async () => {
     const { bucket } = fakeBucket()
     expect(await handleMedia(new Request('https://ottcal.com/content/abc'), env(bucket))).toBeNull()
-    expect(await handleMedia(new Request('https://ottcal.com/mediafoo'), env(bucket))).toBeNull()
+    expect(await handleMedia(new Request('https://ottcal.com/media/talk/x.gif'), env(bucket))).toBeNull()
   })
 })
 
@@ -142,10 +175,10 @@ describe('관리 API', () => {
     expect(res.status).toBe(401)
   })
 
-  it('목록을 보고 지울 수 있다', async () => {
+  it('목록을 보고 지울 수 있다 (동영상 키 포함)', async () => {
     const { bucket, store } = fakeBucket()
     const e = env(bucket, 's3cret')
-    const { key } = await (await handleMedia(post(GIF), e))!.json() as { key: string }
+    const { key } = await (await handleMedia(post(MP4), e))!.json() as { key: string }
 
     const list = await (await handleMedia(new Request('https://ottcal.com/api/media-admin/list', { headers: auth }), e))!.json() as { objects: { key: string }[]; cursor: null }
     expect(list.objects.map(o => o.key)).toEqual([key])

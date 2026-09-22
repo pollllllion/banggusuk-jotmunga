@@ -15,7 +15,6 @@ import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
 import { sanitizeRichText, renderVideoEmbeds, richTextToPlain, extractImageUrls, plainToRichText } from '@/utils/richText'
 import { TalkBodyEditor, cleanBodyHtml } from '@/components/content/TalkBodyEditor'
-import { COMMENT_MAX_FILES, COMMENT_MAX_BYTES } from '@/utils/talkMedia'
 import { Seo } from '@/components/seo/Seo'
 import { SITE_URL } from '@/utils/seo'
 import { buildTalkJsonLd } from '@/shared/talkSeo.mjs'
@@ -229,7 +228,8 @@ export function DiscussionDetailPage() {
     const safe = cleanBodyHtml(raw)
     const plain = richTextToPlain(safe).trim()
     const hasImg = extractImageUrls(safe).length > 0
-    const hasMedia = hasImg || safe.includes('data-yt')
+    // 동영상 자리는 평문에 '[동영상]' 으로 남으므로 (사진) 대체 글이 필요 없다
+    const hasMedia = hasImg || safe.includes('data-yt') || safe.includes('data-vid')
     return {
       body: plain || (hasImg ? '(사진)' : ''),
       bodyHtml: hasMedia ? safe : undefined,
@@ -378,7 +378,7 @@ export function DiscussionDetailPage() {
           {cEditing ? (
             <div className="disc-comment-edit">
               <TalkBodyEditor compact autoFocus html={editingBody} onHtml={setEditingBody} maxLength={1000}
-                maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES} placeholder="댓글을 고쳐 써보세요" />
+                placeholder="댓글을 고쳐 써보세요" />
               <div className="disc-composer-foot">
                 <span className="disc-count">{richTextToPlain(editingBody).length}/1000</span>
                 <span style={{ display: 'flex', gap: 6 }}>
@@ -388,11 +388,11 @@ export function DiscussionDetailPage() {
               </div>
             </div>
           ) : c.bodyHtml ? (
-            // 짤·유튜브가 든 댓글 — 글 본문과 같은 길(정화 → 유튜브 자리를 플레이어로).
-            // 그릴 때 한 번 더 정화한다(저장 때 뚫렸어도 여기서 막히게). 짤은 lazy — 긴 댓글 목록에서
-            // 화면에 닿지도 않은 짤까지 한꺼번에 받으면 전송량이 그대로 새어 나간다.
+            // 짤·동영상·유튜브가 든 댓글 — 글 본문과 같은 길(정화 → 영상 자리를 플레이어로).
+            // 그릴 때 한 번 더 정화한다(저장 때 뚫렸어도 여기서 막히게). 짤 lazy·영상 preload=metadata 는
+            // renderVideoEmbeds 가 건다 — 긴 댓글 목록에서 화면에 닿지도 않은 것까지 받지 않게.
             <div className="disc-comment-body rich"
-              dangerouslySetInnerHTML={{ __html: renderVideoEmbeds(sanitizeRichText(c.bodyHtml)).replace(/<img /g, '<img loading="lazy" ') }} />
+              dangerouslySetInnerHTML={{ __html: renderVideoEmbeds(sanitizeRichText(c.bodyHtml)) }} />
           ) : (
             <p className="disc-comment-body">{c.body}</p>
           )}
@@ -596,7 +596,7 @@ export function DiscussionDetailPage() {
                 {!isAccount && guestMode && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="댓글" />}
                 <div style={{ marginTop: !isAccount && guestMode ? 8 : 0 }}>
                   <TalkBodyEditor compact autoFocus html="" onHtml={setRbody} maxLength={1000}
-                    maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES} placeholder="답글을 남겨보세요"
+                    placeholder="답글을 남겨보세요"
                     onFocus={() => { if (!isAccount && !guestMode) { setLoginOpen(true); } }} />
                 </div>
                 <div className="disc-composer-foot">
@@ -619,7 +619,7 @@ export function DiscussionDetailPage() {
           <div style={{ marginTop: !isAccount && guestMode ? 8 : 0 }}>
             <TalkBodyEditor
               key={composerKey} compact html="" onHtml={setCbody} maxLength={1000}
-              maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES}
+             
               placeholder="댓글을 남겨보세요" inputRef={composerRef}
               onFocus={() => {
                 setComposerFocus(true)

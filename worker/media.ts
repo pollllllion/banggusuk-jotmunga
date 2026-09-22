@@ -1,6 +1,10 @@
 /**
- * 짤 저장소(R2) 처리 — 업로드 · 서빙 · 청소용 관리 API.
+ * 토론방 첨부(사진·움짤·동영상) 올리기 — R2 저장 + 청소용 관리 API.
  * 설명과 보안 원칙은 worker/index.ts 머리말 참고. 이 파일은 순수 로직이라 vitest 로 돌린다.
+ *
+ * 내보내기(보여 주기)는 여기서 하지 않는다 — R2 에 직접 붙인 media.ottcal.com 이 한다.
+ * Worker 를 거치면 짤 한 번 볼 때마다 Worker 요청(무료 하루 10만)을 쓰고,
+ * 아이폰 사파리가 요구하는 동영상 부분 요청(Range)도 직접 구현해야 한다.
  */
 
 // ── 필요한 만큼만 선언한 Workers 타입 (@cloudflare/workers-types 를 들이지 않으려고) ──
@@ -8,46 +12,67 @@ export interface R2ObjectLike {
   key: string
   size: number
   uploaded: Date
-  httpEtag: string
-  httpMetadata?: { contentType?: string }
-}
-export interface R2ObjectBodyLike extends R2ObjectLike {
-  body: ReadableStream | null
 }
 export interface R2BucketLike {
-  get(key: string): Promise<R2ObjectBodyLike | null>
-  put(key: string, value: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>
+  put(key: string, value: ArrayBuffer | ReadableStream, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>
   delete(keys: string | string[]): Promise<void>
   list(opts?: { cursor?: string; limit?: number }): Promise<{ objects: R2ObjectLike[]; truncated: boolean; cursor?: string }>
 }
 export interface Env {
   MEDIA: R2BucketLike
   ASSETS: { fetch(req: Request): Promise<Response> }
-  /** 고아 청소 스크립트용 비밀값 — `wrangler secret put MEDIA_ADMIN_TOKEN`. 없으면 관리 API 는 꺼진다 */
+  /** 올린 파일의 공개 주소 앞부분 (wrangler.jsonc vars) — R2 커스텀 도메인 */
+  MEDIA_PUBLIC_BASE?: string
+  /** 고아 청소 스크립트용 비밀값 — 대시보드 또는 `wrangler secret put MEDIA_ADMIN_TOKEN`. 없으면 관리 API 는 꺼진다 */
   MEDIA_ADMIN_TOKEN?: string
 }
-type Ctx = { waitUntil(p: Promise<unknown>): void }
 
-/** 업로드 한도 — 앱의 talkMedia.ts MAX_BYTES 와 같은 값. 여기가 서버 쪽 최종 관문이다 */
-export const MAX_BYTES = 20 * 1024 * 1024
+// ── 한도 — 앱의 src/utils/mediaHost.ts 와 반드시 같이 고친다. 여기가 서버 쪽 최종 관문이다 ──
+const MB = 1_000_000
+export const IMAGE_MAX_BYTES = 50 * MB
+export const GIF_MAX_BYTES = 50 * MB
+/** Cloudflare 무료 플랜의 요청 본문 한도(100MB)가 곧 이 한도다 */
+export const VIDEO_MAX_BYTES = 100 * MB
 
+const DEFAULT_PUBLIC_BASE = 'https://media.ottcal.com'
 const KINDS = ['talk', 'avatars'] as const
-const EXT: Record<string, string> = { 'image/gif': 'gif', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }
-const TYPE_BY_EXT: Record<string, string> = { gif: 'image/gif', png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' }
-/** R2 키 모양 — 이 밖의 키는 서빙·삭제 모두 거절한다 (경로 조작 방지) */
-const KEY_RE = /^(talk|avatars)\/[A-Za-z0-9-]{8,64}\.(gif|png|jpg|webp)$/
 
+interface Kind { type: string; ext: string; max: number; video: boolean }
+const TYPES: Record<string, Kind> = {
+  gif: { type: 'image/gif', ext: 'gif', max: GIF_MAX_BYTES, video: false },
+  png: { type: 'image/png', ext: 'png', max: IMAGE_MAX_BYTES, video: false },
+  jpg: { type: 'image/jpeg', ext: 'jpg', max: IMAGE_MAX_BYTES, video: false },
+  webp: { type: 'image/webp', ext: 'webp', max: IMAGE_MAX_BYTES, video: false },
+  mp4: { type: 'video/mp4', ext: 'mp4', max: VIDEO_MAX_BYTES, video: true },
+  mov: { type: 'video/quicktime', ext: 'mov', max: VIDEO_MAX_BYTES, video: true },
+  webm: { type: 'video/webm', ext: 'webm', max: VIDEO_MAX_BYTES, video: true },
+}
+/** R2 키 모양 — 이 밖의 키는 삭제를 거절한다 (경로 조작 방지) */
+const KEY_RE = /^(talk|avatars)\/[A-Za-z0-9-]{8,64}\.(gif|png|jpg|webp|mp4|mov|webm)$/
 const CACHE_FOREVER = 'public, max-age=31536000, immutable'
+/** 형식 판정에 필요한 앞부분 길이 */
+const HEAD_BYTES = 16
 
-/** 파일 첫 바이트로 형식 판정. 클라이언트가 붙인 Content-Type 은 믿지 않는다 */
-export function sniffImageType(buf: ArrayBuffer): string | null {
-  const b = new Uint8Array(buf, 0, Math.min(buf.byteLength, 12))
-  const at = (i: number, bytes: number[]) => bytes.every((v, k) => b[i + k] === v)
-  if (at(0, [0x47, 0x49, 0x46, 0x38])) return 'image/gif'                      // GIF8
-  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png'
-  if (at(0, [0xff, 0xd8, 0xff])) return 'image/jpeg'
-  if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50])) return 'image/webp' // RIFF....WEBP
+/**
+ * 파일 첫 바이트로 형식 판정. 클라이언트가 붙인 Content-Type·확장자는 믿지 않는다.
+ * 사용자 파일을 우리 도메인에서 내보내므로 HTML·SVG 가 섞이면 안 된다.
+ */
+export function sniff(head: Uint8Array): Kind | null {
+  const at = (i: number, bytes: number[]) => bytes.every((v, k) => head[i + k] === v)
+  const ascii = (i: number, s: string) => at(i, [...s].map(c => c.charCodeAt(0)))
+  if (ascii(0, 'GIF8')) return TYPES.gif
+  if (at(0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return TYPES.png
+  if (at(0, [0xff, 0xd8, 0xff])) return TYPES.jpg
+  if (ascii(0, 'RIFF') && ascii(8, 'WEBP')) return TYPES.webp
+  if (at(0, [0x1a, 0x45, 0xdf, 0xa3])) return TYPES.webm                    // EBML (WebM)
+  if (ascii(4, 'ftyp')) return ascii(8, 'qt  ') ? TYPES.mov : TYPES.mp4    // ISO BMFF (MP4·MOV)
   return null
+}
+
+/** 옛 이름 — 사진 형식만 판정 (테스트·호환용) */
+export function sniffImageType(buf: ArrayBuffer): string | null {
+  const k = sniff(new Uint8Array(buf, 0, Math.min(buf.byteLength, HEAD_BYTES)))
+  return k && !k.video ? k.type : null
 }
 
 /** 올리기를 받아 줄 출처 — 우리 사이트(본 도메인·workers.dev 검증 주소)와 로컬 개발 */
@@ -61,95 +86,113 @@ export function isAllowedOrigin(origin: string | null): boolean {
   return false
 }
 
-/** 저장된 짤의 공개 주소. 본 도메인이면 www 없이 통일한다 (canonical 과 같은 쪽) */
-export function publicUrl(requestUrl: string, key: string): string {
-  const u = new URL(requestUrl)
-  const base = u.hostname.endsWith('ottcal.com') ? 'https://ottcal.com' : u.origin
-  return `${base}/media/${key}`
+export function publicUrl(env: Pick<Env, 'MEDIA_PUBLIC_BASE'>, key: string): string {
+  return `${(env.MEDIA_PUBLIC_BASE || DEFAULT_PUBLIC_BASE).replace(/\/+$/, '')}/${key}`
 }
 
 const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } })
 const fail = (status: number, message: string) => json({ error: message }, status)
+const mbText = (bytes: number) => `${Math.round(bytes / MB)}MB`
 
-/** 이 요청이 짤 관련이면 응답을, 아니면 null (정적 자산으로 넘긴다) */
-export async function handleMedia(request: Request, env: Env, ctx?: Ctx): Promise<Response | null> {
+/** 이 요청이 첨부 관련이면 응답을, 아니면 null (정적 자산으로 넘긴다) */
+export async function handleMedia(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url)
-  const path = url.pathname
-
-  if (path === '/api/media') {
+  if (url.pathname === '/api/media') {
     if (request.method !== 'POST') return fail(405, 'POST 만 됩니다.')
     return upload(request, env, url)
   }
-  if (path.startsWith('/media/')) {
-    if (request.method !== 'GET' && request.method !== 'HEAD') return fail(405, 'GET 만 됩니다.')
-    let key: string
-    try { key = decodeURIComponent(path.slice('/media/'.length)) } catch { return new Response('Not found', { status: 404 }) }
-    return serve(request, env, key, ctx)
-  }
-  if (path.startsWith('/api/media-admin/')) return admin(request, env, path.slice('/api/media-admin/'.length))
+  if (url.pathname.startsWith('/api/media-admin/')) return admin(request, env, url.pathname.slice('/api/media-admin/'.length))
   return null
 }
 
+/**
+ * 본문 앞 HEAD_BYTES 를 읽어 형식을 정하고, 나머지는 **메모리에 모으지 않고 R2 로 흘려 보낸다.**
+ * Worker 메모리는 128MB 라 100MB 영상을 통째로 들고 있을 수 없다.
+ * R2 에 스트림을 넣으려면 길이를 미리 알아야 해서(FixedLengthStream) Content-Length 가 필수다 —
+ * 브라우저가 File 을 보낼 때는 늘 붙는다.
+ */
 async function upload(request: Request, env: Env, url: URL): Promise<Response> {
   if (!isAllowedOrigin(request.headers.get('Origin'))) return fail(403, '허용되지 않은 출처예요.')
 
   const kind = url.searchParams.get('kind') || 'talk'
   if (!(KINDS as readonly string[]).includes(kind)) return fail(400, '알 수 없는 업로드 종류예요.')
 
-  // 본문을 다 받기 전에 선언된 길이로 먼저 거른다 (없거나 거짓이면 아래에서 실제 크기로 다시 본다)
-  const declared = Number(request.headers.get('Content-Length') || 0)
-  if (declared > MAX_BYTES) return fail(413, `파일이 너무 커요. ${MAX_BYTES / 1024 / 1024}MB 이하로 올려주세요.`)
+  const length = Number(request.headers.get('Content-Length') || NaN)
+  if (!Number.isFinite(length)) return fail(411, '파일 크기를 알 수 없어요.')
+  if (length === 0 || !request.body) return fail(400, '빈 파일이에요.')
+  if (length > VIDEO_MAX_BYTES) return fail(413, `파일이 너무 커요. 동영상은 ${mbText(VIDEO_MAX_BYTES)}, 사진·움짤은 ${mbText(IMAGE_MAX_BYTES)}까지 돼요.`)
 
-  const buf = await request.arrayBuffer()
-  if (buf.byteLength === 0) return fail(400, '빈 파일이에요.')
-  if (buf.byteLength > MAX_BYTES) return fail(413, `파일이 너무 커요. ${MAX_BYTES / 1024 / 1024}MB 이하로 올려주세요.`)
-
-  const type = sniffImageType(buf)
-  if (!type) return fail(415, 'GIF·PNG·JPG·WEBP 만 올릴 수 있어요.')
-
-  const key = `${kind}/${crypto.randomUUID()}.${EXT[type]}`
-  await env.MEDIA.put(key, buf, { httpMetadata: { contentType: type, cacheControl: CACHE_FOREVER } })
-  return json({ url: publicUrl(request.url, key), key }, 201)
-}
-
-async function serve(request: Request, env: Env, key: string, ctx?: Ctx): Promise<Response> {
-  if (!KEY_RE.test(key)) return new Response('Not found', { status: 404 })
-
-  // 데이터센터 캐시 — R2 읽기 횟수를 아끼고 더 빨리 준다. (Node 테스트 환경엔 caches 가 없다)
-  const cache = typeof caches !== 'undefined' ? (caches as unknown as { default: Cache }).default : null
-  const cacheKey = new Request(new URL(request.url).origin + '/media/' + key)
-  if (cache && request.method === 'GET') {
-    const hit = await cache.match(cacheKey)
-    if (hit) return notModified(request, hit) ?? hit
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let got = 0
+  while (got < Math.min(HEAD_BYTES, length)) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    got += value.byteLength
+  }
+  const head = concat(chunks, got).subarray(0, HEAD_BYTES)
+  const k = sniff(head)
+  if (!k) { reader.cancel().catch(() => {}); return fail(415, '사진(JPG·PNG·WEBP)·움짤(GIF)·동영상(MP4·MOV·WEBM)만 올릴 수 있어요.') }
+  if (kind === 'avatars' && k.video) { reader.cancel().catch(() => {}); return fail(415, '프로필 사진은 이미지만 돼요.') }
+  if (length > k.max) {
+    reader.cancel().catch(() => {})
+    const what = k.video ? '동영상' : k.type === 'image/gif' ? '움짤' : '사진'
+    return fail(413, `${what}은 ${mbText(k.max)}까지 올릴 수 있어요.`)
   }
 
-  const obj = await env.MEDIA.get(key)
-  if (!obj) return new Response('Not found', { status: 404, headers: { 'Cache-Control': 'no-store' } })
-
-  const ext = key.slice(key.lastIndexOf('.') + 1)
-  const headers = new Headers({
-    // 저장 때 시그니처로 정한 형식. 혹시 비어 있으면 확장자(역시 서버가 정한 것)로
-    'Content-Type': obj.httpMetadata?.contentType || TYPE_BY_EXT[ext] || 'application/octet-stream',
-    'Content-Length': String(obj.size),
-    'Cache-Control': CACHE_FOREVER,
-    ETag: obj.httpEtag,
-    'X-Content-Type-Options': 'nosniff',
-    // 혹시라도 문서로 열리면 스크립트·폼 전부 막힌 샌드박스로
-    'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
-    // 글쓰기 창에서 "주소로 짤 가져오기" 가 우리 짤을 fetch 할 수 있게
-    'Access-Control-Allow-Origin': '*',
-  })
-  const res = new Response(request.method === 'HEAD' ? null : obj.body, { status: 200, headers })
-  if (cache && request.method === 'GET') ctx?.waitUntil(cache.put(cacheKey, res.clone()))
-  return notModified(request, res) ?? res
+  const key = `${kind}/${crypto.randomUUID()}.${k.ext}`
+  const opts = { httpMetadata: { contentType: k.type, cacheControl: CACHE_FOREVER } }
+  try {
+    await env.MEDIA.put(key, await bodyWithLength(chunks, reader, length), opts)
+  } catch (e) {
+    // 선언한 길이와 실제 본문이 다르면 FixedLengthStream 이 여기서 터진다
+    console.error('[media upload]', e)
+    return fail(400, '파일을 끝까지 받지 못했어요. 다시 시도해주세요.')
+  }
+  return json({ url: publicUrl(env, key), key }, 201)
 }
 
-function notModified(request: Request, res: Response): Response | null {
-  const inm = request.headers.get('If-None-Match')
-  const etag = res.headers.get('ETag')
-  if (inm && etag && inm === etag) return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': CACHE_FOREVER } })
-  return null
+function concat(chunks: Uint8Array[], total: number): Uint8Array {
+  const out = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) { out.set(c, at); at += c.byteLength }
+  return out
+}
+
+/** 이미 읽은 앞부분 + 남은 본문을 길이가 정해진 스트림 하나로. (Node 테스트엔 FixedLengthStream 이 없어 모아서 넘긴다) */
+async function bodyWithLength(head: Uint8Array[], rest: ReadableStreamDefaultReader<Uint8Array>, length: number): Promise<ReadableStream | ArrayBuffer> {
+  const FLS = (globalThis as { FixedLengthStream?: new (n: number) => TransformStream }).FixedLengthStream
+  if (!FLS) return collect(head, rest)
+  const { readable, writable } = new FLS(length)
+  const writer = writable.getWriter()
+  ;(async () => {
+    try {
+      for (const c of head) await writer.write(c)
+      for (;;) {
+        const { done, value } = await rest.read()
+        if (done) break
+        await writer.write(value)
+      }
+      await writer.close()
+    } catch (e) {
+      await writer.abort(e).catch(() => {})
+    }
+  })()
+  return readable
+}
+
+/** 테스트용 — 남은 본문까지 모아 ArrayBuffer 로 */
+async function collect(head: Uint8Array[], rest: ReadableStreamDefaultReader<Uint8Array>): Promise<ArrayBuffer> {
+  const all = [...head]
+  let total = head.reduce((s, c) => s + c.byteLength, 0)
+  for (;;) {
+    const { done, value } = await rest.read()
+    if (done) break
+    all.push(value); total += value.byteLength
+  }
+  return concat(all, total).buffer as ArrayBuffer
 }
 
 /** 길이가 달라도 시간이 같게 비교 (토큰 추측 방지) */

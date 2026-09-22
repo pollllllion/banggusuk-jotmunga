@@ -211,13 +211,14 @@ export function WriteDiscussionPage() {
     const head = title.trim()
     if (!head) { toast('제목을 입력하세요.'); return }
     if (head.length > 80) { toast('제목은 80자 이내로 입력해주세요.'); return }
-    const text = body.trim()
-    if (!text && !images.length) { toast('내용을 입력하세요.'); return }   // 짤만 있는 글도 허용
+    // 서식은 허용 목록만 남기고 정화해서 저장한다 (평문 body 는 목록·검색·공유용 사본).
+    // 평문도 정화본에서 뽑는다 — 에디터 안의 동영상 미리보기엔 글자가 없고, 정화본에는 '[동영상]' 이 남는다.
+    const safeHtml = cleanBodyHtml(bodyHtml) || null
+    const text = (safeHtml ? richTextToPlain(safeHtml) : body).trim()
+    if (!text && !images.length) { toast('내용을 입력하세요.'); return }   // 짤·동영상만 있는 글도 허용
     if (text.length > 5000) { toast('내용은 5000자 이내로 입력해주세요.'); return }
     const useRating = !alreadyRated && rating > 0 ? rating : null
 
-    // 서식은 허용 목록만 남기고 정화해서 저장한다 (평문 body 는 목록·검색·공유용 사본)
-    const safeHtml = cleanBodyHtml(bodyHtml) || null
     const safeImages = safeHtml ? extractImageUrls(safeHtml) : []
 
     setSaving(true)
