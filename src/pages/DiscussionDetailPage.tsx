@@ -619,7 +619,6 @@ export function DiscussionDetailPage() {
           <div style={{ marginTop: !isAccount && guestMode ? 8 : 0 }}>
             <TalkBodyEditor
               key={composerKey} compact html="" onHtml={setCbody} maxLength={1000}
-             
               placeholder="댓글을 남겨보세요" inputRef={composerRef}
               onFocus={() => {
                 setComposerFocus(true)
