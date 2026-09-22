@@ -234,6 +234,9 @@ export interface DiscussionComment {
   guestName?: string | null
   guestPwHash?: string | null
   body: string
+  /** 서식 있는 댓글 본문 HTML (짤·유튜브). 없으면(옛 댓글) body 를 평문 그대로 보여준다.
+   *  migration_comment_media 미적용이면 undefined — 그때는 글자만 저장된다. */
+  bodyHtml?: string | null
   likes: string[]
   createdAt: string
   /** 고쳐 쓴 시각 (migration_talk_edit 미적용이면 undefined) */

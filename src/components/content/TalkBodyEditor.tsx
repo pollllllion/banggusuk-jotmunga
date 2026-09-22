@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useToastStore } from '@/components/ui/Toast'
 import {
   uploadTalkMedia, uploadTalkMediaFromUrl, looksLikeImageUrl,
-  imgSrcFromHtml, isProbablyGifUrl, MAX_FILES, MAX_MB,
+  imgSrcFromHtml, isProbablyGifUrl, MAX_FILES, MAX_BYTES,
 } from '@/utils/talkMedia'
 import { sanitizeRichText, richTextToPlain, extractImageUrls } from '@/utils/richText'
 import { youtubeId, youtubeWatchUrl } from '@/utils/youtube'
@@ -10,11 +10,11 @@ import { youtubeId, youtubeWatchUrl } from '@/utils/youtube'
 /** 첨부거리 — 파일, 주소, 또는 "주소 우선 · 실패하면 이 파일" 쌍 */
 type MediaItem = File | string | { url: string; fallback: File }
 
-async function resolveItem(item: MediaItem): Promise<string> {
-  if (typeof item === 'string') return uploadTalkMediaFromUrl(item)
-  if (item instanceof File) return uploadTalkMedia(item)
-  try { return await uploadTalkMediaFromUrl(item.url) }
-  catch { return uploadTalkMedia(item.fallback) }
+async function resolveItem(item: MediaItem, limit: number): Promise<string> {
+  if (typeof item === 'string') return uploadTalkMediaFromUrl(item, limit)
+  if (item instanceof File) return uploadTalkMedia(item, limit)
+  try { return await uploadTalkMediaFromUrl(item.url, limit) }
+  catch { return uploadTalkMedia(item.fallback, limit) }
 }
 
 /** 글자 크기 — execCommand('fontSize') 의 1~7 을 사람 말로 */
@@ -37,15 +37,39 @@ const FONTS = [
  * 짤을 따로 모아 두지 않고 본문 HTML 안의 <img> 로 넣기 때문에,
  * 짤 위·아래 어디에나 글을 쓸 수 있고 지울 때도 글자처럼 백스페이스로 지운다.
  * 익명 글쓰기를 받는 게시판이라 밖으로 내보내기 전에 sanitizeRichText 로 정화한다.
+ *
+ * compact(댓글·답글용): 서식 툴바와 '주소로 넣기'를 감추고, [이미지·움짤]·[유튜브] 버튼만
+ * 입력칸 **아래**에 둔다. 댓글에 글꼴·색상까지 고르게 하면 입력창이 글쓰기 화면만큼 커진다.
+ * 짤·유튜브 붙여넣기(Ctrl+V)와 드래그&드롭은 똑같이 된다. 글자 수는 부모가 센다
+ * (등록 버튼 옆에 이미 세는 자리가 있다).
+ *
+ * 내용은 처음 한 번만 넣고 그 뒤론 브라우저가 들고 있는다(비제어). 그래서 등록 후 입력칸을
+ * 비우려면 부모가 key 를 바꿔 새로 그려야 한다 — 상태만 비워서는 화면이 안 비워진다.
  */
-export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
+export function TalkBodyEditor({
+  html, onHtml, maxLength = 5000,
+  compact = false, maxFiles = MAX_FILES, maxBytes = MAX_BYTES,
+  placeholder, autoFocus = false, inputRef, onFocus, onBlur,
+}: {
   html: string
   onHtml: (v: string) => void
   maxLength?: number
+  /** 댓글용 간단형 — 서식 툴바를 감추고 [이미지·움짤]·[유튜브]만 입력칸 아래에 둔다 */
+  compact?: boolean
+  /** 짤 개수 상한 (글 4 · 댓글 1) */
+  maxFiles?: number
+  /** 짤 한 개 크기 상한 (글 20MB · 댓글 5MB) — 정지 이미지는 줄인 뒤 크기로 잰다 */
+  maxBytes?: number
+  placeholder?: string
+  autoFocus?: boolean
+  /** 부모가 입력칸에 직접 손대야 할 때 (하단 고정 바 → 입력칸으로 스크롤·포커스) */
+  inputRef?: React.MutableRefObject<HTMLDivElement | null>
+  onFocus?: () => void
+  onBlur?: () => void
 }) {
   const toast = useToastStore(s => s.show)
   const fileRef = useRef<HTMLInputElement>(null)
-  const editorRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLDivElement | null>(null)
   const savedRange = useRef<Range | null>(null)
   const [busy, setBusy] = useState(false)
   const [dragging, setDragging] = useState(false)
@@ -55,6 +79,7 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
   const [ytInput, setYtInput] = useState('')
   const [len, setLen] = useState(() => richTextToPlain(html).length)
   const [shots, setShots] = useState(() => extractImageUrls(html).length)
+  const capMb = Math.round(maxBytes / 1024 / 1024)
 
   // 초기 내용만 한 번 넣는다 — 이후엔 브라우저가 들고 있는다(입력 중 커서가 튀지 않게)
   useEffect(() => {
@@ -63,6 +88,8 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
       // 저장할 때 contenteditable 속성은 정화로 빠진다 — 고쳐 쓰러 열면 영상 자리를 다시 한 덩이로 묶는다
       editorRef.current.querySelectorAll('[data-yt]').forEach(el => el.setAttribute('contenteditable', 'false'))
     }
+    // contentEditable 은 autoFocus 속성을 안 먹는다 — 답글·수정칸을 열자마자 바로 쓰게 직접 건다
+    if (autoFocus) editorRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -72,7 +99,8 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
     const imgs = extractImageUrls(raw)
     setLen(plain.length)
     setShots(imgs.length)
-    onHtml(plain.trim() || imgs.length ? raw : '')  // 빈 <div><br></div> 만 남은 건 빈 글로 본다
+    // 빈 <div><br></div> 만 남은 건 빈 글로 본다. 유튜브 자리만 있는 글도 빈 글이 아니다
+    onHtml(plain.trim() || imgs.length || raw.includes('data-yt') ? raw : '')
   }
 
   /** 툴바를 누르면 에디터가 포커스를 잃으므로, 마지막 커서 자리를 기억해 뒀다 되돌린다.
@@ -144,15 +172,16 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
   /** 남은 자리만큼 잘라 하나씩 올리고, 성공한 것만 본문에 끼운다. */
   const addAll = async (items: MediaItem[]) => {
     if (!items.length) return
-    const room = MAX_FILES - extractImageUrls(editorRef.current?.innerHTML || '').length
-    if (room <= 0) { toast(`짤은 한 글에 최대 ${MAX_FILES}개까지 넣을 수 있어요.`); return }
-    if (items.length > room) toast(`${room}개만 올릴게요. (최대 ${MAX_FILES}개)`)
+    const where = compact ? '댓글 하나에' : '한 글에'
+    const room = maxFiles - extractImageUrls(editorRef.current?.innerHTML || '').length
+    if (room <= 0) { toast(`짤은 ${where} 최대 ${maxFiles}개까지 넣을 수 있어요.`); return }
+    if (items.length > room) toast(`${room}개만 올릴게요. (${where} 최대 ${maxFiles}개)`)
 
     setBusy(true)
     const added: string[] = []
     try {
       for (const item of items.slice(0, room)) {
-        try { added.push(await resolveItem(item)) }
+        try { added.push(await resolveItem(item, maxBytes)) }
         catch (e: any) { toast(e?.message || '업로드에 실패했어요.') }
       }
       if (added.length) { insertImages(added); toast('짤을 넣었어요!') }
@@ -207,96 +236,113 @@ export function TalkBodyEditor({ html, onHtml, maxLength = 5000 }: {
   /** 버튼을 눌러도 에디터가 포커스를 잃지 않게 (선택 영역이 그대로 남는다) */
   const keepFocus = (e: React.MouseEvent) => e.preventDefault()
 
+  // 첨부 줄 — 글쓰기에선 입력칸 위, 댓글(compact)에선 입력칸 아래
+  const attachBar = (
+    <>
+      <div className="talk-toolbar">
+        <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => fileRef.current?.click()}>
+          이미지·움짤
+        </button>
+        {!compact && (
+          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setYtOpen(false); setUrlOpen(o => !o) }}>
+            주소로 넣기
+          </button>
+        )}
+        <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setUrlOpen(false); setYtOpen(o => !o) }}>
+          유튜브
+        </button>
+        <span className="talk-toolbar-hint">
+          {busy ? '올리는 중…' : compact
+            ? `짤 ${shots}/${maxFiles} · ${capMb}MB 이하 · 붙여넣기 가능`
+            : `커서 자리에 들어감 · 붙여넣기(Ctrl+V)·드래그&드롭 · ${shots}/${maxFiles}`}
+        </span>
+      </div>
+
+      {urlOpen && (
+        <div className="talk-url-row">
+          <input
+            className="form-input" style={{ flex: 1, marginBottom: 0 }} autoFocus
+            placeholder="이미지 주소 (https://....gif)"
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUrl() } }}
+          />
+          <button type="button" className="btn btn-secondary btn-small" disabled={busy || !urlInput.trim()} onClick={addUrl}>붙이기</button>
+        </div>
+      )}
+
+      {ytOpen && (
+        <div className="talk-url-row">
+          <input
+            className="form-input" style={{ flex: 1, marginBottom: 0 }} autoFocus
+            placeholder={compact ? '유튜브 주소 (입력칸에 바로 붙여넣어도 돼요)' : '유튜브 주소 (본문에 바로 붙여넣어도 영상으로 들어가요)'}
+            value={ytInput}
+            onChange={e => setYtInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVideo() } }}
+          />
+          <button type="button" className="btn btn-secondary btn-small" disabled={!ytInput.trim()} onClick={addVideo}>넣기</button>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <>
       <div
-        className={`talk-editor ${dragging ? 'dragging' : ''}`}
+        className={`talk-editor ${compact ? 'compact' : ''} ${dragging ? 'dragging' : ''}`}
         onDrop={onDrop}
         onDragOver={e => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
       >
-        {/* 서식 */}
-        <div className="talk-toolbar">
-          <select className="talk-select" defaultValue="" onChange={e => { exec('fontName', e.target.value); e.target.selectedIndex = 0 }}>
-            {FONTS.map(f => <option key={f.label} value={f.v}>{f.label}</option>)}
-          </select>
-          <select className="talk-select" defaultValue="" onChange={e => { exec('fontSize', e.target.value); e.target.selectedIndex = 0 }}>
-            <option value="">크기</option>
-            {SIZES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
-          </select>
-          <button type="button" className="talk-tool bold" onMouseDown={keepFocus} onClick={() => exec('bold')} title="굵게">가</button>
-          <button type="button" className="talk-tool italic" onMouseDown={keepFocus} onClick={() => exec('italic')} title="기울임">가</button>
-          <button type="button" className="talk-tool underline" onMouseDown={keepFocus} onClick={() => exec('underline')} title="밑줄">가</button>
-          <button type="button" className="talk-tool strike" onMouseDown={keepFocus} onClick={() => exec('strikeThrough')} title="취소선">가</button>
-          <input type="color" className="talk-color" title="글자색" defaultValue="#18181b"
-            onChange={e => exec('foreColor', e.target.value)} />
-          <button type="button" className="talk-tool" onMouseDown={keepFocus} onClick={() => exec('removeFormat')} title="서식 지우기">서식 해제</button>
-        </div>
-
-        {/* 첨부 */}
-        <div className="talk-toolbar">
-          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => fileRef.current?.click()}>
-            이미지·움짤
-          </button>
-          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setYtOpen(false); setUrlOpen(o => !o) }}>
-            주소로 넣기
-          </button>
-          <button type="button" className="talk-tool" disabled={busy} onMouseDown={keepFocus} onClick={() => { setUrlOpen(false); setYtOpen(o => !o) }}>
-            유튜브
-          </button>
-          <span className="talk-toolbar-hint">
-            {busy ? '올리는 중…' : `커서 자리에 들어감 · 붙여넣기(Ctrl+V)·드래그&드롭 · ${shots}/${MAX_FILES}`}
-          </span>
-        </div>
-
-        {urlOpen && (
-          <div className="talk-url-row">
-            <input
-              className="form-input" style={{ flex: 1, marginBottom: 0 }} autoFocus
-              placeholder="이미지 주소 (https://....gif)"
-              value={urlInput}
-              onChange={e => setUrlInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addUrl() } }}
-            />
-            <button type="button" className="btn btn-secondary btn-small" disabled={busy || !urlInput.trim()} onClick={addUrl}>붙이기</button>
+        {/* 서식 — 댓글에선 뺀다 */}
+        {!compact && (
+          <div className="talk-toolbar">
+            <select className="talk-select" defaultValue="" onChange={e => { exec('fontName', e.target.value); e.target.selectedIndex = 0 }}>
+              {FONTS.map(f => <option key={f.label} value={f.v}>{f.label}</option>)}
+            </select>
+            <select className="talk-select" defaultValue="" onChange={e => { exec('fontSize', e.target.value); e.target.selectedIndex = 0 }}>
+              <option value="">크기</option>
+              {SIZES.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
+            </select>
+            <button type="button" className="talk-tool bold" onMouseDown={keepFocus} onClick={() => exec('bold')} title="굵게">가</button>
+            <button type="button" className="talk-tool italic" onMouseDown={keepFocus} onClick={() => exec('italic')} title="기울임">가</button>
+            <button type="button" className="talk-tool underline" onMouseDown={keepFocus} onClick={() => exec('underline')} title="밑줄">가</button>
+            <button type="button" className="talk-tool strike" onMouseDown={keepFocus} onClick={() => exec('strikeThrough')} title="취소선">가</button>
+            <input type="color" className="talk-color" title="글자색" defaultValue="#18181b"
+              onChange={e => exec('foreColor', e.target.value)} />
+            <button type="button" className="talk-tool" onMouseDown={keepFocus} onClick={() => exec('removeFormat')} title="서식 지우기">서식 해제</button>
           </div>
         )}
 
-        {ytOpen && (
-          <div className="talk-url-row">
-            <input
-              className="form-input" style={{ flex: 1, marginBottom: 0 }} autoFocus
-              placeholder="유튜브 주소 (본문에 바로 붙여넣어도 영상으로 들어가요)"
-              value={ytInput}
-              onChange={e => setYtInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addVideo() } }}
-            />
-            <button type="button" className="btn btn-secondary btn-small" disabled={!ytInput.trim()} onClick={addVideo}>넣기</button>
-          </div>
-        )}
+        {!compact && attachBar}
 
         <div
-          ref={editorRef}
+          ref={el => { editorRef.current = el; if (inputRef) inputRef.current = el }}
           className="talk-body"
           contentEditable
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
-          data-placeholder="이 작품에 대한 감상·떡밥·추천 뭐든 자유롭게! (짤은 커서 자리에 바로 들어가요)"
+          data-placeholder={placeholder ?? '이 작품에 대한 감상·떡밥·추천 뭐든 자유롭게! (짤은 커서 자리에 바로 들어가요)'}
           onInput={() => { remember(); sync() }}
           onKeyUp={remember}
           onMouseUp={remember}
-          onBlur={() => { remember(); sync() }}
+          onFocus={onFocus}
+          onBlur={() => { remember(); sync(); onBlur?.() }}
           onPaste={onPaste}
         />
+
+        {compact && attachBar}
       </div>
 
-      <input ref={fileRef} type="file" accept="image/gif,image/png,image/jpeg,image/webp" multiple hidden
+      <input ref={fileRef} type="file" accept="image/gif,image/png,image/jpeg,image/webp" multiple={maxFiles > 1} hidden
         onChange={e => { addAll(Array.from(e.target.files || [])); e.target.value = '' }} />
 
-      <span className="disc-count" style={{ fontSize: 12, color: over ? 'var(--danger)' : 'var(--subtext)' }}>
-        {len}/{maxLength} · 짤은 개당 {MAX_MB}MB 이하, 한 글에 {MAX_FILES}개까지 (지울 땐 글자처럼 백스페이스)
-      </span>
+      {!compact && (
+        <span className="disc-count" style={{ fontSize: 12, color: over ? 'var(--danger)' : 'var(--subtext)' }}>
+          {len}/{maxLength} · 짤은 개당 {capMb}MB 이하, 한 글에 {maxFiles}개까지 (지울 땐 글자처럼 백스페이스)
+        </span>
+      )}
     </>
   )
 }

@@ -13,7 +13,9 @@ import { LevelTag } from '@/components/profile/LevelTag'
 import { Avatar } from '@/components/profile/Avatar'
 import { BackIcon, HeartIcon } from '@/components/ui/Icons'
 import { fullDateTime, sha256hex, scoreColor, scoreLabel } from '@/utils/helpers'
-import { sanitizeRichText, renderVideoEmbeds } from '@/utils/richText'
+import { sanitizeRichText, renderVideoEmbeds, richTextToPlain, extractImageUrls, plainToRichText } from '@/utils/richText'
+import { TalkBodyEditor, cleanBodyHtml } from '@/components/content/TalkBodyEditor'
+import { COMMENT_MAX_FILES, COMMENT_MAX_BYTES } from '@/utils/talkMedia'
 import { Seo } from '@/components/seo/Seo'
 import { SITE_URL } from '@/utils/seo'
 import { buildTalkJsonLd } from '@/shared/talkSeo.mjs'
@@ -41,7 +43,11 @@ export function DiscussionDetailPage() {
   const rerender = () => setTick(t => t + 1)
   const contentsComplete = useDataStore(s => s.contentsComplete)
 
+  // 댓글·답글·수정칸은 짤·유튜브를 품는 에디터(TalkBodyEditor compact)라 값이 HTML 이다.
+  // 비어 있으면 '' — 에디터가 빈 <div><br></div> 를 '' 로 돌려준다.
   const [cbody, setCbody] = useState('')
+  // 에디터는 비제어라 상태를 비워도 화면이 안 비워진다 — 등록 뒤 key 를 바꿔 새로 그린다
+  const [composerKey, setComposerKey] = useState(0)
   const [guestName, setGuestName] = useState('')
   const [guestPw, setGuestPw] = useState('')
   const [revealSpoiler, setRevealSpoiler] = useState(false)
@@ -63,7 +69,7 @@ export function DiscussionDetailPage() {
   // 답글 — 어느 원댓글 밑에 입력칸이 열려 있나 / 그 입력칸 내용
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [rbody, setRbody] = useState('')
-  const composerRef = useRef<HTMLTextAreaElement>(null)
+  const composerRef = useRef<HTMLDivElement | null>(null)
 
   useEscapeKey(menuOpen, () => setMenuOpen(false))
 
@@ -209,25 +215,48 @@ export function DiscussionDetailPage() {
     }
   }
 
+  /**
+   * 에디터 HTML → 저장할 모양 { body 평문 사본, bodyHtml, 글자 수 }.
+   *
+   * **짤·유튜브가 없으면 bodyHtml 을 싣지 않는다** — 글자뿐인 댓글은 예전과 똑같은 행이 된다.
+   * migration_comment_media 전이면 bodyHtml 칸이 DB 에 없어 싣는 순간 등록이 400 으로 떨어지는데,
+   * 이렇게 하면 SQL 적용 전에도 보통 댓글은 멀쩡히 달린다. 서식 없는 댓글을 굳이 HTML 로 두면
+   * 앱 시작 때 긁어오는 캐시만 무거워진다(CLAUDE.md 불변식 2번).
+   *
+   * 짤만 올린 댓글은 평문이 비므로 '(사진)' 을 남긴다 — 알림 미리보기·검색·프리렌더가 읽는 칸이다.
+   */
+  const packComment = (raw: string) => {
+    const safe = cleanBodyHtml(raw)
+    const plain = richTextToPlain(safe).trim()
+    const hasImg = extractImageUrls(safe).length > 0
+    const hasMedia = hasImg || safe.includes('data-yt')
+    return {
+      body: plain || (hasImg ? '(사진)' : ''),
+      bodyHtml: hasMedia ? safe : undefined,
+      len: plain.length,
+    }
+  }
+
   const submitComment = async () => {
     // 입력칸을 거치지 않고 등록을 누른 경우(붙여넣기·자동완성 등)에도 한 번 묻는다
     if (!isAccount && !guestMode) { setLoginOpen(true); return }
-    const text = cbody.trim()
+    const { body: text, bodyHtml, len } = packComment(cbody)
     if (!text) { toast('댓글을 입력하세요.'); return }
-    if (text.length > 1000) { toast('댓글은 1000자 이내로 입력해주세요.'); return }
+    if (len > 1000) { toast('댓글은 1000자 이내로 입력해주세요.'); return }
+    const media = bodyHtml ? { bodyHtml } : {}
 
     let payload: Parameters<typeof DS.createDiscussionComment>[0]
     if (isAccount && user) {
-      payload = { discussionId: post.id, authorId: user.id, body: text }
+      payload = { discussionId: post.id, authorId: user.id, body: text, ...media }
     } else {
       if (!guestName.trim()) { toast('닉네임을 입력하세요.'); return }
       if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
       const hash = await sha256hex(guestPw)
-      payload = { discussionId: post.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text }
+      payload = { discussionId: post.id, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text, ...media }
     }
     // 저장이 서버까지 간 걸 확인한 뒤에 입력칸을 비운다 — 실패했는데 쓴 글이 사라지면 안 된다
     try { await DS.createDiscussionComment(payload) } catch (e) { failToast(e); return }
-    setGuestPw(''); setCbody(''); rerender()
+    setGuestPw(''); setCbody(''); setComposerKey(k => k + 1); rerender()
   }
 
   /**
@@ -239,18 +268,19 @@ export function DiscussionDetailPage() {
    */
   const submitReply = async (parentId: string) => {
     if (!isAccount && !guestMode) { setLoginOpen(true); return }
-    const text = rbody.trim()
+    const { body: text, bodyHtml, len } = packComment(rbody)
     if (!text) { toast('답글을 입력하세요.'); return }
-    if (text.length > 1000) { toast('답글은 1000자 이내로 입력해주세요.'); return }
+    if (len > 1000) { toast('답글은 1000자 이내로 입력해주세요.'); return }
+    const media = bodyHtml ? { bodyHtml } : {}
 
     let payload: Parameters<typeof DS.createDiscussionComment>[0]
     if (isAccount && user) {
-      payload = { discussionId: post.id, parentId, authorId: user.id, body: text }
+      payload = { discussionId: post.id, parentId, authorId: user.id, body: text, ...media }
     } else {
       if (!guestName.trim()) { toast('닉네임을 입력하세요.'); return }
       if (guestPw.length < 4) { toast('비밀번호를 4자 이상 입력하세요. (삭제 시 필요)'); return }
       const hash = await sha256hex(guestPw)
-      payload = { discussionId: post.id, parentId, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text }
+      payload = { discussionId: post.id, parentId, authorId: null, guestName: guestName.trim(), guestPwHash: hash, body: text, ...media }
     }
     try { await DS.createDiscussionComment(payload) } catch (e) { failToast(e); return }
     setGuestPw(''); setRbody(''); setReplyTo(null); rerender()
@@ -263,7 +293,7 @@ export function DiscussionDetailPage() {
   }
 
   /** 댓글 수정 — 계정 댓글은 바로, 유동닉 댓글은 비번을 먼저 확인하고 그 비번으로 저장 */
-  const startEditComment = async (c: { id: string; body: string; guestName?: string | null }) => {
+  const startEditComment = async (c: { id: string; body: string; bodyHtml?: string | null; guestName?: string | null }) => {
     if (c.guestName) {
       const pw = prompt('댓글 작성 시 입력한 비밀번호를 입력하세요.')
       if (!pw) return
@@ -271,18 +301,22 @@ export function DiscussionDetailPage() {
       if (!ok) { toast('비밀번호가 일치하지 않습니다.'); return }
       setEditingPw(pw)
     }
-    setEditingId(c.id); setEditingBody(c.body)
+    // 짤 없는 옛 댓글은 평문을 HTML 로 감싸서 연다 (줄바꿈이 <div> 로 살아 있게)
+    setEditingId(c.id); setEditingBody(c.bodyHtml || plainToRichText(c.body))
   }
 
-  const saveComment = async (c: { id: string; guestName?: string | null }) => {
-    const text = editingBody.trim()
+  const saveComment = async (c: { id: string; bodyHtml?: string | null; guestName?: string | null }) => {
+    const { body: text, bodyHtml, len } = packComment(editingBody)
     if (!text) { toast('댓글을 입력하세요.'); return }
-    if (text.length > 1000) { toast('댓글은 1000자 이내로 입력해주세요.'); return }
+    if (len > 1000) { toast('댓글은 1000자 이내로 입력해주세요.'); return }
+    // 짤을 다 뺐으면 null 로 칸을 비운다. 원래도 없었으면 undefined — 칸 자체를 안 보낸다
+    // (updateDiscussionComment 주석 참고 · SQL 적용 전에도 글자 수정은 되게)
+    const html = bodyHtml ?? (c.bodyHtml ? null : undefined)
     if (c.guestName) {
-      const ok = await DS.updateGuestDiscussionComment(c.id, editingPw, text)
+      const ok = await DS.updateGuestDiscussionComment(c.id, editingPw, text, html)
       if (!ok) { toast('비밀번호가 일치하지 않습니다.'); return }
     } else {
-      try { await DS.updateDiscussionComment(c.id, text) } catch (e) { failToast(e); return }
+      try { await DS.updateDiscussionComment(c.id, text, html) } catch (e) { failToast(e); return }
     }
     setEditingId(null); setEditingPw(''); toast('댓글을 고쳤어요!'); rerender()
   }
@@ -343,16 +377,22 @@ export function DiscussionDetailPage() {
           </div>
           {cEditing ? (
             <div className="disc-comment-edit">
-              <textarea className="disc-input" style={{ minHeight: 54 }} maxLength={1000}
-                value={editingBody} onChange={e => setEditingBody(e.target.value)} autoFocus />
+              <TalkBodyEditor compact autoFocus html={editingBody} onHtml={setEditingBody} maxLength={1000}
+                maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES} placeholder="댓글을 고쳐 써보세요" />
               <div className="disc-composer-foot">
-                <span className="disc-count">{editingBody.length}/1000</span>
+                <span className="disc-count">{richTextToPlain(editingBody).length}/1000</span>
                 <span style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-secondary btn-small" onClick={() => { setEditingId(null); setEditingPw('') }}>취소</button>
-                  <button className="btn btn-primary btn-small" onClick={() => saveComment(c)} disabled={!editingBody.trim()}>저장</button>
+                  <button className="btn btn-primary btn-small" onClick={() => saveComment(c)} disabled={!editingBody}>저장</button>
                 </span>
               </div>
             </div>
+          ) : c.bodyHtml ? (
+            // 짤·유튜브가 든 댓글 — 글 본문과 같은 길(정화 → 유튜브 자리를 플레이어로).
+            // 그릴 때 한 번 더 정화한다(저장 때 뚫렸어도 여기서 막히게). 짤은 lazy — 긴 댓글 목록에서
+            // 화면에 닿지도 않은 짤까지 한꺼번에 받으면 전송량이 그대로 새어 나간다.
+            <div className="disc-comment-body rich"
+              dangerouslySetInnerHTML={{ __html: renderVideoEmbeds(sanitizeRichText(c.bodyHtml)).replace(/<img /g, '<img loading="lazy" ') }} />
           ) : (
             <p className="disc-comment-body">{c.body}</p>
           )}
@@ -554,17 +594,16 @@ export function DiscussionDetailPage() {
             {replyTo === c.id && (
               <div className="disc-reply-composer">
                 {!isAccount && guestMode && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="댓글" />}
-                <textarea
-                  className="disc-input" style={{ minHeight: 48 }} maxLength={1000} autoFocus
-                  placeholder="답글을 남겨보세요"
-                  value={rbody} onChange={e => setRbody(e.target.value)}
-                  onFocus={() => { if (!isAccount && !guestMode) { setLoginOpen(true); } }}
-                />
+                <div style={{ marginTop: !isAccount && guestMode ? 8 : 0 }}>
+                  <TalkBodyEditor compact autoFocus html="" onHtml={setRbody} maxLength={1000}
+                    maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES} placeholder="답글을 남겨보세요"
+                    onFocus={() => { if (!isAccount && !guestMode) { setLoginOpen(true); } }} />
+                </div>
                 <div className="disc-composer-foot">
-                  <span className="disc-count">{rbody.length}/1000</span>
+                  <span className="disc-count">{richTextToPlain(rbody).length}/1000</span>
                   <span style={{ display: 'flex', gap: 6 }}>
                     <button className="btn btn-secondary btn-small" onClick={() => { setReplyTo(null); setRbody('') }}>취소</button>
-                    <button className="btn btn-primary btn-small" onClick={() => submitReply(c.id)} disabled={!rbody.trim()}>답글 등록</button>
+                    <button className="btn btn-primary btn-small" onClick={() => submitReply(c.id)} disabled={!rbody}>답글 등록</button>
                   </span>
                 </div>
               </div>
@@ -577,22 +616,23 @@ export function DiscussionDetailPage() {
           {/* 닉네임·비번 칸은 '비회원으로 쓰기'를 고른 뒤에만 나온다.
               늘 띄워 두면 글을 읽으러 온 사람에게 아직 하지도 않은 선택을 먼저 묻는 꼴이다. */}
           {!isAccount && guestMode && <GuestCred name={guestName} pw={guestPw} onName={setGuestName} onPw={setGuestPw} what="댓글" />}
-          <textarea
-            ref={composerRef}
-            className="disc-input" style={{ minHeight: 54, marginTop: !isAccount && guestMode ? 8 : 0 }}
-            placeholder="댓글을 남겨보세요" maxLength={1000}
-            value={cbody} onChange={e => setCbody(e.target.value)}
-            onFocus={() => {
-              setComposerFocus(true)
-              // 아직 고정닉도 비회원도 아니면 여기서 한 번 묻는다. 커서는 거둔다 —
-              // 폰에서는 키보드가 올라온 채로 창이 떠서 둘이 화면을 나눠 갖는다.
-              if (!isAccount && !guestMode) { setLoginOpen(true); composerRef.current?.blur() }
-            }}
-            onBlur={() => setComposerFocus(false)}
-          />
+          <div style={{ marginTop: !isAccount && guestMode ? 8 : 0 }}>
+            <TalkBodyEditor
+              key={composerKey} compact html="" onHtml={setCbody} maxLength={1000}
+              maxFiles={COMMENT_MAX_FILES} maxBytes={COMMENT_MAX_BYTES}
+              placeholder="댓글을 남겨보세요" inputRef={composerRef}
+              onFocus={() => {
+                setComposerFocus(true)
+                // 아직 고정닉도 비회원도 아니면 여기서 한 번 묻는다. 커서는 거둔다 —
+                // 폰에서는 키보드가 올라온 채로 창이 떠서 둘이 화면을 나눠 갖는다.
+                if (!isAccount && !guestMode) { setLoginOpen(true); composerRef.current?.blur() }
+              }}
+              onBlur={() => setComposerFocus(false)}
+            />
+          </div>
           <div className="disc-composer-foot">
-            <span className="disc-count">{cbody.length}/1000 {!isAccount && guestMode && <span style={{ color: 'var(--subtext)' }}>· 유동닉</span>}</span>
-            <button className="btn btn-primary btn-small" onClick={submitComment} disabled={!cbody.trim()}>댓글 등록</button>
+            <span className="disc-count">{richTextToPlain(cbody).length}/1000 {!isAccount && guestMode && <span style={{ color: 'var(--subtext)' }}>· 유동닉</span>}</span>
+            <button className="btn btn-primary btn-small" onClick={submitComment} disabled={!cbody}>댓글 등록</button>
           </div>
         </div>
       </div>

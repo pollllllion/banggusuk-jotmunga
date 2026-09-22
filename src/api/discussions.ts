@@ -365,20 +365,50 @@ export async function softDeleteGuestDiscussionComment(id: string, password: str
   return data === true
 }
 
-/** 댓글 수정 (본문만) — 고정닉 글 전용. RLS 상 본인/관리자만 통과한다. */
-export async function updateDiscussionComment(id: string, body: string): Promise<void> {
+/**
+ * 댓글 수정 — 고정닉 글 전용. RLS 상 본인/관리자만 통과한다.
+ *
+ * bodyHtml 은 짤·유튜브가 든 서식 본문, body 는 그 평문 사본(검색·알림용). bodyHtml 은 세 갈래다:
+ *  - 문자열:    짤·영상이 든 댓글
+ *  - null:      원래 짤이 있었는데 고치면서 다 뺐다 → 칸을 비운다
+ *  - undefined: 원래도 지금도 글자뿐 → 칸을 **아예 안 보낸다**
+ * 세 번째를 따로 두는 이유: migration_comment_media 전이면 bodyHtml 칸이 DB 에 없어서,
+ * null 이라도 실어 보내면 저장이 통째로 400 으로 떨어진다. 글자만 고친 댓글까지 막으면 안 된다.
+ */
+export async function updateDiscussionComment(id: string, body: string, bodyHtml?: string | null): Promise<void> {
   const cs = getDiscussionComments()
   const idx = cs.findIndex(c => c.id === id)
   if (idx < 0) return
   const next = [...cs]
-  next[idx] = { ...cs[idx], body, updatedAt: new Date().toISOString() }
+  next[idx] = {
+    ...cs[idx], body,
+    ...(bodyHtml !== undefined ? { bodyHtml } : {}),
+    updatedAt: new Date().toISOString(),
+  }
   const res = await saveDiscussionComments(next)
   if (!res.ok) { cache.discussion_comments = cs; throw new SaveFailedError(res.error) }
 }
 
-/** 유동닉 댓글 수정 — 서버에서 비번 검증. 성공 시 캐시만 직접 손본다. */
-export async function updateGuestDiscussionComment(id: string, password: string, body: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc('update_guest_discussion_comment', { p_id: id, p_password: password, p_body: body })
+/**
+ * 유동닉 댓글 수정 — 서버에서 비번 검증. 성공 시 캐시만 직접 손본다.
+ * bodyHtml 의 세 갈래는 updateDiscussionComment 와 같다.
+ *
+ * 짤이 든 댓글은 4-인자 RPC(migration_comment_media)로 보낸다. 그 SQL 을 아직 안 돌렸으면
+ * 함수가 없다는 PGRST202 가 오는데, 그때는 옛 3-인자 판으로 **글자만이라도** 저장한다 —
+ * 짤 하나 때문에 고쳐 쓴 글까지 날리면 안 된다.
+ */
+export async function updateGuestDiscussionComment(
+  id: string, password: string, body: string, bodyHtml?: string | null,
+): Promise<boolean> {
+  const base = { p_id: id, p_password: password, p_body: body }
+  let { data, error } = bodyHtml === undefined
+    ? await supabase.rpc('update_guest_discussion_comment', base)
+    : await supabase.rpc('update_guest_discussion_comment', { ...base, p_body_html: bodyHtml })
+  let savedHtml = bodyHtml
+  if (error?.code === 'PGRST202' && bodyHtml !== undefined) {
+    ({ data, error } = await supabase.rpc('update_guest_discussion_comment', base))
+    savedHtml = undefined
+  }
   if (error) { console.error('[update_guest_discussion_comment]', error); return false }
   if (data !== true) return false
 
@@ -386,7 +416,11 @@ export async function updateGuestDiscussionComment(id: string, password: string,
   const idx = cs.findIndex(c => c.id === id)
   if (idx >= 0) {
     const next = [...cs]
-    next[idx] = { ...cs[idx], body, updatedAt: new Date().toISOString() }
+    next[idx] = {
+      ...cs[idx], body,
+      ...(savedHtml !== undefined ? { bodyHtml: savedHtml } : {}),
+      updatedAt: new Date().toISOString(),
+    }
     cache.discussion_comments = next
   }
   return true

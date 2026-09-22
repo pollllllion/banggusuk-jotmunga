@@ -19,6 +19,21 @@ export const MAX_FILES = 4
 export const MAX_BYTES = 20 * 1024 * 1024 // 20MB — 버킷 file_size_limit 과 같은 값 (움짤은 압축이 안 돼 원본 그대로 올라간다)
 export const MAX_MB = Math.round(MAX_BYTES / 1024 / 1024)
 
+/**
+ * 댓글 첨부는 글보다 훨씬 조인다 — **1개 · 개당 5MB.**
+ *
+ * 저장 용량(무료 1GB)이 아니라 **전송량(무료 월 5GB)** 때문이다. 댓글 짤은 그 글을 여는
+ * 사람 모두에게 전송되므로 조회수만큼 곱해진다: 9MB 짜리 움짤 하나면 월 530회 조회로 한도가 찬다.
+ * 글은 4개·20MB 를 그대로 두는데, 글 하나에 붙는 짤은 한 번 정해지면 늘지 않지만
+ * 댓글은 사람 수만큼 늘어나기 때문이다.
+ *
+ * 5MB 는 웬만한 움짤이 다 들어가는 크기다(정지 이미지는 webp 로 줄여 올리므로 훨씬 작다).
+ * 버킷 자체의 서버 한도는 20MB 그대로 둔다 — 여기가 실제 관문이다.
+ */
+export const COMMENT_MAX_FILES = 1
+export const COMMENT_MAX_BYTES = 5 * 1024 * 1024
+export const COMMENT_MAX_MB = Math.round(COMMENT_MAX_BYTES / 1024 / 1024)
+
 const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(1)
 const ALLOWED = ['image/gif', 'image/png', 'image/jpeg', 'image/webp']
 
@@ -92,12 +107,25 @@ async function shrinkIfStatic(file: File): Promise<File> {
   }
 }
 
-/** 이미지/움짤 File → 업로드 후 공개 URL. 실패 시 사용자에게 보여줄 메시지로 throw. */
-export async function uploadTalkMedia(input: File): Promise<string> {
+/**
+ * 이미지/움짤 File → 업로드 후 공개 URL. 실패 시 사용자에게 보여줄 메시지로 throw.
+ *
+ * limit(기본은 버킷 한도, 댓글은 COMMENT_MAX_BYTES)은 **줄인 뒤의** 크기에 건다.
+ * 폰 사진은 원본이 8MB 여도 webp 로 줄이면 수백 KB 라, 줄이기 전에 재면 댓글(5MB)에서
+ * 멀쩡한 사진을 튕긴다. 움짤은 줄이지 않으므로(애니메이션이 죽는다) 원본 크기가 곧 결과다.
+ * 버킷 한도(MAX_BYTES)는 줄이기 전에 먼저 본다 — 수백 MB 짜리를 디코딩하다 탭이 멎지 않게.
+ */
+export async function uploadTalkMedia(input: File, limit = MAX_BYTES): Promise<string> {
   if (!ALLOWED.includes(input.type)) throw new Error('GIF·PNG·JPG·WEBP 만 올릴 수 있어요.')
   if (input.size > MAX_BYTES) throw new Error(`파일이 너무 커요 (${mb(input.size)}MB). ${MAX_MB}MB 이하로 올려주세요.`)
 
   const file = await shrinkIfStatic(input)
+  if (file.size > limit) {
+    const cap = Math.round(limit / 1024 / 1024)
+    throw new Error(file.type === 'image/gif'
+      ? `움짤이 너무 커요 (${mb(file.size)}MB). ${cap}MB 이하만 올릴 수 있어요.`
+      : `파일이 너무 커요 (${mb(file.size)}MB). ${cap}MB 이하로 올려주세요.`)
+  }
   const path = `talk/${uuid()}.${EXT[file.type]}`
   return storeMedia('talk', path, file)
 }
@@ -109,7 +137,7 @@ export async function uploadTalkMedia(input: File): Promise<string> {
  * 남의 서버가 CORS 를 안 열어두면 브라우저에서 받아올 방법이 없으므로,
  * 그때는 그 주소를 그대로 쓴다 — 원본이 사라지면 같이 깨진다.
  */
-export async function uploadTalkMediaFromUrl(url: string): Promise<string> {
+export async function uploadTalkMediaFromUrl(url: string, limit = MAX_BYTES): Promise<string> {
   const clean = url.trim()
   if (!looksLikeImageUrl(clean)) throw new Error('http(s):// 로 시작하는 이미지 주소를 넣어주세요.')
 
